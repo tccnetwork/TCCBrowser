@@ -82,8 +82,12 @@ package from the specification alone.
 
 ## Language
 
-The specification is **English-normative** with a Vietnamese translation kept in
-lockstep by a CI rule. Source code identifiers and comments are in Vietnamese,
-as is `docs/` — the team maintaining this reads Vietnamese, and comments that
-argue with the reader are worth more than comments in a language the maintainers
-translate in their heads.
+The specification is **English-normative**, with a Vietnamese translation kept in
+lockstep by a CI rule.
+
+In the source, the line falls at `pub`. Every public identifier is English and a
+CI rule keeps it that way — that surface is what a second implementer reads.
+Comments, test names, local variables and `docs/` stay Vietnamese: the team
+maintaining this reads Vietnamese, and a comment that argues with the reader is
+worth more than one written in a language the maintainers translate in their
+heads.
