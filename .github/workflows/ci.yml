@@ -39,10 +39,13 @@ jobs:
       # An independent implementation re-checks the ML-DSA half. It agrees only
       # on that half's arithmetic — but that half is the one nobody should be
       # trusted to implement alone.
+      # A virtualenv, not a bare `pip install`: both runners ship an
+      # externally-managed Python (PEP 668) that refuses system-wide installs.
       - name: Independent cross-check (dilithium-py)
         run: |
-          python3 -m pip install --quiet dilithium-py
-          python3 conformance/doi-chieu-doc-lap.py
+          python3 -m venv /tmp/venv-doi-chieu
+          /tmp/venv-doi-chieu/bin/pip install --quiet dilithium-py
+          /tmp/venv-doi-chieu/bin/python conformance/doi-chieu-doc-lap.py
 
   # The parts that need a SCREEN, kept separate: adversarial examples driven
   # through a real WebKit view. Not merged into the job above because Ubuntu has
