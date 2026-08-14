@@ -14,6 +14,34 @@ Ba mục này **PHẢI** có. Thiếu bất kỳ mục nào là gói không hợ
 Mọi thứ **ngoài** ba mục đó **KHÔNG ĐƯỢC** đi vào chữ ký, và bản cài đặt **KHÔNG
 ĐƯỢC** đọc chúng khi chạy ứng dụng.
 
+## Bản 0.1 KHÔNG có định dạng đóng gói
+
+Thứ mục trên định nghĩa là một **thư mục**. Bản 0.1 không định nghĩa dạng nén
+nào, không định nghĩa tệp gói một-tệp nào, và không có định dạng `.tccapp` nào.
+Một gói là một thư mục bố trí như trên, hết.
+
+Nói to điều này vì cụm "gói `.tccapp`" xuất hiện trong tài liệu dự án, mà nó gọi
+tên một thứ chưa tồn tại. Một bản cài đặt vẫn tuân thủ mà không đọc một tệp nén
+nào.
+
+**Vì sao không định nghĩa ở đây.** Luật 1 của [`spec/README.md`](../../README.md):
+tiêu chuẩn rút ra từ mã đã chạy, không viết trước. Chưa có định dạng đóng gói
+nào được cài đặt, nên viết ra bây giờ là đoán.
+
+**Định dạng đóng gói tương lai phải trả lời được những điều sau**, để người làm
+nó không bắt đầu từ con số không:
+
+| Vấn đề | Vì sao nó không phải chuyện hình thức |
+|---|---|
+| Nó được phân tích **TRƯỚC** khi kiểm chữ ký | Bản kê khai và chữ ký đều nằm bên trong, nên bộ phân tích đóng gói hứng dữ liệu hoàn toàn chưa xác thực — đúng vị trí `serde_json` đang đứng hôm nay, nhưng bề mặt tấn công lớn hơn nhiều |
+| Thoát thư mục lúc giải nén | Lỗi kinh điển của mọi định dạng nén: một mục tên `../../etc/passwd`. Luật đường dẫn bên dưới phải áp cho mục trong tệp nén, và phải áp **trước** khi ghi bất cứ thứ gì ra đĩa |
+| Tỷ lệ nén | Tệp nén mời gọi bom nén. Trần 256 MiB bên dưới là trần của nội dung ĐÃ GIẢI NÉN, và phải cưỡng chế trong lúc giải nén chứ không phải sau |
+| Mục trùng tên | Định dạng nén thường cho phép hai mục cùng tên. Bên đọc lấy cái đầu, bên kia lấy cái cuối — một chữ ký, hai gói |
+| Mục ngoài ba tên đã biết | Phải TỪ CHỐI, không được bỏ qua, đúng lý lẽ về trường lạ ở [02](02-ban-ke-khai.md) |
+| Không được bắt buộc giải nén | Kiểm chữ ký phải làm được bằng cách đọc thẳng, không ghi gì ra đĩa |
+
+Chừng nào chưa có, "dựng một gói hợp lệ" nghĩa là dựng đúng thư mục tả ở trên.
+
 ## Đường dẫn trong `content/`
 
 Đường dẫn tính **tương đối từ `content/`**, dùng `/` làm dấu phân cách trên mọi

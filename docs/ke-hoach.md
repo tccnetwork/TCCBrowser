@@ -45,7 +45,7 @@ Không phải đặc tả trước. Không phải bộ dựng hình trước.
 |---|---|---|
 | 1.1 | Kiểu dữ liệu bản kê khai + lược đồ JSON | `tcc-spec` |
 | 1.2 | Ký/kiểm lai Ed25519 + ML-DSA | `tcc-crypto` |
-| 1.3 | Đọc và xác thực gói `.tccapp` | `tcc-manifest` |
+| 1.3 | Đọc và xác thực thư mục gói | `tcc-manifest` |
 | 1.4 | Mô hình quyền năng: cấp, phạm vi, thu hồi | `tcc-capability` |
 | 1.5 | API component + trait bộ dựng | `tcc-ui` |
 | 1.6 | Bộ dựng WebView (macOS trước) | `tcc-render-webview` |
@@ -106,7 +106,7 @@ cảm nhận — cổng nào chỉ dựa vào trí nhớ thì coi như chưa đ�
 **Luật:** mỗi mục trong `spec/` phải có **ít nhất một phép kiểm**. Thêm điều vào
 đặc tả mà không thêm phép kiểm là thêm một lời hứa không ai kiểm được.
 
-**Cổng ra:** một người ngoài đọc `spec/0.1/` và tự làm được gói `.tccapp` hợp lệ
+**Cổng ra:** một người ngoài đọc `spec/0.1/` và tự làm được **thư mục gói** hợp lệ (0.1 không định nghĩa dạng nén nào)
 mà **không cần hỏi ai**. Đây là phép thử duy nhất chứng minh đặc tả viết đủ rõ.
 
 ---

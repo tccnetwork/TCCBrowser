@@ -77,3 +77,5 @@ Stated so nobody assumes otherwise:
 - **Executable apps** (WASM). Declarative interface only.
 - **Multiple screens / navigation.** One package, one entry point.
 - **Package updates.** No upgrade mechanism is defined.
+- **A container format.** A package is a *directory*; there is no archive and no
+  `.tccapp` file format. See [01](01-package.md).

@@ -45,7 +45,7 @@ document must be replaced before that happens, not after.
 ## 3. The condition for taking this seriously as a standard
 
 > A person who has not read the source code reads `spec/0.1/` and produces a
-> valid `.tccapp` package that the reference implementation accepts — **without
+> valid **package directory** that the reference implementation accepts — **without
 > asking anyone a question.**
 
 This has **not** been done. Until it has, `spec/0.1/` is a description of an

@@ -43,7 +43,7 @@ mà thành bội tín với sự tin cậy đó — và tài liệu này phải 
 
 ## 3. Điều kiện để coi đây là một tiêu chuẩn thật
 
-> Một người chưa đọc mã nguồn đọc `spec/0.1/` rồi làm ra một gói `.tccapp` hợp lệ
+> Một người chưa đọc mã nguồn đọc `spec/0.1/` rồi làm ra một **thư mục gói** hợp lệ
 > mà bản cài đặt tham chiếu chấp nhận — **không hỏi ai một câu nào.**
 
 Việc này **CHƯA** làm. Chừng nào chưa làm, `spec/0.1/` là mô tả một bản cài đặt,

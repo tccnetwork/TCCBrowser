@@ -74,3 +74,5 @@ Ghi ra để không ai tưởng nhầm:
 - **Ứng dụng chạy mã** (WASM). Chỉ có giao diện khai báo.
 - **Nhiều màn hình / điều hướng.** Một gói, một điểm vào.
 - **Cập nhật gói.** Không có cơ chế nâng cấp nào được định nghĩa.
+- **Định dạng đóng gói.** Một gói là một *thư mục*; không có dạng nén nào và
+  không có định dạng tệp `.tccapp`. Xem [01](01-goi.md).

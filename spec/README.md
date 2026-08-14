@@ -16,7 +16,8 @@ reference implementation.
 ## The only test that proves this is written clearly enough
 
 > Someone who has never read the source code reads `spec/0.1/` and produces a
-> valid `.tccapp` package **without asking anyone a question.**
+> valid **package directory** (0.1 defines no archive format) **without asking
+> anyone a question.**
 
 This has **not** been done yet. Until it has, `spec/0.1/` is a description of an
 implementation rather than a specification, however carefully it is worded — and

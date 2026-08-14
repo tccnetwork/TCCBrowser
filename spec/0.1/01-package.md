@@ -14,6 +14,35 @@ All three **MUST** be present. A package missing any of them is invalid.
 Anything **outside** those three **MUST NOT** enter the signature, and an
 implementation **MUST NOT** read it when running the app.
 
+## There is NO container format in 0.1
+
+What this section defines is a **directory**. Version 0.1 defines no archive, no
+single-file container, and no `.tccapp` file format. A package is a directory
+laid out as above, and that is the whole story.
+
+This is stated loudly because the phrase "a `.tccapp` package" appears in
+project documents, and it names something that does not exist yet. An
+implementation is conforming without reading a single archive.
+
+**Why it is not defined here.** Rule 1 of [`spec/README.md`](../README.md): the
+standard is extracted from running code, never written ahead of it. No container
+is implemented, so any format written now would be a guess.
+
+**What a future container must address**, so whoever defines it does not start
+from nothing:
+
+| Concern | Why it is not cosmetic |
+|---|---|
+| It is parsed **before** the signature is verified | The manifest and the signature both live inside the container, so the container parser is exposed to entirely unauthenticated input — the same position `serde_json` is in today, but with a far larger attack surface |
+| Path traversal on extraction | The classic archive bug: an entry named `../../etc/passwd`. The path rules below must apply to container entries too, and must be applied **before** anything is written to disk |
+| Decompression ratio | A compressed container invites a bomb. The 256 MiB cap below is on the *uncompressed* content and must be enforced during extraction, not after |
+| Duplicate entries | Archive formats routinely permit two entries with one name. One reader takes the first, another the last — one signature, two packages |
+| Entries outside the three known names | Must be rejected, not ignored, for the reason given in [02](02-manifest.md) about unknown fields |
+| Extraction must not be required | Verification should be possible by reading the container, without writing anything to disk |
+
+Until that exists, "build a valid package" means building the directory
+described above.
+
 ## Paths inside `content/`
 
 Paths are **relative to `content/`** and use `/` as the separator on every

@@ -171,7 +171,7 @@ was designed correctly.
 This is what Phase 1 has to make work end to end.
 
 ```
-  .tccapp package
+  package directory
          │
          │  ┌─────────────────────────────────────────┐
          ├─►│ 1. Verify signature      [tcc-crypto]   │
