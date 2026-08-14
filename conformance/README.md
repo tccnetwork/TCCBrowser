@@ -4,6 +4,10 @@
 > must implement things the TCC way in order to run" is unfalsifiable. With it,
 > the claim becomes measurable: run the suite, and only 100% earns the name.
 
+**The schema is documented in [FORMAT.md](FORMAT.md).** Read that before writing
+a runner; this file explains why the suite exists, that one explains how to
+consume it.
+
 ## Vectors are DATA, not code
 
 Every case lives in `vectors/*.json`. That is deliberate: an implementation in

@@ -74,13 +74,13 @@ fn doc_vector(ten: &str) -> Value {
 }
 
 fn cac_truong_hop(v: &Value) -> &Vec<Value> {
-    v["truong_hop"]
+    v["cases"]
         .as_array()
         .expect("vector thiếu mảng truong_hop")
 }
 
 fn ten_cua(t: &Value) -> &str {
-    t["ten"].as_str().unwrap_or("(không tên)")
+    t["case"].as_str().unwrap_or("(không tên)")
 }
 
 // ───────────────────────────── Dạng chuẩn tắc + băm ─────────────────────────
@@ -97,7 +97,7 @@ fn chay_canonical(chi_tiet: bool) -> Ket {
     for t in cac_truong_hop(&v) {
         let ten = ten_cua(t);
         let mut cay = FileTree::new();
-        let tep = t["tep"].as_object().expect("thiếu trường tep");
+        let tep = t["files"].as_object().expect("thiếu trường tep");
         let mut hong = None;
         for (duong, noi) in tep {
             let b = noi.as_str().unwrap_or_default().as_bytes().to_vec();
@@ -112,8 +112,8 @@ fn chay_canonical(chi_tiet: bool) -> Ket {
         }
 
         let byte = cay.canonical_bytes();
-        let cho_byte = t["chuan_tac_hex"].as_str().expect("thiếu chuan_tac_hex");
-        let cho_bam = t["bam_hex"].as_str().expect("thiếu bam_hex");
+        let cho_byte = t["canonical_hex"].as_str().expect("thiếu chuan_tac_hex");
+        let cho_bam = t["hash_hex"].as_str().expect("thiếu bam_hex");
 
         let that_byte = hex::encode(&byte);
         let that_bam = content_hash_hex(&byte);
@@ -157,8 +157,8 @@ fn chay_signature(chi_tiet: bool) -> Ket {
     let mut k = Ket::moi();
     let scheme = HybridEd25519MlDsa;
 
-    let bi_mat = doc_hex(&v["khoa"]["bi_mat_hex"]);
-    let cong_cho = doc_hex(&v["khoa"]["cong_khai_hex"]);
+    let bi_mat = doc_hex(&v["keys"]["secret_hex"]);
+    let cong_cho = doc_hex(&v["keys"]["public_hex"]);
 
     // ---- Chiều 1: sinh khoá ----
     match HybridEd25519MlDsa::public_from_secret(&bi_mat) {
@@ -188,9 +188,9 @@ fn chay_signature(chi_tiet: bool) -> Ket {
     );
 
     // ---- Chiều 2 và 3 ----
-    for t in v["ky_hop_le"].as_array().expect("thiếu ky_hop_le") {
-        let m = doc_hex(&t["thong_diep_hex"]);
-        let ky_cho = doc_hex(&t["chu_ky_hex"]);
+    for t in v["valid_signatures"].as_array().expect("thiếu ky_hop_le") {
+        let m = doc_hex(&t["message_hex"]);
+        let ky_cho = doc_hex(&t["signature_hex"]);
         let ten = format!("thông điệp {} byte", m.len());
 
         k.ghi(
@@ -217,9 +217,9 @@ fn chay_signature(chi_tiet: bool) -> Ket {
 
     // ---- Mọi đòn phá phải hỏng ----
     let m = b"TCC conformance vector 0.1";
-    for t in v["chu_ky_hong"].as_array().expect("thiếu chu_ky_hong") {
+    for t in v["broken_signatures"].as_array().expect("thiếu chu_ky_hong") {
         let ten = ten_cua(t);
-        let ky = doc_hex(&t["chu_ky_hex"]);
+        let ky = doc_hex(&t["signature_hex"]);
         k.ghi(
             ten,
             scheme.verify(&cong_cho, m, &ky).is_err(),
@@ -229,8 +229,8 @@ fn chay_signature(chi_tiet: bool) -> Ket {
     }
 
     // ---- Neo ngoài: RFC 8032 ----
-    let hat = doc_hex(&v["neo_ngoai"]["rfc8032_test1_hat_giong"]);
-    let cho = doc_hex(&v["neo_ngoai"]["rfc8032_test1_khoa_cong_khai"]);
+    let hat = doc_hex(&v["external_anchor"]["rfc8032_test1_seed"]);
+    let cho = doc_hex(&v["external_anchor"]["rfc8032_test1_public_key"]);
     let mut bm = hat;
     bm.extend_from_slice(&[0x11u8; 32]);
     let that = HybridEd25519MlDsa::public_from_secret(&bm).unwrap_or_default();
@@ -269,8 +269,8 @@ fn chay_acvp(chi_tiet: bool) -> Ket {
     for t in cac_truong_hop(&v) {
         let id = t["tcId"].as_u64().unwrap_or(0);
         let ten = format!("NIST ACVP ML-DSA-65 keyGen tcId={id}");
-        let hat = doc_hex(&t["hat_giong_hex"]);
-        let cho = doc_hex(&t["khoa_cong_khai_hex"]);
+        let hat = doc_hex(&t["seed_hex"]);
+        let cho = doc_hex(&t["public_key_hex"]);
 
         // Nửa Ed25519 để 0: nhóm vector này không nói gì về nó.
         let mut bi_mat = vec![0u8; 32];
@@ -297,13 +297,13 @@ fn chay_acvp(chi_tiet: bool) -> Ket {
     // Kiểm qua API CÔNG KHAI của chữ ký lai: ghép nửa Ed25519 hợp lệ của chính
     // ta với nửa ML-DSA của NIST. Nửa cổ điển đạt theo cách dựng, nên kết quả
     // phản ánh đúng nửa hậu lượng tử.
-    for t in v["sig_ver"]["truong_hop"].as_array().unwrap_or(&Vec::new()) {
+    for t in v["sig_ver"]["cases"].as_array().unwrap_or(&Vec::new()) {
         let id = t["tcId"].as_u64().unwrap_or(0);
         let ten = format!("NIST ACVP ML-DSA-65 sigVer tcId={id}");
-        let pq_pub = doc_hex(&t["khoa_cong_khai_hex"]);
-        let msg = doc_hex(&t["thong_diep_hex"]);
-        let pq_sig = doc_hex(&t["chu_ky_hex"]);
-        let phai_dat = t["phai_dat"].as_bool().unwrap_or(false);
+        let pq_pub = doc_hex(&t["public_key_hex"]);
+        let msg = doc_hex(&t["message_hex"]);
+        let pq_sig = doc_hex(&t["signature_hex"]);
+        let phai_dat = t["must_pass"].as_bool().unwrap_or(false);
 
         let khoa = HybridEd25519MlDsa::generate();
         let Ok(ed_ky) = HybridEd25519MlDsa.sign(&khoa.secret, &msg) else {
@@ -337,7 +337,7 @@ fn chay_manifest(chi_tiet: bool) -> Ket {
 
     for t in cac_truong_hop(&v) {
         let ten = ten_cua(t);
-        let mut ke_khai = t["ke_khai"].clone();
+        let mut ke_khai = t["manifest"].clone();
         // Thay chỗ giữ chỗ bằng giá trị đúng độ dài.
         if ke_khai["publisher"] == GIU_CHO_PUB {
             ke_khai["publisher"] = Value::String(pub_that.clone());
@@ -346,7 +346,7 @@ fn chay_manifest(chi_tiet: bool) -> Ket {
             ke_khai["content_hash"] = Value::String(hash_that.clone());
         }
 
-        let cho_dat = t["dat"].as_bool().expect("thiếu trường dat");
+        let cho_dat = t["expect_pass"].as_bool().expect("thiếu trường dat");
         let cho_ma = t["code"].as_str();
 
         // Giải mã rồi kiểm hình dạng. Cả hai bước đều có thể từ chối, và mã lỗi
@@ -386,9 +386,9 @@ fn chay_ui(chi_tiet: bool) -> Ket {
 
     for t in cac_truong_hop(&v) {
         let ten = ten_cua(t);
-        let cho_dat = t["dat"].as_bool().expect("thiếu trường dat");
+        let cho_dat = t["expect_pass"].as_bool().expect("thiếu trường dat");
         let cho_ma = t["code"].as_str();
-        let byte = serde_json::to_vec(&t["cay"]).expect("cây không tuần tự hoá được");
+        let byte = serde_json::to_vec(&t["tree"]).expect("cây không tuần tự hoá được");
 
         match (cho_dat, tcc_ui::wire::decode(&byte)) {
             (true, Ok(_)) => k.ghi(ten, true, "", chi_tiet),
@@ -444,14 +444,14 @@ fn chay_capability(chi_tiet: bool) -> Ket {
 
     for t in cac_truong_hop(&v) {
         let ten = ten_cua(t);
-        let hosts: Vec<String> = t["cap"]
+        let hosts: Vec<String> = t["granted"]
             .as_array()
             .expect("thiếu trường cap")
             .iter()
             .map(|x| x.as_str().unwrap_or_default().to_owned())
             .collect();
-        let goi = t["goi"].as_str().expect("thiếu trường goi");
-        let cho_phep = t["cho_phep"].as_bool().expect("thiếu trường cho_phep");
+        let goi = t["requested"].as_str().expect("thiếu trường goi");
+        let cho_phep = t["allowed"].as_bool().expect("thiếu trường cho_phep");
 
         let xin = CapabilityRequest {
             name: "network".to_owned(),

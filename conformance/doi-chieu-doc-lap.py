@@ -62,21 +62,21 @@ def buoc_mot(thu_muc: pathlib.Path) -> bool:
 def buoc_hai() -> bool:
     """Ký song song rồi so byte."""
     v = json.loads((GOC / "vectors" / "signature.json").read_text())
-    hat_pq = bytes.fromhex(v["khoa"]["bi_mat_hex"])[32:]
+    hat_pq = bytes.fromhex(v["keys"]["secret_hex"])[32:]
     _, sk = ML_DSA_65.key_derive(hat_pq)
     pk, _ = ML_DSA_65.key_derive(hat_pq)
 
     # Khoá công khai trước: lệch ở đây thì so chữ ký là vô nghĩa.
-    pq_cong_cua_ta = bytes.fromhex(v["khoa"]["cong_khai_hex"])[32:]
+    pq_cong_cua_ta = bytes.fromhex(v["keys"]["public_hex"])[32:]
     if pk != pq_cong_cua_ta:
         print("  ✗ khoá công khai đã lệch")
         return False
     print("  ✓ khoá công khai khớp")
 
     tot = True
-    for t in v["ky_hop_le"]:
-        m = bytes.fromhex(t["thong_diep_hex"])
-        cua_ta = bytes.fromhex(t["chu_ky_hex"])[64:]
+    for t in v["valid_signatures"]:
+        m = bytes.fromhex(t["message_hex"])
+        cua_ta = bytes.fromhex(t["signature_hex"])[64:]
         cua_py = ML_DSA_65.sign(sk, m, ctx=b"", deterministic=True)
         ok = cua_ta == cua_py
         tot &= ok
@@ -92,20 +92,20 @@ def buoc_hai() -> bool:
     # Kịch bản kiểm sai, không phải mã sai.
     m = b"TCC conformance vector 0.1"
     goc_pq = None
-    for t in v["ky_hop_le"]:
-        if bytes.fromhex(t["thong_diep_hex"]) == m:
-            goc_pq = bytes.fromhex(t["chu_ky_hex"])[64:]
+    for t in v["valid_signatures"]:
+        if bytes.fromhex(t["message_hex"]) == m:
+            goc_pq = bytes.fromhex(t["signature_hex"])[64:]
             break
 
     bo_qua = 0
-    for t in v["chu_ky_hong"]:
-        ky = bytes.fromhex(t["chu_ky_hex"])
+    for t in v["broken_signatures"]:
+        ky = bytes.fromhex(t["signature_hex"])
         pq = ky[64:] if len(ky) > 64 else b""
         if pq == goc_pq:
             bo_qua += 1
             continue  # đòn chỉ chạm nửa cổ điển — không phải việc của bản Python
         if ML_DSA_65.verify(pk, m, pq, ctx=b""):
-            print(f"  ✗ bản Python NHẬN một chữ ký đã phá nửa ML-DSA: {t['ten']}")
+            print(f"  ✗ bản Python NHẬN một chữ ký đã phá nửa ML-DSA: {t['case']}")
             tot = False
     print(
         f"  ✓ mọi đòn chạm nửa ML-DSA đều bị bản Python từ chối "

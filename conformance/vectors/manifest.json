@@ -1,10 +1,10 @@
 {
- "mo_ta": "Nhận và từ chối bản kê khai. Mỗi trường hợp hỏng nêu một mã ổn định.",
- "truong_hop": [
+ "description": "Accepting and rejecting manifests. The largest attack surface: everything downstream trusts the verdict reached here, and this runs BEFORE the signature is verified, because the public key lives inside the manifest. Every rejecting case names a stable error code. See FORMAT.md.",
+ "cases": [
   {
-   "ten": "ban ke khai toi thieu, khong xin quyen",
-   "dat": true,
-   "ke_khai": {
+   "case": "minimal manifest, no capabilities requested",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.hello",
     "name": "Xin chào",
@@ -17,10 +17,10 @@
    }
   },
   {
-   "ten": "ma ung dung thieu dau cham",
-   "dat": false,
+   "case": "app id missing a dot",
+   "expect_pass": false,
    "code": "bad-app-id",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "hello",
     "name": "A",
@@ -33,10 +33,10 @@
    }
   },
   {
-   "ten": "ma ung dung co chu hoa",
-   "dat": false,
+   "case": "app id contains uppercase",
+   "expect_pass": false,
    "code": "bad-app-id",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.TCC.hello",
     "name": "A",
@@ -49,10 +49,10 @@
    }
   },
   {
-   "ten": "phien ban dac ta la",
-   "dat": false,
+   "case": "unknown spec_version",
+   "expect_pass": false,
    "code": "unsupported-spec-version",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "99.0",
     "id": "com.tcc.a",
     "name": "A",
@@ -65,10 +65,10 @@
    }
   },
   {
-   "ten": "ten ung dung co ky tu dao chieu chu",
-   "dat": false,
+   "case": "app name contains a bidi override",
+   "expect_pass": false,
    "code": "unsafe-display-string",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "Hu‮r",
@@ -81,10 +81,10 @@
    }
   },
   {
-   "ten": "ten ung dung co ky tu rong bang khong",
-   "dat": false,
+   "case": "app name contains a zero-width character",
+   "expect_pass": false,
    "code": "unsafe-display-string",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "TCC​Store",
@@ -97,10 +97,10 @@
    }
   },
   {
-   "ten": "xin trung mot quyen hai lan",
-   "dat": false,
+   "case": "same capability requested twice",
+   "expect_pass": false,
    "code": "duplicate-capability",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -134,10 +134,10 @@
    }
   },
   {
-   "ten": "ten may chu ngoai ASCII (chu o Kirin trong shop)",
-   "dat": false,
+   "case": "non-ASCII hostname (Cyrillic o in shop)",
+   "expect_pass": false,
    "code": "non-ascii-host",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -161,10 +161,10 @@
    }
   },
   {
-   "ten": "quyen nang khong co trong tieu chuan",
-   "dat": false,
+   "case": "capability not in the standard",
+   "expect_pass": false,
    "code": "unknown-capability",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -188,10 +188,10 @@
    }
   },
   {
-   "ten": "ly do rong",
-   "dat": false,
+   "case": "empty reason",
+   "expect_pass": false,
    "code": "missing-reason",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -213,13 +213,13 @@
      }
     ]
    },
-   "ghi_chu": "Mã đúng là `missing-reason`, không phải `unsafe-display-string`: lý do toàn khoảng trắng là THIẾU lý do, và mã cụ thể hơn thì người viết ứng dụng sửa nhanh hơn. Vector này ban đầu tôi ghi sai."
+   "notes": "The correct code is `missing-reason`, not `unsafe-display-string`: an empty reason is a missing field, not a dangerous string."
   },
   {
-   "ten": "diem vao di ra ngoai goi",
-   "dat": false,
+   "case": "entry point escapes the package",
+   "expect_pass": false,
    "code": "bad-entry",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -232,9 +232,9 @@
    }
   },
   {
-   "ten": "hanh vi nam trong pham vi quyen",
-   "dat": true,
-   "ke_khai": {
+   "case": "action within the granted scope",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -268,11 +268,11 @@
    }
   },
   {
-   "ten": "hanh vi goi may chu CHUA xin quyen",
-   "ghi_chu": "Lúc chạy thì quyền năng vẫn chặn — nhưng người dùng đã bấm, không thấy gì xảy ra, và không ai biết vì sao. Bắt ở bản kê khai để `tcc verify` báo cho người viết ứng dụng.",
-   "dat": false,
+   "case": "action calls a host never requested",
+   "notes": "At run time the capability still blocks it — but the user has already clicked, nothing happened, and nobody knows why. Catching it in validate_shape tells the app author while they are still at their machine.",
+   "expect_pass": false,
    "code": "action-host-not-granted",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -306,10 +306,10 @@
    }
   },
   {
-   "ten": "khai hanh vi ma khong xin quyen mang nao",
-   "dat": false,
+   "case": "action declared with no network capability requested",
+   "expect_pass": false,
    "code": "action-host-not-granted",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -332,11 +332,11 @@
    }
   },
   {
-   "ten": "ten mien con KHONG duoc coi la trong pham vi",
-   "ghi_chu": "Phải khớp chính xác, đúng luật của tầng quyền năng. Lệch hai bên là lỗ.",
-   "dat": false,
+   "case": "subdomain is NOT considered in scope",
+   "notes": "Must match exactly, following the capability layer's own rule. A mismatch between the two layers is a hole.",
+   "expect_pass": false,
    "code": "action-host-not-granted",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -370,10 +370,10 @@
    }
   },
   {
-   "ten": "ma hanh dong co khoang trang",
-   "dat": false,
+   "case": "action id contains a space",
+   "expect_pass": false,
    "code": "bad-action-id",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -407,10 +407,10 @@
    }
   },
   {
-   "ten": "khai trung mot hanh dong",
-   "dat": false,
+   "case": "same action declared twice",
+   "expect_pass": false,
    "code": "duplicate-action",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -452,10 +452,10 @@
    }
   },
   {
-   "ten": "duong dan khong bat dau bang gach cheo",
-   "dat": false,
+   "case": "path does not start with a slash",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -489,9 +489,9 @@
    }
   },
   {
-   "ten": "khong khai hanh vi nao van hop le",
-   "dat": true,
-   "ke_khai": {
+   "case": "declaring no action is still valid",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -515,11 +515,11 @@
    }
   },
   {
-   "ten": "ten may chu gia mao userinfo",
-   "ghi_chu": "shop.tcc-coin.com:8080@evil.example là ASCII, không rỗng, không có ký tự đại diện — qua hết mọi phép kiểm cũ. Nhưng khi dựng địa chỉ, phần trước @ thành userinfo và máy chủ THẬT là evil.example.",
-   "dat": false,
+   "case": "hostname spoofing via userinfo",
+   "notes": "shop.tcc-coin.com:8080@evil.example is ASCII, non-empty and wildcard-free, so every older check passed it — but in a URL the real host is evil.example and the rest is userinfo.",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -543,10 +543,10 @@
    }
   },
   {
-   "ten": "ten may chu co dau gach cheo",
-   "dat": false,
+   "case": "hostname contains a slash",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -570,10 +570,10 @@
    }
   },
   {
-   "ten": "ten may chu co cong",
-   "dat": false,
+   "case": "hostname contains a port",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -597,10 +597,10 @@
    }
   },
   {
-   "ten": "ten may chu hai dau cham lien nhau",
-   "dat": false,
+   "case": "hostname has two consecutive dots",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -624,10 +624,10 @@
    }
   },
   {
-   "ten": "doan bat dau bang gach ngang",
-   "dat": false,
+   "case": "label starts with a hyphen",
+   "expect_pass": false,
    "code": "bad-scope",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -651,9 +651,9 @@
    }
   },
   {
-   "ten": "ten may chu dang tuyet doi (mot dau cham cuoi) van hop le",
-   "dat": true,
-   "ke_khai": {
+   "case": "absolute hostname (one trailing dot) is still valid",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -677,9 +677,9 @@
    }
   },
   {
-   "ten": "punycode hop le",
-   "dat": true,
-   "ke_khai": {
+   "case": "valid punycode",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "A",
@@ -703,10 +703,10 @@
    }
   },
   {
-   "ten": "ten ung dung chong 30 dau",
-   "dat": false,
+   "case": "app name with 30 stacked marks",
+   "expect_pass": false,
    "code": "unsafe-display-string",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "Ví́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
@@ -719,9 +719,9 @@
    }
   },
   {
-   "ten": "ten ung dung tieng Viet dang tach",
-   "dat": true,
-   "ke_khai": {
+   "case": "Vietnamese app name in decomposed form",
+   "expect_pass": true,
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.a",
     "name": "Ví TCC",
@@ -734,10 +734,10 @@
    }
   },
   {
-   "ten": "truong la o goc ban ke khai",
-   "dat": false,
+   "case": "unknown field at the manifest root",
+   "expect_pass": false,
    "code": "bad-json",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.hello",
     "name": "A",
@@ -751,10 +751,10 @@
    }
   },
   {
-   "ten": "truong la trong muc xin quyen",
-   "dat": false,
+   "case": "unknown field inside a capability request",
+   "expect_pass": false,
    "code": "bad-json",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.hello",
     "name": "A",
@@ -779,10 +779,10 @@
    }
   },
   {
-   "ten": "truong la trong pham vi quyen",
-   "dat": false,
+   "case": "unknown field inside a capability scope",
+   "expect_pass": false,
    "code": "bad-json",
-   "ke_khai": {
+   "manifest": {
     "spec_version": "0.1",
     "id": "com.tcc.hello",
     "name": "A",

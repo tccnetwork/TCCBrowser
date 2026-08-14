@@ -1,66 +1,66 @@
 {
-  "mo_ta": "Dạng chuẩn tắc và băm nội dung. ĐÂY LÀ NHÓM VECTOR QUAN TRỌNG NHẤT cho interop: hai bản triển khai phải tính ra CÙNG chuỗi byte và CÙNG mã băm, nếu không thì chữ ký của bên này bên kia không kiểm được.",
-  "thuat_toan": {
-    "dang_chuan_tac": "với mỗi tệp, sắp theo thứ tự BYTE của đường dẫn: u64 độ dài đường dẫn (BE) ‖ đường dẫn ‖ u64 độ dài nội dung (BE) ‖ nội dung",
-    "bam": "BLAKE3 ở chế độ XOF, lấy 48 byte đầu, viết hex chữ thường"
+ "description": "Canonical form and content hash. THE MOST IMPORTANT GROUP for interoperability: two implementations must produce the same bytes and the same hash, or neither can verify the other's signatures. See FORMAT.md.",
+ "algorithm": {
+  "canonical_form": "for each file, sorted by the BYTE order of its path: u64 path length (BE) || path || u64 content length (BE) || content",
+  "hash": "BLAKE3 in XOF mode, first 48 bytes, lowercase hex"
+ },
+ "cases": [
+  {
+   "case": "empty tree",
+   "files": {},
+   "canonical_hex": "",
+   "hash_hex": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262e00f03e7b69af26b7faaf09fcd333050"
   },
-  "truong_hop": [
-    {
-      "ten": "cay rong",
-      "tep": {},
-      "chuan_tac_hex": "",
-      "bam_hex": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262e00f03e7b69af26b7faaf09fcd333050"
-    },
-    {
-      "ten": "mot tep",
-      "tep": {
-        "ui.json": "{}"
-      },
-      "chuan_tac_hex": "000000000000000775692e6a736f6e00000000000000027b7d",
-      "bam_hex": "6cee12c5319b65f96f99689404159f6f7f15eb766f8b24d1306a2a0bf4cb5e279b1ac12800c248f09a7400802439b246"
-    },
-    {
-      "ten": "hai tep, thu tu khai NGUOC voi thu tu chuan tac",
-      "tep": {
-        "z.txt": "sau",
-        "a.txt": "truoc"
-      },
-      "chuan_tac_hex": "0000000000000005612e74787400000000000000057472756f6300000000000000057a2e7478740000000000000003736175",
-      "bam_hex": "8941821d183c97725a89d8ee0d4e3df30fff2d13f7d1554a130c56399e5f9b09bbfaa053a946d3dd79365159d88252a0"
-    },
-    {
-      "ten": "tep long thu muc",
-      "tep": {
-        "anh/logo.png": "PNG",
-        "ui.json": "{}"
-      },
-      "chuan_tac_hex": "000000000000000c616e682f6c6f676f2e706e670000000000000003504e47000000000000000775692e6a736f6e00000000000000027b7d",
-      "bam_hex": "028659c804223942c98da2e8a92dbade475cc263c5c4b784032ca5960cf81d62a1f7d3113aa66484a714631531c6db4d"
-    },
-    {
-      "ten": "noi dung rong",
-      "tep": {
-        "trong.txt": ""
-      },
-      "chuan_tac_hex": "000000000000000974726f6e672e7478740000000000000000",
-      "bam_hex": "0ea334de1fadf344b807f494aedcfb1fca82290808aab15b9bbf4da7655bbbe7e8a3992e32f746f37c3db932be363be1"
-    },
-    {
-      "ten": "duong dan va noi dung co dau tieng Viet",
-      "tep": {
-        "tài-liệu/chào.txt": "Chào bạn — 3 TCC"
-      },
-      "chuan_tac_hex": "000000000000001574c3a0692d6c69e1bb87752f6368c3a06f2e74787400000000000000154368c3a06f2062e1baa16e20e28094203320544343",
-      "bam_hex": "d54c327bd6b36ed4efc12eb04ecb36faa3606f144a6ae0573ba455b270e3dc8956685bb67b822088fcbe1cc29adbe315"
-    },
-    {
-      "ten": "hai tep de gay nham lan noi/duong neu KHONG co tien to do dai",
-      "tep": {
-        "ab": "c",
-        "a": "bc"
-      },
-      "chuan_tac_hex": "0000000000000001610000000000000002626300000000000000026162000000000000000163",
-      "bam_hex": "6f834e1e509ef47a509201ff940fa17982492b14099811b7dcfcced702f7b3d543d65e1bfecfb74ef31011d0b380a8cb"
-    }
-  ]
+  {
+   "case": "one file",
+   "files": {
+    "ui.json": "{}"
+   },
+   "canonical_hex": "000000000000000775692e6a736f6e00000000000000027b7d",
+   "hash_hex": "6cee12c5319b65f96f99689404159f6f7f15eb766f8b24d1306a2a0bf4cb5e279b1ac12800c248f09a7400802439b246"
+  },
+  {
+   "case": "two files, declared in REVERSE of canonical order",
+   "files": {
+    "z.txt": "sau",
+    "a.txt": "truoc"
+   },
+   "canonical_hex": "0000000000000005612e74787400000000000000057472756f6300000000000000057a2e7478740000000000000003736175",
+   "hash_hex": "8941821d183c97725a89d8ee0d4e3df30fff2d13f7d1554a130c56399e5f9b09bbfaa053a946d3dd79365159d88252a0"
+  },
+  {
+   "case": "file inside a directory",
+   "files": {
+    "anh/logo.png": "PNG",
+    "ui.json": "{}"
+   },
+   "canonical_hex": "000000000000000c616e682f6c6f676f2e706e670000000000000003504e47000000000000000775692e6a736f6e00000000000000027b7d",
+   "hash_hex": "028659c804223942c98da2e8a92dbade475cc263c5c4b784032ca5960cf81d62a1f7d3113aa66484a714631531c6db4d"
+  },
+  {
+   "case": "empty content",
+   "files": {
+    "trong.txt": ""
+   },
+   "canonical_hex": "000000000000000974726f6e672e7478740000000000000000",
+   "hash_hex": "0ea334de1fadf344b807f494aedcfb1fca82290808aab15b9bbf4da7655bbbe7e8a3992e32f746f37c3db932be363be1"
+  },
+  {
+   "case": "Vietnamese diacritics in path and content",
+   "files": {
+    "tài-liệu/chào.txt": "Chào bạn — 3 TCC"
+   },
+   "canonical_hex": "000000000000001574c3a0692d6c69e1bb87752f6368c3a06f2e74787400000000000000154368c3a06f2062e1baa16e20e28094203320544343",
+   "hash_hex": "d54c327bd6b36ed4efc12eb04ecb36faa3606f144a6ae0573ba455b270e3dc8956685bb67b822088fcbe1cc29adbe315"
+  },
+  {
+   "case": "two files that would collide WITHOUT length prefixes",
+   "files": {
+    "ab": "c",
+    "a": "bc"
+   },
+   "canonical_hex": "0000000000000001610000000000000002626300000000000000026162000000000000000163",
+   "hash_hex": "6f834e1e509ef47a509201ff940fa17982492b14099811b7dcfcced702f7b3d543d65e1bfecfb74ef31011d0b380a8cb"
+  }
+ ]
 }

@@ -1,17 +1,72 @@
 {
-  "mo_ta": "Khớp phạm vi quyền mạng. Khớp sai một ký tự là ứng dụng gọi được máy chủ của kẻ gian.",
-  "truong_hop": [
-    { "ten": "khop chinh xac", "cap": ["shop.tcc-coin.com"], "goi": "shop.tcc-coin.com", "cho_phep": true },
-    { "ten": "ten mien con KHONG khop", "cap": ["tcc-coin.com"], "goi": "shop.tcc-coin.com", "cho_phep": false },
-    { "ten": "ten mien cha KHONG khop", "cap": ["shop.tcc-coin.com"], "goi": "tcc-coin.com", "cho_phep": false },
-    { "ten": "hau to KHONG khop — don gia mao kinh dien",
-      "ghi_chu": "evil-tcc-coin.com kết thúc bằng tcc-coin.com. Khớp hậu tố là lỗ.",
-      "cap": ["tcc-coin.com"], "goi": "evil-tcc-coin.com", "cho_phep": false },
-    { "ten": "tien to KHONG khop", "cap": ["shop.tcc-coin.com"], "goi": "shop.tcc-coin.com.evil.example", "cho_phep": false },
-    { "ten": "khac hoa thuong van khop",
-      "ghi_chu": "Tên miền không phân biệt hoa thường theo DNS.",
-      "cap": ["shop.tcc-coin.com"], "goi": "SHOP.TCC-COIN.COM", "cho_phep": true },
-    { "ten": "nhieu may chu, khop cai thu hai", "cap": ["a.tcc-coin.com","b.tcc-coin.com"], "goi": "b.tcc-coin.com", "cho_phep": true },
-    { "ten": "khong co trong danh sach", "cap": ["a.tcc-coin.com"], "goi": "ke-gian.example", "cho_phep": false }
-  ]
+ "description": "Network capability scope matching. Matching is exact — no suffix matching, no subdomains, no wildcards. A one-character difference is the app reaching an attacker's server. See FORMAT.md.",
+ "cases": [
+  {
+   "case": "exact match",
+   "granted": [
+    "shop.tcc-coin.com"
+   ],
+   "requested": "shop.tcc-coin.com",
+   "allowed": true
+  },
+  {
+   "case": "subdomain does NOT match",
+   "granted": [
+    "tcc-coin.com"
+   ],
+   "requested": "shop.tcc-coin.com",
+   "allowed": false
+  },
+  {
+   "case": "parent domain does NOT match",
+   "granted": [
+    "shop.tcc-coin.com"
+   ],
+   "requested": "tcc-coin.com",
+   "allowed": false
+  },
+  {
+   "case": "suffix does NOT match — the classic spoof",
+   "notes": "evil-tcc-coin.com ends with tcc-coin.com. Suffix matching is a hole.",
+   "granted": [
+    "tcc-coin.com"
+   ],
+   "requested": "evil-tcc-coin.com",
+   "allowed": false
+  },
+  {
+   "case": "prefix does NOT match",
+   "granted": [
+    "shop.tcc-coin.com"
+   ],
+   "requested": "shop.tcc-coin.com.evil.example",
+   "allowed": false
+  },
+  {
+   "case": "case difference still matches",
+   "notes": "Hostnames are case-insensitive per DNS.",
+   "granted": [
+    "shop.tcc-coin.com"
+   ],
+   "requested": "SHOP.TCC-COIN.COM",
+   "allowed": true
+  },
+  {
+   "case": "several hosts, matches the second",
+   "granted": [
+    "a.tcc-coin.com",
+    "b.tcc-coin.com"
+   ],
+   "requested": "b.tcc-coin.com",
+   "allowed": true
+  },
+  {
+   "case": "not in the list",
+   "granted": [
+    "a.tcc-coin.com"
+   ],
+   "requested": "ke-gian.example",
+   "allowed": false
+  }
+ ]
 }

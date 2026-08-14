@@ -140,6 +140,50 @@ else
 fi
 
 echo
+echo "--- Luật 15: vector kiểm định phải ĐỌC ĐƯỢC bởi người ngoài ---"
+# Bộ vector là thứ DUY NHẤT phân xử được một tuyên bố tuân thủ, và người đọc nó
+# là người viết bản cài đặt thứ hai — người không đọc tiếng Việt. Khoá của khung
+# kiểm định bằng tiếng Việt là một rào chắn ngay tại cổng vào.
+#
+# Chỉ soi khoá của KHUNG, KHÔNG soi bên trong dữ liệu thử (`manifest`, `tree`,
+# `files`): ở đó `tài-liệu/chào.txt` là một đường dẫn hợp lệ và `"Xin chào"` là
+# chính thứ đang được đem ra thử. Dịch chúng đi là mất phép thử.
+thieu=""
+[ -f conformance/FORMAT.md ] || thieu="$thieu thiếu-conformance/FORMAT.md"
+xau=$(python3 - <<'PY2'
+import json, pathlib, re
+
+vn = re.compile(r"[àáâãèéêìíòóôõùúỳăđĩũơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỵỷỹ]")
+CU = {"mo_ta","truong_hop","ten","dat","ke_khai","cay","tep","cap","goi","cho_phep",
+      "khoa","chu_ky","hat_giong","ghi_chu","luat","nguon","loai","vi_sao","bam",
+      "bam_hex","chuan_tac_hex","thuat_toan","neo_ngoai","ky_hop_le","chu_ky_hong",
+      "bi_mat_hex","cong_khai_hex","chu_ky_hex","thong_diep_hex","phai_dat"}
+# Cây con là DỮ LIỆU THỬ: dừng soi ở đây.
+DU_LIEU = {"manifest", "tree", "files"}
+
+def quet(o, ten_tep):
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if k in CU or vn.search(k):
+                print(f"{ten_tep}:{k}")
+            if k not in DU_LIEU:
+                quet(v, ten_tep)
+    elif isinstance(o, list):
+        for v in o:
+            quet(v, ten_tep)
+
+for p in sorted(pathlib.Path("conformance/vectors").glob("*.json")):
+    quet(json.load(open(p)), p.name)
+PY2
+)
+[ -n "$xau" ] && thieu="$thieu khoá-tiếng-Việt:$(printf '%s' "$xau" | tr '\n' ' ')"
+if [ -n "$thieu" ]; then
+  bao "vector không đọc được bởi người ngoài:$thieu"
+else
+  dat "$(ls conformance/vectors/*.json | wc -l | tr -d ' ') tệp vector dùng khoá tiếng Anh, có FORMAT.md"
+fi
+
+echo
 echo "--- Luật 14: kho phải có giấy phép, và mọi crate phải khai đúng nó ---"
 # Kho công khai KHÔNG có tệp giấy phép thì mặc định pháp lý là "giữ mọi quyền":
 # người ngoài đọc được mà không được cài đặt lại. Điều đó mâu thuẫn thẳng với

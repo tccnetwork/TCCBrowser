@@ -121,6 +121,7 @@ Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 | 11 | The translation does not drift from the normative text | A skewed translation is worse than none — its readers implement a different standard without knowing |
 | 12 | The specification contains no dead links | Outsiders reading it have no source code to guess from |
 | 13 | No public identifier carries a Vietnamese name | The API surface is what a second implementer reads; see §7 |
+| 15 | Conformance vectors use English keys and `conformance/FORMAT.md` exists | The vectors are the only thing that can settle a conformance claim, and their reader does not speak Vietnamese |
 | 14 | The repository has an Apache-2.0 LICENSE and every crate declares it | A public repository with no licence means "all rights reserved" — outsiders may read but not implement, which contradicts the whole point |
 
 > **A rule written in a comment gets violated eventually** — usually at 11pm by

@@ -37,7 +37,7 @@ implementation **must not** display "verified publisher".
 ```bash
 cargo test --workspace              # 234 tests
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh        # 14 architecture rules — MUST report 0 violations
+tools/kiem-luat-phu-thuoc.sh        # 15 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 104 conformance vectors
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release      # fuzz the parsers — unauthenticated input

@@ -1,193 +1,193 @@
 {
-  "mo_ta": "Cây giao diện đến từ gói phải qua ĐÚNG những phép kiểm như cây viết tay trong mã.",
-  "truong_hop": [
-    {
-      "ten": "cay toi thieu",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "Xin chào"
+ "description": "An interface tree arriving from a package must pass EXACTLY the checks a hand-written tree passes. No leniency for being data rather than code. See FORMAT.md.",
+ "cases": [
+  {
+   "case": "minimal tree",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "Xin chào"
+   }
+  },
+  {
+   "case": "fully nested tree",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "gap": "large",
+    "children": [
+     {
+      "kind": "text",
+      "content": "TCC Store",
+      "emphasis": "title"
+     },
+     {
+      "kind": "field",
+      "label": "Mật khẩu",
+      "secret": true
+     },
+     {
+      "kind": "image",
+      "source": "anh/logo.png",
+      "alt": {
+       "kind": "text",
+       "text": "Biểu trưng"
       }
-    },
-    {
-      "ten": "cay long nhau day du",
-      "dat": true,
-      "cay": {
-        "kind": "group",
-        "flow": "column",
-        "gap": "large",
-        "children": [
-          {
-            "kind": "text",
-            "content": "TCC Store",
-            "emphasis": "title"
-          },
-          {
-            "kind": "field",
-            "label": "Mật khẩu",
-            "secret": true
-          },
-          {
-            "kind": "image",
-            "source": "anh/logo.png",
-            "alt": {
-              "kind": "text",
-              "text": "Biểu trưng"
-            }
-          },
-          {
-            "kind": "button",
-            "label": "Thanh toán",
-            "action": "thanh-toan",
-            "tone": "danger"
-          }
-        ]
-      }
-    },
-    {
-      "ten": "nhan nut co ky tu dao chieu chu",
-      "dat": false,
-      "code": "unsafe-display-string",
-      "cay": {
-        "kind": "button",
-        "label": "Hu‮r",
-        "action": "x"
-      }
-    },
-    {
-      "ten": "anh tro ra mang",
-      "dat": false,
-      "code": "external-image",
-      "cay": {
-        "kind": "image",
-        "source": "https://theo-doi.example/1.png",
-        "alt": {
-          "kind": "decorative"
-        }
-      }
-    },
-    {
-      "ten": "anh di ra ngoai goi",
-      "dat": false,
-      "code": "bad-path",
-      "cay": {
-        "kind": "image",
-        "source": "../bi-mat.png",
-        "alt": {
-          "kind": "decorative"
-        }
-      }
-    },
-    {
-      "ten": "ma hanh dong co khoang trang",
-      "dat": false,
-      "code": "bad-action-id",
-      "cay": {
-        "kind": "button",
-        "label": "A",
-        "action": "cho phep"
-      }
-    },
-    {
-      "ten": "ma hanh dong co chu hoa",
-      "dat": false,
-      "code": "bad-action-id",
-      "cay": {
-        "kind": "button",
-        "label": "A",
-        "action": "ChoPhep"
-      }
-    },
-    {
-      "ten": "nhan nut xuong dong",
-      "dat": false,
-      "code": "unsafe-display-string",
-      "cay": {
-        "kind": "button",
-        "label": "Đồng\ný",
-        "action": "ok"
-      }
-    },
-    {
-      "ten": "doan van duoc xuong dong",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "Dòng một\nDòng hai"
-      }
-    },
-    {
-      "ten": "tieng Viet co dau va emoji",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "Chào bạn — số dư 3 TCC 🎉"
-      }
-    },
-    {
-      "ten": "the kich ban trong chu la CHUOI BINH THUONG, khong phai loi",
-      "ghi_chu": "Tiêu chuẩn KHÔNG cấm chuỗi này — nó không chứa ký tự giả mạo nào. Chặn nằm ở tầng dịch đánh dấu của bộ dựng, không ở đây. Vector này chốt ranh giới đó cho mọi bản triển khai.",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "<script>alert(1)</script>"
-      }
-    },
-    {
-      "ten": "anh thieu mo ta",
-      "dat": false,
-      "code": "json",
-      "cay": {
-        "kind": "image",
-        "source": "a.png"
-      }
-    },
-    {
-      "ten": "truong la",
-      "dat": false,
-      "code": "json",
-      "cay": {
-        "kind": "text",
-        "content": "x",
-        "mau": "do"
-      }
-    },
-    {
-      "ten": "loai nut khong co trong tieu chuan",
-      "dat": false,
-      "code": "json",
-      "cay": {
-        "kind": "video",
-        "source": "a.mp4"
-      }
-    },
-    {
-      "ten": "nhan nut chong 20 dau len mot chu",
-      "dat": false,
-      "code": "unsafe-display-string",
-      "ghi_chu": "Vẽ ra thành vệt dọc trùm lên phần màn hình bên trên. Trong hộp thoại hỏi quyền, phần bên trên là câu cảnh báo danh tính.",
-      "cay": {
-        "kind": "button",
-        "label": "Huỷ́́́́́́́́́́́́́́́́́́́́",
-        "action": "huy"
-      }
-    },
-    {
-      "ten": "tieng Viet dang TACH van phai qua",
-      "ghi_chu": "Bộ gõ macOS thường sinh dạng tách. Cấm quá tay ở đây là giết tiếng Việt.",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "Tiếng Việt có dáu"
-      }
-    },
-    {
-      "ten": "cau dai nhieu dau van phai qua",
-      "dat": true,
-      "cay": {
-        "kind": "text",
-        "content": "Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt "
-      }
+     },
+     {
+      "kind": "button",
+      "label": "Thanh toán",
+      "action": "thanh-toan",
+      "tone": "danger"
+     }
+    ]
+   }
+  },
+  {
+   "case": "button label contains a bidi override",
+   "expect_pass": false,
+   "code": "unsafe-display-string",
+   "tree": {
+    "kind": "button",
+    "label": "Hu‮r",
+    "action": "x"
+   }
+  },
+  {
+   "case": "image points at the network",
+   "expect_pass": false,
+   "code": "external-image",
+   "tree": {
+    "kind": "image",
+    "source": "https://theo-doi.example/1.png",
+    "alt": {
+     "kind": "decorative"
     }
-  ]
+   }
+  },
+  {
+   "case": "image escapes the package",
+   "expect_pass": false,
+   "code": "bad-path",
+   "tree": {
+    "kind": "image",
+    "source": "../bi-mat.png",
+    "alt": {
+     "kind": "decorative"
+    }
+   }
+  },
+  {
+   "case": "action id contains a space",
+   "expect_pass": false,
+   "code": "bad-action-id",
+   "tree": {
+    "kind": "button",
+    "label": "A",
+    "action": "cho phep"
+   }
+  },
+  {
+   "case": "action id contains uppercase",
+   "expect_pass": false,
+   "code": "bad-action-id",
+   "tree": {
+    "kind": "button",
+    "label": "A",
+    "action": "ChoPhep"
+   }
+  },
+  {
+   "case": "button label contains a newline",
+   "expect_pass": false,
+   "code": "unsafe-display-string",
+   "tree": {
+    "kind": "button",
+    "label": "Đồng\ný",
+    "action": "ok"
+   }
+  },
+  {
+   "case": "paragraph may contain newlines",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "Dòng một\nDòng hai"
+   }
+  },
+  {
+   "case": "Vietnamese diacritics and emoji",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "Chào bạn — số dư 3 TCC 🎉"
+   }
+  },
+  {
+   "case": "a script tag in text is ORDINARY TEXT, not an error",
+   "notes": "The standard does NOT forbid this string — it contains no spoofing characters. Blocking it would be the renderer's job, and the renderer escapes it. Rejecting text for looking like markup is how you get an unusable standard.",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "<script>alert(1)</script>"
+   }
+  },
+  {
+   "case": "image missing its description",
+   "expect_pass": false,
+   "code": "json",
+   "tree": {
+    "kind": "image",
+    "source": "a.png"
+   }
+  },
+  {
+   "case": "unknown field",
+   "expect_pass": false,
+   "code": "json",
+   "tree": {
+    "kind": "text",
+    "content": "x",
+    "sample": "do"
+   }
+  },
+  {
+   "case": "node kind not in the standard",
+   "expect_pass": false,
+   "code": "json",
+   "tree": {
+    "kind": "video",
+    "source": "a.mp4"
+   }
+  },
+  {
+   "case": "button label with 20 marks on one character",
+   "expect_pass": false,
+   "code": "unsafe-display-string",
+   "notes": "Drawn as a vertical streak covering the area above. In a permission dialog the area above is the identity warning — the thing the user must read before pressing anything.",
+   "tree": {
+    "kind": "button",
+    "label": "Huỷ́́́́́́́́́́́́́́́́́́́́",
+    "action": "huy"
+   }
+  },
+  {
+   "case": "DECOMPOSED Vietnamese must still pass",
+   "notes": "The macOS input method commonly produces the decomposed form. Being over-strict here would ban Vietnamese itself, which is why the limit counts consecutive marks rather than banning them.",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "Tiếng Việt có dáu"
+   }
+  },
+  {
+   "case": "a long sentence with many diacritics must still pass",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt "
+   }
+  }
+ ]
 }
