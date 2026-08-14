@@ -648,10 +648,52 @@ As planned. The hard gate:
 
 > **No transaction reaches mainnet before an independent security audit.**
 
-### 3.6 No fuzzing
+### 3.6 Fuzzing — exists now, and its limits are worth stating
 
-There is no fuzzing harness for manifest parsing. That is the first untrusted
-input our code touches, so it is worth doing early.
+`tools/tcc-fuzz` fuzzes the three parsers. They are worth fuzzing for a reason
+that follows directly from the order inside `verify_package`:
+
+```text
+0. size ceiling
+1. serde_json::from_slice::<Manifest>   ← here
+2. manifest.validate_shape()            ← and here
+3. compare scheme name
+4. VERIFY THE SIGNATURE                 ← only now is anything authenticated
+```
+
+Steps 1 and 2 **must** precede step 4: the public key lives inside the manifest,
+so it cannot be read without decoding it first. The unavoidable consequence is
+that **the parsers run on entirely unauthenticated input.** An attacker needs no
+valid signature, no key, nothing — only a file that reaches us.
+
+It checks three properties, not just absence of panics:
+
+| Target | Property |
+|---|---|
+| `Manifest` | Accepted → serialise → parse again must yield an **equal** value that still validates. Accepting something we cannot reproduce means state survived validation that nothing describes. |
+| Interface tree | Accepted → the wire form must round-trip **without changing the verdict**. This is exactly the B16/L8 seam between the wire type and the checked type. |
+| File tree | The canonical form must be **deterministic** — two implementations hashing differently is two implementations unable to verify each other's signatures. |
+
+**What it is not.** It is not coverage-guided. It mutates from a seed corpus
+without measuring which branches were reached, so libFuzzer or AFL would go far
+deeper. In exchange it runs on stable Rust with no added dependency, is
+deterministic given a seed, and therefore runs in CI on every push with a seed
+derived from the commit SHA — new inputs every commit, and any failure still
+reproducible from the seed printed in the log.
+
+**Measured depth**, because "no findings" is meaningless without it: roughly
+3.4% of inputs get past the JSON decoder into the manifest checks, 1.7% into the
+interface tree, 7.8% into the file tree. Two million rounds across eight seeds
+found nothing.
+
+**The harness itself was tested by injecting a bug**: a byte-index slice
+(`&self.version[..1]`) in `validate_shape` — the classic Rust parser panic, which
+fires on any string starting with a multi-byte character. The fuzzer found it and
+printed a reproducing input. A fuzzer nobody has seen catch anything is not
+evidence.
+
+Still missing: a coverage-guided run under libFuzzer, and fuzzing of the
+signature parsing path.
 
 ---
 

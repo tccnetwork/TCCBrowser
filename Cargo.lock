@@ -2516,6 +2516,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tcc-fuzz"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "tcc-spec",
+ "tcc-ui",
+]
+
+[[package]]
 name = "tcc-manifest"
 version = "0.1.0"
 dependencies = [

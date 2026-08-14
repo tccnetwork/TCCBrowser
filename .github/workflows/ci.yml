@@ -36,6 +36,17 @@ jobs:
       - name: Example hello-tcc still verifies
         run: cargo run -p tcc-cli -- verify examples/hello-tcc
 
+      # Parsers see UNAUTHENTICATED input: verify_package must decode the
+      # manifest before it can verify the signature, because the public key is
+      # inside the manifest. The seed is derived from the commit SHA so every
+      # push explores new inputs — and a failure is still reproducible, because
+      # the seed is printed in the log.
+      - name: Fuzz the parsers
+        run: |
+          SEED=$((16#$(git rev-parse HEAD | cut -c1-8)))
+          echo "seed $SEED (from commit $(git rev-parse --short HEAD))"
+          cargo run -p tcc-fuzz --release -- 200000 "$SEED"
+
       # An independent implementation re-checks the ML-DSA half. It agrees only
       # on that half's arithmetic — but that half is the one nobody should be
       # trusted to implement alone.

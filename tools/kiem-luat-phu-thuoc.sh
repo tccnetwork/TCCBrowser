@@ -174,7 +174,7 @@ echo "--- Luật 13: định danh CÔNG KHAI không được mang tên tiếng V
 # Tên hàm kiểm thử, biến cục bộ và tên ví dụ đối kháng vẫn tiếng Việt — chúng là
 # LẬP LUẬN, không phải giao diện, và SECURITY.md trích dẫn tên phép thử làm bằng
 # chứng nên đổi tên là làm hỏng đúng thứ nó ghi lại.
-GOC_VIET='(chu|cau|vai|dau|mat|sac|thai|tra|luu|xoa|them|ky|bo|dung|mo|tao|vong|thoat|hoi|quyet|dinh|choi|cho|phep|bat|tat|khoa|nho|hanh|man|hinh|khoi|tan|cong|bang|kieu|thu|ghi|danh|phuc|cua|hop|quet|goi|kiem|bam|nut|loi|mang|nap|gui|tep|duong|noi|ten|nguoi|lieu|tro|nang|lietke|quen|van|tay|tinh|trang)'
+GOC_VIET='(chu|cau|vai|dau|mat|sac|thai|tra|luu|xoa|them|ky|bo|dung|mo|tao|vong|thoat|hoi|quyet|dinh|choi|cho|phep|bat|tat|khoa|nho|hanh|man|hinh|khoi|tan|cong|bang|kieu|thu|ghi|danh|phuc|cua|hop|quet|goi|kiem|bam|nut|loi|mang|nap|gui|tep|duong|noi|ten|nguoi|lieu|tro|nang|lietke|quen|van|tay|tinh|trang|nhieu|moi|tiep|doi|dot|bien|hat|giong|muc|tieu|sau|bot|cay|byte_doc|so|lan|phan|doan)'
 vi_pham=$(grep -rhoE 'pub (struct|enum|fn|const|trait|type|mod) [A-Za-z_][A-Za-z0-9_]*' \
             crates/*/src/*.rs apps/*/src/*.rs tools/*/src/*.rs 2>/dev/null \
           | awk '{print $3}' | sort -u \

@@ -21,6 +21,7 @@ members = [
   # ---- Công cụ ----
   "tools/tcc-cli",           # tcc new / sign / verify
   "tools/tcc-conformance",   # BỘ KIỂM ĐỊNH TUÂN THỦ — thứ biến đặc tả thành tiêu chuẩn
+  "tools/tcc-fuzz",          # fuzz bộ phân tích — đầu vào CHƯA xác thực
 
   # ---- Sản phẩm ----
   "apps/tcc-browser",
