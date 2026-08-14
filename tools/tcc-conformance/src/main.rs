@@ -74,9 +74,7 @@ fn doc_vector(ten: &str) -> Value {
 }
 
 fn cac_truong_hop(v: &Value) -> &Vec<Value> {
-    v["cases"]
-        .as_array()
-        .expect("vector thiếu mảng "cases"")
+    v["cases"].as_array().expect("vector thiếu mảng `cases`")
 }
 
 fn ten_cua(t: &Value) -> &str {
@@ -188,7 +186,10 @@ fn chay_signature(chi_tiet: bool) -> Ket {
     );
 
     // ---- Chiều 2 và 3 ----
-    for t in v["valid_signatures"].as_array().expect("thiếu "valid_signatures"") {
+    for t in v["valid_signatures"]
+        .as_array()
+        .expect("thiếu `valid_signatures`")
+    {
         let m = doc_hex(&t["message_hex"]);
         let ky_cho = doc_hex(&t["signature_hex"]);
         let ten = format!("thông điệp {} byte", m.len());
@@ -217,7 +218,10 @@ fn chay_signature(chi_tiet: bool) -> Ket {
 
     // ---- Mọi đòn phá phải hỏng ----
     let m = b"TCC conformance vector 0.1";
-    for t in v["broken_signatures"].as_array().expect("thiếu "broken_signatures"") {
+    for t in v["broken_signatures"]
+        .as_array()
+        .expect("thiếu `broken_signatures`")
+    {
         let ten = ten_cua(t);
         let ky = doc_hex(&t["signature_hex"]);
         k.ghi(
@@ -346,7 +350,9 @@ fn chay_manifest(chi_tiet: bool) -> Ket {
             ke_khai["content_hash"] = Value::String(hash_that.clone());
         }
 
-        let cho_dat = t["expect_pass"].as_bool().expect("thiếu trường "expect_pass"");
+        let cho_dat = t["expect_pass"]
+            .as_bool()
+            .expect("thiếu trường `expect_pass`");
         let cho_ma = t["code"].as_str();
 
         // Giải mã rồi kiểm hình dạng. Cả hai bước đều có thể từ chối, và mã lỗi
@@ -386,7 +392,9 @@ fn chay_ui(chi_tiet: bool) -> Ket {
 
     for t in cac_truong_hop(&v) {
         let ten = ten_cua(t);
-        let cho_dat = t["expect_pass"].as_bool().expect("thiếu trường "expect_pass"");
+        let cho_dat = t["expect_pass"]
+            .as_bool()
+            .expect("thiếu trường `expect_pass`");
         let cho_ma = t["code"].as_str();
         let byte = serde_json::to_vec(&t["tree"]).expect("cây không tuần tự hoá được");
 
