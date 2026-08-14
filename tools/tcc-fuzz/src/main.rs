@@ -46,11 +46,24 @@ mod corpus;
 mod mutation;
 
 use mutation::Rng;
+use tcc_crypto::{HybridEd25519MlDsa, SignatureScheme as _};
 
 /// Một mục tiêu fuzz: tên, và cái để chạy trên một chuỗi byte.
 struct Target {
     ten: &'static str,
     chay: fn(&[u8]) -> Result<(), String>,
+    /// Hạt giống của RIÊNG mục tiêu này. Trộn chung thì mục tiêu chữ ký chỉ ăn
+    /// toàn JSON — mà JSON thì trượt ngay ở phép kiểm độ dài, không bao giờ
+    /// chạm tới mã mật mã, tức là đo hư không.
+    seeds: fn(&corpus::Corpus) -> &[Vec<u8>],
+    /// Số vòng chia cho con số này. Kiểm một chữ ký ML-DSA đắt hơn phân tích
+    /// một tệp JSON khoảng ba bậc độ lớn, nên cho cùng ngân sách vòng là biến
+    /// cả lượt chạy thành một phép đo tốc độ mật mã. Ngân sách phải theo THỜI
+    /// GIAN, không theo số vòng.
+    chi_phi: u64,
+    /// Đầu vào có ĐỘ DÀI CỐ ĐỊNH không? Nếu có thì đột biến phải giữ nguyên độ
+    /// dài, nếu không mọi đầu vào đều chết ở cổng kiểm độ dài.
+    co_dinh: bool,
     /// Đầu vào này có đi được vào PHẦN SÂU không (qua bộ đọc JSON, tới các phép
     /// kiểm thật)? Không đo cái này thì "0 lỗi" là một con số vô nghĩa: một bộ
     /// fuzz nảy hết ở dấu ngoặc đầu tiên cũng báo 0 lỗi y hệt một bộ fuzz tốt.
@@ -63,6 +76,56 @@ fn deep_manifest(b: &[u8]) -> bool {
 fn deep_ui_tree(b: &[u8]) -> bool {
     serde_json::from_slice::<tcc_ui::wire::UiNode>(b).is_ok()
 }
+/// Kiểm CHỮ KÝ với byte chữ ký do fuzz sinh ra.
+///
+/// Đây là chỗ `ml-dsa` 0.1.1 — thư viện CHƯA có kiểm định độc lập nào được công
+/// bố, xem `SECURITY.md` §3.2 — phân tích byte hoàn toàn do kẻ tấn công điều
+/// khiển. Nó là mã mật mã của bên thứ ba đứng ngay trên đường đi của dữ liệu
+/// chưa xác thực.
+///
+/// Đòi hỏi nặng hơn "không hoảng loạn": **không một đột biến nào của chữ ký thật
+/// được phép kiểm ĐẠT.** Đột biến ra chữ ký hợp lệ nghĩa là giả mạo được.
+fn target_signature(byte: &[u8]) -> Result<(), String> {
+    let (khoa, chu_ky_that) = corpus::real_pair();
+    let thong_diep = corpus::signed_message();
+    let ket = HybridEd25519MlDsa.verify(&khoa, &thong_diep, byte);
+    if ket.is_ok() && byte != chu_ky_that.as_slice() {
+        return Err("một chữ ký KHÁC bản thật lại kiểm ĐẠT — giả mạo được".to_owned());
+    }
+    // Kiểm hai lần phải ra một kết quả: phán quyết mật mã không được phụ thuộc
+    // thứ gì ngoài ba đầu vào.
+    if HybridEd25519MlDsa.verify(&khoa, &thong_diep, byte).is_ok() != ket.is_ok() {
+        return Err("kiểm hai lần ra HAI phán quyết".to_owned());
+    }
+    Ok(())
+}
+
+/// Kiểm chữ ký với KHOÁ CÔNG KHAI do fuzz sinh ra.
+///
+/// Khoá công khai đến thẳng từ bản kê khai của kẻ tấn công (`hex::decode` rồi
+/// đưa vào thư viện), nên nó cũng là byte chưa xác thực đi vào mã mật mã.
+fn target_public_key(byte: &[u8]) -> Result<(), String> {
+    let (khoa_that, chu_ky) = corpus::real_pair();
+    let thong_diep = corpus::signed_message();
+    if HybridEd25519MlDsa
+        .verify(byte, &thong_diep, &chu_ky)
+        .is_ok()
+        && byte != khoa_that.as_slice()
+    {
+        return Err("một khoá công khai KHÁC lại kiểm ĐẠT cùng chữ ký đó".to_owned());
+    }
+    Ok(())
+}
+
+fn deep_signature(b: &[u8]) -> bool {
+    // "Sâu" ở đây nghĩa là qua được phép kiểm độ dài, tức là thật sự chạm vào
+    // mã mật mã chứ không bị chặn ở cổng.
+    b.len() == 3373
+}
+fn deep_public_key(b: &[u8]) -> bool {
+    b.len() == 1984
+}
+
 fn deep_file_tree(b: &[u8]) -> bool {
     core::str::from_utf8(b).is_ok_and(|s| {
         let mut c = tcc_spec::tree::FileTree::new();
@@ -145,17 +208,42 @@ const TARGETS: &[Target] = &[
     Target {
         ten: "ke-khai",
         chay: target_manifest,
+        co_dinh: false,
+        chi_phi: 1,
         sau: deep_manifest,
+        seeds: |k| &k.text,
     },
     Target {
         ten: "cay-giao-dien",
         chay: target_ui_tree,
+        co_dinh: false,
+        chi_phi: 1,
         sau: deep_ui_tree,
+        seeds: |k| &k.text,
     },
     Target {
         ten: "cay-tep",
         chay: target_file_tree,
+        co_dinh: false,
+        chi_phi: 1,
         sau: deep_file_tree,
+        seeds: |k| &k.text,
+    },
+    Target {
+        ten: "chu-ky",
+        chay: target_signature,
+        co_dinh: true,
+        chi_phi: 20,
+        sau: deep_signature,
+        seeds: |k| &k.signature,
+    },
+    Target {
+        ten: "khoa-cong-khai",
+        chay: target_public_key,
+        co_dinh: true,
+        chi_phi: 20,
+        sau: deep_public_key,
+        seeds: |k| &k.public_key,
     },
 ];
 
@@ -169,10 +257,12 @@ fn main() -> ExitCode {
     let cu = panic::take_hook();
     panic::set_hook(Box::new(|_| {}));
 
-    let seeds = corpus::load();
+    let kho = corpus::load();
     println!(
-        "hạt giống: {} mẫu · {so_vong} vòng/mục tiêu · gieo {hat}",
-        seeds.len()
+        "hạt giống: {} văn bản + {} chữ ký + {} khoá · {so_vong} vòng/mục tiêu · gieo {hat}",
+        kho.text.len(),
+        kho.signature.len(),
+        kho.public_key.len()
     );
 
     let mut hong = 0usize;
@@ -180,9 +270,15 @@ fn main() -> ExitCode {
         let mut nhieu = Rng::new(hat);
         let mut so_nhan = 0usize;
         let mut so_sau = 0usize;
-        for _ in 0..so_vong {
-            let goc = &seeds[usize::try_from(nhieu.next_u64() % 1024).unwrap_or(0) % seeds.len()];
-            let dau_vao = mutation::mutate(&mut nhieu, goc);
+        let vong_muc_tieu = (so_vong / mt.chi_phi).max(1);
+        for _ in 0..vong_muc_tieu {
+            let hg = (mt.seeds)(&kho);
+            let goc = &hg[usize::try_from(nhieu.next_u64() % 1024).unwrap_or(0) % hg.len()];
+            let dau_vao = if mt.co_dinh {
+                mutation::mutate_fixed(&mut nhieu, goc)
+            } else {
+                mutation::mutate(&mut nhieu, goc)
+            };
 
             let ket = panic::catch_unwind(panic::AssertUnwindSafe(|| (mt.chay)(&dau_vao)));
             let loi = match ket {

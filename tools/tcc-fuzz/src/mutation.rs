@@ -62,6 +62,35 @@ const POISON: &[&[u8]] = &[
     b"x-acme-la",
 ];
 
+/// Đột biến GIỮ NGUYÊN ĐỘ DÀI — cho đầu vào có kích thước cố định.
+///
+/// Chữ ký lai đúng 3373 byte, khoá công khai đúng 1984 byte. Phép đột biến nào
+/// đổi độ dài là bị chặn ngay ở cổng kiểm độ dài, không bao giờ chạm tới mã mật
+/// mã. Bản đầu tôi dùng chung bộ đột biến cho mọi mục tiêu, và thước đo độ sâu
+/// báo thẳng: 0% đi vào được. Đó là lý do thước đo ấy tồn tại.
+#[must_use]
+pub fn mutate_fixed(rng: &mut Rng, goc: &[u8]) -> Vec<u8> {
+    let mut v = goc.to_vec();
+    if v.is_empty() {
+        return v;
+    }
+    // Ít byte thôi: lật một bit trong chữ ký là đòn đáng sợ nhất và cũng là đòn
+    // dễ lọt nhất nếu bộ kiểm cẩu thả. Đổi nửa chuỗi thì chỉ ra nhiễu.
+    let so_phep = 1 + rng.below(3);
+    for _ in 0..so_phep {
+        let i = rng.below(v.len());
+        if rng.below(2) == 0 {
+            let bit = rng.below(8);
+            if let Some(b) = v.get_mut(i) {
+                *b ^= 1u8 << bit;
+            }
+        } else if let Some(b) = v.get_mut(i) {
+            *b = u8::try_from(rng.next_u64() & 0xff).unwrap_or(0);
+        }
+    }
+    v
+}
+
 /// Đột biến một mẫu hạt giống thành một đầu vào mới.
 #[must_use]
 pub fn mutate(nhieu: &mut Rng, goc: &[u8]) -> Vec<u8> {

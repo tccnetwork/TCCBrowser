@@ -666,13 +666,27 @@ so it cannot be read without decoding it first. The unavoidable consequence is
 that **the parsers run on entirely unauthenticated input.** An attacker needs no
 valid signature, no key, nothing — only a file that reaches us.
 
-It checks three properties, not just absence of panics:
+It checks five targets, and asks for more than absence of panics:
 
-| Target | Property |
-|---|---|
-| `Manifest` | Accepted → serialise → parse again must yield an **equal** value that still validates. Accepting something we cannot reproduce means state survived validation that nothing describes. |
-| Interface tree | Accepted → the wire form must round-trip **without changing the verdict**. This is exactly the B16/L8 seam between the wire type and the checked type. |
-| File tree | The canonical form must be **deterministic** — two implementations hashing differently is two implementations unable to verify each other's signatures. |
+| Target | Property | Depth |
+|---|---|---|
+| `Manifest` | Accepted → serialise → parse again must yield an **equal** value that still validates. Accepting something we cannot reproduce means state survived validation that nothing describes. | 3.4% |
+| Interface tree | Accepted → the wire form must round-trip **without changing the verdict**. This is exactly the B16/L8 seam between the wire type and the checked type. | 1.9% |
+| File tree | The canonical form must be **deterministic** — two implementations hashing differently is two implementations unable to verify each other's signatures. | 7.6% |
+| **Signature** | **No mutation of a valid signature may verify.** One that does is a forgery. | 66.7% |
+| **Public key** | **No other public key may verify the same signature.** | 50.6% |
+
+The last two matter most. `ml-dsa` 0.1.1 has no published independent audit
+(§3.2), and it parses bytes an attacker fully controls: the signature comes from
+the package, and the public key comes from the manifest, which is decoded before
+anything is authenticated.
+
+**"Depth" is measured because "no findings" is meaningless without it.** The
+first version of the signature target reported **0% depth**: a hybrid signature
+is exactly 3373 bytes, and every mutation that inserts or deletes a byte dies at
+the length check without touching a line of cryptography. The fix was a
+length-preserving mutation mode for fixed-size inputs. Without that measurement
+the target would have reported "no findings" forever while testing nothing.
 
 **What it is not.** It is not coverage-guided. It mutates from a seed corpus
 without measuring which branches were reached, so libFuzzer or AFL would go far
@@ -686,14 +700,17 @@ reproducible from the seed printed in the log.
 interface tree, 7.8% into the file tree. Two million rounds across eight seeds
 found nothing.
 
-**The harness itself was tested by injecting a bug**: a byte-index slice
-(`&self.version[..1]`) in `validate_shape` — the classic Rust parser panic, which
-fires on any string starting with a multi-byte character. The fuzzer found it and
-printed a reproducing input. A fuzzer nobody has seen catch anything is not
-evidence.
+**The harness was tested by injecting bugs**, because a fuzzer nobody has seen
+catch anything is not evidence:
 
-Still missing: a coverage-guided run under libFuzzer, and fuzzing of the
-signature parsing path.
+| Injected | Found? |
+|---|---|
+| `&self.version[..1]` in `validate_shape` — the classic Rust parser panic on a multi-byte first character | Yes, with a reproducing input |
+| Deleting the ML-DSA verification step, so only the Ed25519 half is checked | Yes — both crypto targets reported a different key verifying the same signature |
+| A panic on the signature-parsing path | Yes, on the truncated and empty seeds |
+
+Still missing: a coverage-guided run under libFuzzer, and fuzzing of `sign`
+with malformed secret keys.
 
 ---
 
