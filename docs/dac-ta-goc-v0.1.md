@@ -1,3 +1,7 @@
+> **Historical draft, in Vietnamese.** Superseded by [`spec/0.1/`](../spec/0.1/),
+> which is normative. Kept only so decisions can be traced back to where they
+> were first argued.
+
 # TCC Engine
 ## Modern Rust-Native Internet Runtime & Browser
 

@@ -1,63 +1,73 @@
-# Tiêu chuẩn TCC
+# The TCC Standard
 
-Thư mục này là **sản phẩm thật** của dự án. Trình duyệt chỉ là bản cài đặt tham
-chiếu của nó.
+This directory is **the real product** of the project. The browser is merely its
+reference implementation.
 
-## Luật
+## Rules for this directory
 
-1. **Rút ra từ mã đã chạy, không viết trước.** Tiêu chuẩn viết trước khi có mã
-   phần lớn đều chết (XHTML 2.0, SOAP, họ WS-*). Tiêu chuẩn thành công thì được
-   rút ra từ thứ đã chạy thật (HTML5, HTTP).
-2. **Mỗi mục phải có ít nhất một phép kiểm** trong `tools/tcc-conformance`. Thêm
-   điều vào đây mà không thêm phép kiểm là thêm một lời hứa không ai kiểm được.
-3. **Phiên bản không bao giờ sửa tại chỗ.** `0.1/` đóng băng khi phát hành; thay
-   đổi thì mở `0.2/`.
+1. **Extracted from running code, never written first.** Standards written ahead
+   of an implementation mostly die (XHTML 2.0, SOAP, the WS-\* family). The ones
+   that survive were extracted from something that already ran (HTML5, HTTP).
+2. **Every clause needs at least one check** in [`conformance/`](../conformance/).
+   Adding a clause without a vector is adding a promise nobody can verify.
+3. **A version is never edited in place.** `0.1/` freezes on release; changes open
+   `0.2/`. See [VERSIONING.md](VERSIONING.md).
 
-## Phép thử duy nhất chứng minh tiêu chuẩn viết đủ rõ
+## The only test that proves this is written clearly enough
 
-> Một người ngoài đọc `spec/0.1/` và tự làm được gói `.tccapp` hợp lệ mà **không
-> cần hỏi ai**.
+> Someone who has never read the source code reads `spec/0.1/` and produces a
+> valid `.tccapp` package **without asking anyone a question.**
 
-## Trạng thái
+This has **not** been done yet. Until it has, `spec/0.1/` is a description of an
+implementation rather than a specification, however carefully it is worded — and
+the author of a specification cannot perform this test, because knowing what was
+meant is exactly the thing being tested for.
 
-`0.1/` — **đã viết** (14/08/2026), rút ra từ bản cài đặt tham chiếu đang chạy.
-Bản nháp làm việc, chưa đóng băng.
+## Status
 
-**Tiếng Anh là bản CHUẨN.** Tiếng Việt là bản dịch cho đội ngũ và cộng đồng TCC;
-hai bản mâu thuẫn thì bản tiếng Anh thắng.
+`0.1/` — **written** (2026-08-14), extracted from the running reference
+implementation. A working draft; **not frozen**.
 
-| | Bản chuẩn (en) | Bản dịch (vi) |
+**English is NORMATIVE.** Vietnamese is a translation for the team and the TCC
+community; where the two disagree, the English text governs.
+
+| | Normative (en) | Translation (vi) |
 |---|---|---|
-| Tổng quan | [README](0.1/README.md) | [README](0.1/vi/README.md) |
-| Gói | [01](0.1/01-package.md) | [01](0.1/vi/01-goi.md) |
-| Bản kê khai | [02](0.1/02-manifest.md) | [02](0.1/vi/02-ban-ke-khai.md) |
-| Chữ ký | [03](0.1/03-signature.md) | [03](0.1/vi/03-chu-ky.md) |
-| Quyền năng | [04](0.1/04-capabilities.md) | [04](0.1/vi/04-quyen-nang.md) |
-| Giao diện | [05](0.1/05-interface.md) | [05](0.1/vi/05-giao-dien.md) |
-| Mã lỗi | [06](0.1/06-error-codes.md) | [06](0.1/vi/06-ma-loi.md) |
+| Overview | [README](0.1/README.md) | [README](0.1/vi/README.md) |
+| Package | [01](0.1/01-package.md) | [01](0.1/vi/01-goi.md) |
+| Manifest | [02](0.1/02-manifest.md) | [02](0.1/vi/02-ban-ke-khai.md) |
+| Signature | [03](0.1/03-signature.md) | [03](0.1/vi/03-chu-ky.md) |
+| Capabilities | [04](0.1/04-capabilities.md) | [04](0.1/vi/04-quyen-nang.md) |
+| Interface | [05](0.1/05-interface.md) | [05](0.1/vi/05-giao-dien.md) |
+| Error codes | [06](0.1/06-error-codes.md) | [06](0.1/vi/06-ma-loi.md) |
 
-Hai tài liệu áp cho **mọi phiên bản**, không nằm trong `0.1/`:
+Two documents apply to **every version**, not just 0.1:
 
-| | Bản chuẩn (en) | Bản dịch (vi) |
+| | Normative (en) | Translation (vi) |
 |---|---|---|
-| Phiên bản & khai tử | [VERSIONING](VERSIONING.md) | [VERSIONING](vi/VERSIONING.md) |
-| Quản trị | [GOVERNANCE](GOVERNANCE.md) | [GOVERNANCE](vi/GOVERNANCE.md) |
+| Versioning & deprecation | [VERSIONING](VERSIONING.md) | [VERSIONING](vi/VERSIONING.md) |
+| Governance | [GOVERNANCE](GOVERNANCE.md) | [GOVERNANCE](vi/GOVERNANCE.md) |
 
-`GOVERNANCE.md` §1 nói thẳng thứ dễ nói tránh nhất: tiêu chuẩn này có **một tác
-giả, một bản cài đặt, một bộ kiểm định — cùng một bên làm ra**. Nên "tuân thủ TCC
-0.1" hôm nay chỉ có nghĩa là *đồng ý với một bản cài đặt*, không hơn.
+[`GOVERNANCE.md`](GOVERNANCE.md) §1 states the thing most easily glossed over:
+this standard has **one author, one implementation, and one conformance suite,
+all produced by the same party.** So "conformant to TCC 0.1" currently means
+*agrees with one implementation*, and nothing more.
 
-**Hai luật CI giữ đặc tả khỏi trôi:**
+## Three CI rules keep the specification from drifting
 
-| Luật | Kiểm gì | Vì sao |
+| Rule | Checks | Why |
 |---|---|---|
-| 10 | Mọi mã lỗi trong đặc tả **tồn tại trong mã** | Mã viết ra mà không có trong mã là lời hứa không ai giữ — người ngoài cài đặt theo nó sẽ không bao giờ khớp bộ kiểm định |
-| 11 | Bản dịch **không trôi khỏi bản chuẩn** (số tệp, tập mã lỗi, và tài liệu chính sách phải có bản dịch) | Bản dịch lệch còn tệ hơn không có bản dịch: người đọc nó cài đặt theo một tiêu chuẩn khác mà không ai biết |
-| 12 | Đặc tả **không có liên kết chết** | Người ngoài đọc đặc tả không có mã nguồn để đoán bù — một liên kết chết là một luật trỏ vào hư không |
+| 10 | Every error code in the specification **exists in the source** | A code that exists only on paper is a promise nobody keeps — an outside implementer following it would never match the conformance suite |
+| 11 | The translation **does not drift** from the normative text (file count, error-code set, and every policy document has a translation) | A skewed translation is worse than no translation: its readers implement a different standard without anyone knowing |
+| 12 | The specification contains **no dead links** | Outsiders reading it have no source code to guess from — a dead link is a rule pointing at nothing |
 
-## Còn thiếu để gọi là tiêu chuẩn quốc tế
+All three are mutation-tested: the check is proven to go red when the thing it
+guards is broken, and green again when it is restored.
 
-- **Bản cài đặt thứ hai, độc lập.** Đây là thứ thiếu lớn nhất, và mọi thứ khác
-  trong danh sách này đều nhỏ hơn nó.
-- **Cổng ra Giai đoạn 2 chưa ai kiểm**: cần một người ngoài chưa đọc mã, đọc
-  `spec/0.1/` rồi tự dựng một gói hợp lệ. Không tự kiểm được.
+## Still missing before this deserves the word "standard"
+
+- **A second, independent implementation.** This is the largest gap, and every
+  other item on this list is smaller than it.
+- **The Phase 2 exit gate, unverified**: someone who has never read the source
+  building a valid package from `spec/0.1/` alone. Not something that can be
+  self-verified.

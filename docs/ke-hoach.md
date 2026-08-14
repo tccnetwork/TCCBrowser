@@ -1,3 +1,6 @@
+> **Internal working document, in Vietnamese.** The normative standard is in
+> [`spec/`](../spec/) and is English-normative.
+
 # Kế hoạch triển khai
 
 > **Đơn vị là KHỐI CÔNG VIỆC, không phải tuần lịch.** Chưa có số người nên mọi
