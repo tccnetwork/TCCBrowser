@@ -1,157 +1,190 @@
-# Bảo mật — TCC Browser
+# Security — TCC Browser
 
-> Tài liệu cho **đội kiểm định**. Ghi rõ ba thứ: các bất biến phải giữ, những lỗ
-> đã tự tìm ra và sửa, và **những gì CHƯA được soi**. Mục cuối quan trọng nhất —
-> một tài liệu bảo mật chỉ liệt kê thành tích là tài liệu gây hiểu nhầm.
+> Written for **auditors**. It records three things: the invariants that must
+> hold, the holes found and fixed, and **what has never been examined**. The last
+> section matters most — a security document that lists only achievements is a
+> misleading document.
 
-Cập nhật: 13/08/2026 · Phạm vi: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
+Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 `tcc-capability`, `tcc-ui`, `tcc-render-webview`, `tcc-runtime`, `tcc-shell`
 
 ---
 
-## 1. Bất biến — hỏng cái nào là hỏng cả kiến trúc
+## 1. Invariants — break one and the architecture is broken
 
-| # | Bất biến | Giữ bằng gì |
+| # | Invariant | Held by |
 |---|---|---|
-| B1 | Chữ ký lai chỉ hợp lệ khi **CẢ HAI** nửa hợp lệ | `gia_mao_nua_co_dien`, `gia_mao_nua_hau_luong_tu` |
-| B2 | Chữ ký bao trùm **cả bản kê khai lẫn nội dung** | `thay_ruot_giu_chu_ky_thi_hong` |
-| B3 | Quyền năng **không tồn tại** cho tới khi được cấp | Trường riêng tư + doctest `compile_fail` |
-| B4 | Thu hồi giết **mọi bản sao** đang cầm trong tay | `thu_hoi_giet_ca_ban_sao_dang_cam` |
-| B5 | Tên miền khớp **chính xác**, không khớp hậu tố | `khong_khop_ten_mien_con_va_khong_khop_hau_to` |
-| B6 | Chuỗi hiện cho người dùng **không chứa ký tự giả mạo** | `ten_ung_dung_co_ky_tu_dao_chieu_thi_tu_choi` |
-| B7 | Chữ của ứng dụng **không thoát ra được** khỏi tài liệu bộ dựng | `chu_cua_ung_dung_khong_thoat_ra_duoc_tai_lieu` + ví dụ `kiem-khoi-tan-cong` |
-| B8 | Cây trợ năng bộ dựng công bố **khớp** cây gốc | `check_accessibility_parity` + `nhan_khac_chu_hien_ra_thi_bao_loi` |
-| B9 | Giao diện **không dựng nổi** một nút thiếu vai trò/nhãn | Kiểu dữ liệu: `Alt::Decorative` phải khai ra miệng |
-| B10 | Ứng dụng **không đặt được màu**, chỉ khai ý định | `Tone` là enum kín, không có trường màu |
-| B11 | Bỏ qua bước kiểm chữ ký là **không biên dịch được** | `grant_verified` chỉ nhận `VerifiedApp` |
-| B12 | Mọi đường không rõ ràng đều ra **TỪ CHỐI** | `moi_duong_khong_ro_rang_deu_ra_tu_choi` |
-| B13 | **Bộ dựng nối sự kiện, ứng dụng không bao giờ** | `script-src 'none'` + kịch bản khởi tạo của bộ dựng |
-| B14 | Hành động ma **không đi tiếp được** | Danh sách trắng + `kiem-bam-nut ma` |
-| B15 | Ứng dụng **không ship thẻ đánh dấu**, chỉ ship cây khai báo | `entry` là `ui.json`; `tcc-ui` không lộ khái niệm web |
-| B16 | Giải mã từ đĩa **không đi vòng qua hàm dựng** | `UiNode` là kiểu riêng; `TryFrom` dựng lại qua hàm dựng có kiểm |
-| B17 | Hỏi quyền **theo từng mục**, công tắc mặc định TẮT | `moi_cong_tac_mac_dinh_tat`, `bam_cho_phep_ma_khong_bat_gi_thi_khong_cap_quyen_nao` |
-| B18 | Công tắc ma **vứt cả thông điệp**, không lọc bớt | `doc_tra_loi` + `kiem-bam-nut ct-ma` |
-| B19 | **Quyết định đầu tiên thắng**, không cho ghi đè | Kiểm `o.is_none()` trong bộ nhận IPC |
-| B20 | Hành vi của nút khai trong **bản kê khai đã ký**, không trong `ui.json` | `Manifest::actions` nằm trong phạm vi chữ ký |
-| B21 | Hành vi **không xin được** cái quyền năng chưa cho | `kiem_hanh_vi` + `hanh_vi_goi_may_chu_chua_xin_quyen_thi_tu_choi` |
-| B22 | **Không một gói tin nào rời khỏi máy** khi chưa cấp quyền | `chua_cap_quyen_thi_khong_goi_ra_ngoai_mot_lan_nao` |
-| B23 | **KHÔNG đi theo chuyển hướng** — đó là đòn thoát khỏi quyền năng | `max_redirects(0)` + `moi_chuyen_huong_deu_bi_tu_choi` |
-| B24 | Chỉ HTTPS, có thời gian chờ, có trần kích thước | `tcc-net` |
-| B25 | Đường ra ngoài **nhìn thấy được trong cây phụ thuộc** | Luật 8: chỉ `tcc-shell` phụ thuộc `tcc-net` |
-| B26 | Quyền đã nhớ gắn với **khoá người ký**, không chỉ mã ứng dụng | `doi_khoa_nguoi_ky_thi_phai_hoi_lai` |
-| B27 | Quyền đã nhớ gắn với **phạm vi**, không chỉ tên quyền | `noi_rong_pham_vi_thi_phai_hoi_lai` |
-| B28 | Kho quyền hỏng → **hỏi lại**, không ngả về cho phép | `tep_hong_hoac_phien_ban_la_thi_hoi_lai` |
-| B29 | Khoá ký đổi → **cảnh báo**, và cảnh báo đứng TRƯỚC danh sách quyền | `doi_khoa_ky_thi_canh_bao_hien_ra_truoc_danh_sach_quyen` |
-| B30 | Nhãn điều khiển **hiện ra cho người nhìn**, không chỉ `aria-label` | `nhan_cong_tac_hien_ra_cho_nguoi_nhin_thay`, `nhan_o_nhap_hien_ra_cho_nguoi_nhin_thay` |
-| B31 | Sắc thái **mất mát được vẽ khác đi**, không chỉ khai ra | `sac_thai_mat_mat_duoc_ve_khac_di` |
-| B32 | Ô nhập **KHÔNG mang ARIA role** — ARIA đè lên ngữ nghĩa gốc | `moi_nut_deu_mang_vai_tro_ro_rang` |
-| B33 | Tín hiệu "mất mát" **lên được trục trợ năng của hệ điều hành** | `nut_mat_mat_mang_cau_canh_bao` |
-| B34 | Tệp trong gói phục vụ qua **giao thức riêng**, đường dẫn qua đúng `check_path` | `duong_dan_di_ra_ngoai_goi_bi_chan` |
-| B35 | Chỉ phục vụ **ảnh**, theo danh sách TRẮNG đuôi tệp — **không có SVG** | `chi_phuc_vu_anh`, `svg_khong_duoc_phuc_vu` |
-| B36 | Hộp thoại hỏi quyền **không phục vụ tệp nào** của ứng dụng | `mo(..., \|_\| None, ...)` |
-| B37 | Quyết định **không đọc phần mô tả** lưu trên đĩa | `quyet_dinh_khong_doc_phan_mo_ta` |
-| B38 | Nút mất mát **không giãn kín bề ngang** | `nut_khong_gian_kin_be_ngang` |
-| B39 | **Dấu hiệu MÁY tách khỏi chữ CHO NGƯỜI** — chữ dịch được, dấu hiệu không đổi | `doi_chu_sang_ngon_ngu_khac_khong_lam_mat_dau_hieu_may` |
+| B1 | A hybrid signature is valid only when **BOTH** halves are | `gia_mao_nua_co_dien`, `gia_mao_nua_hau_luong_tu` |
+| B2 | The signature covers **both the manifest and the content** | `thay_ruot_giu_chu_ky_thi_hong` |
+| B3 | A capability **does not exist** until granted | Private fields + a `compile_fail` doctest |
+| B4 | Revocation kills **every copy already handed out** | `thu_hoi_giet_ca_ban_sao_dang_cam` |
+| B5 | Hostnames match **exactly** — no suffix matching | `khong_khop_ten_mien_con_va_khong_khop_hau_to` |
+| B6 | Strings shown to the user contain **no spoofing characters** | `ten_ung_dung_co_ky_tu_dao_chieu_thi_tu_choi` |
+| B7 | App-supplied text **cannot escape** the renderer's document | `chu_cua_ung_dung_khong_thoat_ra_duoc_tai_lieu` + the `kiem-khoi-tan-cong` example |
+| B8 | The accessibility tree the renderer publishes **matches** the source tree | `check_accessibility_parity` + `nhan_khac_chu_hien_ra_thi_bao_loi` |
+| B9 | The interface **cannot express** a button missing a role or a label | Types: `Alt::Decorative` must be stated out loud |
+| B10 | Apps **cannot set colours** — only declare intent | `Tone` is a closed enum with no colour field |
+| B11 | Skipping signature verification **does not compile** | `grant_verified` accepts only `VerifiedApp` |
+| B12 | Every unclear path ends in **DENY** | `moi_duong_khong_ro_rang_deu_ra_tu_choi` |
+| B13 | **The renderer wires events; the app never does** | `script-src 'none'` + the renderer's init script |
+| B14 | Phantom actions **go nowhere** | Allowlist + `kiem-bam-nut ma` |
+| B15 | Apps **ship no markup**, only a declarative tree | `entry` is `ui.json`; `tcc-ui` exposes no web concepts |
+| B16 | Decoding from disk **cannot bypass the constructors** | `UiNode` is a separate type; `TryFrom` rebuilds through the checking constructors |
+| B17 | Permission is asked **item by item**, every toggle default OFF | `moi_cong_tac_mac_dinh_tat`, `bam_cho_phep_ma_khong_bat_gi_thi_khong_cap_quyen_nao` |
+| B18 | A phantom toggle **discards the whole message**, it does not filter | `doc_tra_loi` + `kiem-bam-nut ct-ma` |
+| B19 | **The first decision wins** — no overwriting | An `o.is_none()` check in the IPC receiver |
+| B20 | Button behaviour is declared in the **signed manifest**, not in `ui.json` | `Manifest::actions` sits inside the signature's scope |
+| B21 | An action **cannot request** a capability that was never asked for | `kiem_hanh_vi` + `hanh_vi_goi_may_chu_chua_xin_quyen_thi_tu_choi` |
+| B22 | **Not one packet leaves the machine** before the grant | `chua_cap_quyen_thi_khong_goi_ra_ngoai_mot_lan_nao` |
+| B23 | **Redirects are NOT followed** — that is a capability escape | `max_redirects(0)` + `moi_chuyen_huong_deu_bi_tu_choi` |
+| B24 | HTTPS only, with a timeout and a size ceiling | `tcc-net` |
+| B25 | The path out to the network is **visible in the dependency tree** | Rule 8: only `tcc-shell` depends on `tcc-net` |
+| B26 | A remembered permission is bound to the **signer's key**, not just the app id | `doi_khoa_nguoi_ky_thi_phai_hoi_lai` |
+| B27 | A remembered permission is bound to the **scope**, not just the capability name | `noi_rong_pham_vi_thi_phai_hoi_lai` |
+| B28 | A corrupt permission store → **ask again**, never fall back to allow | `tep_hong_hoac_phien_ban_la_thi_hoi_lai` |
+| B29 | Signing key changed → **warn**, and the warning comes BEFORE the permission list | `doi_khoa_ky_thi_canh_bao_hien_ra_truoc_danh_sach_quyen` |
+| B30 | Control labels are **visible to people who look**, not only `aria-label` | `nhan_cong_tac_hien_ra_cho_nguoi_nhin_thay`, `nhan_o_nhap_hien_ra_cho_nguoi_nhin_thay` |
+| B31 | A destructive tone is **drawn differently**, not merely declared | `sac_thai_mat_mat_duoc_ve_khac_di` |
+| B32 | Input fields carry **NO ARIA role** — ARIA overrides native semantics | `moi_nut_deu_mang_vai_tro_ro_rang` |
+| B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_mat_mat_mang_cau_canh_bao` |
+| B34 | Package files are served over a **custom protocol**, paths through `check_path` | `duong_dan_di_ra_ngoai_goi_bi_chan` |
+| B35 | **Images only**, by an extension ALLOWLIST — **no SVG** | `chi_phuc_vu_anh`, `svg_khong_duoc_phuc_vu` |
+| B36 | The permission dialog **serves no app file at all** | `mo(..., \|_\| None, ...)` |
+| B37 | Decisions **never read the description** stored on disk | `quyet_dinh_khong_doc_phan_mo_ta` |
+| B38 | A destructive button **does not stretch the full width** | `nut_khong_gian_kin_be_ngang` |
+| B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_chu_sang_ngon_ngu_khac_khong_lam_mat_dau_hieu_may` |
+| B40 | A manifest field the standard does not define is **rejected** | Conformance: three `truong la` vectors, mutation-tested in both directions |
 
-**B39 — vì sao một câu cảnh báo lại không dịch được suốt mấy phiên.**
+**B40 — what is signed must be exactly what is checked (2026-08-14).**
 
-Bộ quét trợ năng nhận biết "hành động mất mát" bằng cách so `aria-description`
-với đúng chuỗi `"Hành động không hoàn tác được."`. Chuỗi đó vừa là **chữ cho
-người đọc** vừa là **dấu hiệu cho máy nhận biết**.
+The specification said an implementation *SHOULD* reject unknown fields; the code
+silently ignored them. `Manifest`, `CapabilityRequest` and `Scope` all lacked
+`deny_unknown_fields` — while the interface tree had it from the start.
 
-Hệ quả: dịch nó sang tiếng Anh là bộ quét mù, phép kiểm định trợ năng đỏ, và
-`Tone::Danger` mất hết ý nghĩa. Nên nó bị khoá cứng ở tiếng Việt — trong một
-giao diện mặc định tiếng Anh.
+This is not tidiness. **The signature covers every byte of `manifest.json`,
+including bytes no rule of the standard reads.** A field nobody validates is a
+channel carrying meaning outside the standard: the same signed package means one
+thing on an implementation that understands `x-acme-autostart` and another on one
+that does not. Vendor prefixes broke interoperability on the web exactly this
+way, and a signature makes it worse — the divergent behaviour arrives looking
+authentic.
 
-**Gộp hai vai trò vào một chuỗi luôn khoá chặt nó lại như vậy.** Nay tách hẳn:
+Inside a capability scope it is worse still. A scope reading
+`{"kind":"network","hosts":["a.com"],"ports":[443]}` grants port 443 on an
+implementation that knows `ports` and **every port** on one that ignores it.
+Dropping a field silently can only ever widen a permission, never narrow one.
+
+The standard-level consequence is recorded in [`spec/VERSIONING.md`](spec/VERSIONING.md)
+§3: because unknown fields are rejected, **every added field is a breaking
+change**. "It's only additive" is never an argument here.
+
+**B39 — why one warning sentence resisted translation for several sessions.**
+
+The accessibility scanner recognised "destructive action" by comparing
+`aria-description` against the exact string `"Hành động không hoàn tác được."`.
+That string was simultaneously **human-readable text** and **a machine marker**.
+
+The consequence: translating it into English blinded the scanner, turned the
+accessibility check red, and drained `Tone::Danger` of all meaning. So it stayed
+hard-coded in Vietnamese — inside an interface that defaults to English.
+
+**Fusing two roles into one string always locks it down like that.** They are now
+separate:
 
 | | |
 |---|---|
-| Dấu hiệu máy | `data-sac-thai="mat-mat"` — không bao giờ đổi, không bao giờ hiện ra |
-| Chữ cho người | tiêm từ `tcc-shell` xuống, tự do dịch |
+| Machine marker | `data-sac-thai="mat-mat"` — never changes, never displayed |
+| Human text | injected down from `tcc-shell`, freely translatable |
 
-Bộ dựng **không biết ngôn ngữ và không nên biết** — bảng dịch nằm ở `tcc-shell`,
-và `loi::chu_bo_dung()` là cửa duy nhất đưa chữ xuống. Cùng lối đã dùng với
-`trait Mang` và trình phục vụ tệp: thứ gì phụ thuộc ngữ cảnh thì tiêm từ ngoài.
+The renderer **does not know the language and should not** — the translation
+table lives in `tcc-shell`, and `loi::chu_bo_dung()` is the only door text comes
+through. The same approach as `trait Mang` and the file server: anything
+context-dependent is injected from outside.
 
-Mặc định của bộ dựng là **tiếng Anh**, đúng mặc định của cả giao diện. Đo được
-trên trục trợ năng thật: `"Xoá dữ liệu, button — this cannot be undone"` — nhãn
-nút vẫn tiếng Việt vì đó là chữ **của ứng dụng**, dịch hộ là nói thay cho nó.
+The renderer defaults to **English**, matching the interface default. Measured on
+the real accessibility axis: `"Xoá dữ liệu, button — this cannot be undone"` —
+the button label stays Vietnamese because it is the **app's** text, and
+translating it would be speaking on the app's behalf.
 
-**B37 — màn hình quản lý quyền, và một lời nói dối phải chặn đường.**
+**B37 — the permission management screen, and a lie that had to be walled off.**
 
-"Cấp" mà không kèm "xem lại và thu hồi" chỉ là nửa hệ thống quyền. Nhưng màn
-hình đó cần hiện `shop.tcc-coin.com`, mà kho chỉ lưu **vân tay** phạm vi — vân
-tay không đọc ngược ra được. Nên phải lưu thêm chữ mô tả.
+"Grant" without "review and revoke" is half a permission system. But that screen
+needs to display `shop.tcc-coin.com`, while the store keeps only a **fingerprint**
+of the scope — and a fingerprint does not read backwards. So a description string
+must also be stored.
 
-Chữ lưu trên đĩa là chữ **sửa được**. Ai sửa tệp có thể làm màn hình hiện
-"shop.tcc-coin.com" trong khi vân tay ứng với một phạm vi khác hẳn — tức là màn
-hình quản lý quyền **nói dối**, đúng cái màn hình mà lời nói dối gây hại nhất.
+Text on disk is **editable text**. Anyone who can edit the file can make the
+screen display "shop.tcc-coin.com" while the fingerprint corresponds to an
+entirely different scope — meaning the permission management screen **lies**, on
+exactly the screen where a lie does the most damage.
 
-Ta chấp nhận rủi ro hiển thị (nó nằm trong mô hình đe doạ đã ghi: người sửa được
-tệp đã chiếm được tài khoản). Nhưng phải chặn đường nó ảnh hưởng tới **QUYẾT
-ĐỊNH**: `tra()` chỉ đọc vân tay, không bao giờ đọc mô tả. Phép thử sửa mô tả
-trên đĩa thành một phạm vi khác hẳn và đòi quyết định **không đổi**.
+The display risk is accepted (it sits inside the documented threat model: someone
+who can edit the file has already taken the account). What must be walled off is
+its influence on the **DECISION**: `tra()` reads only the fingerprint, never the
+description. The test rewrites the on-disk description to a completely different
+scope and demands the decision **not change**.
 
-**B38 — một nút mất mát to bằng cả màn hình là một cái bẫy.**
+**B38 — a destructive button the size of the screen is a trap.**
 
-Trong hộp xếp dọc, phần tử con mặc định giãn hết bề ngang. Nút "Quên ứng dụng
-này" chiếm trọn màn hình — dễ bấm nhầm, và nó xoá thứ người dùng đã quyết định.
-Cùng gốc với lỗi ảnh 8×8 bị kéo giãn: **bảng kiểu tối giản vẫn có hành vi mặc
-định, và hành vi mặc định vẫn phải được xem xét.**
+In a vertical box, children stretch to full width by default. The "Forget this
+app" button filled the screen — easy to hit by accident, and it erases what the
+user decided. Same root as the stretched 8×8 image bug: **a minimal stylesheet
+still has default behaviour, and default behaviour still has to be considered.**
 
-**B34/B35/B36 — trình phục vụ `tcc-goi:`, một ĐƯỜNG MỚI vào nội dung gói.**
+**B34/B35/B36 — the `tcc-goi:` server, a NEW path into package content.**
 
-Trước đó, ảnh trong gói **không bao giờ hiện**: `ui.json` khai đường dẫn tương
-đối, còn tài liệu nạp bằng `with_html` không có địa chỉ gốc nên không phân giải
-được. Sửa nó nghĩa là thêm một trình phục vụ nhận **địa chỉ do trang yêu cầu** —
-tức là mở một bề mặt tấn công mới. Ba luật:
+Before it, images inside a package **never appeared**: `ui.json` declares relative
+paths, and a document loaded with `with_html` has no base URL to resolve them
+against. Fixing that meant adding a server that receives **URLs the page asks
+for** — that is, opening a new attack surface. Three rules:
 
-| Luật | Chặn cái gì |
+| Rule | Blocks |
 |---|---|
-| Đường dẫn qua đúng `check_path` của tiêu chuẩn | `../` đi ra ngoài gói |
-| Chỉ trả tệp CÓ TRONG cây đã ký | nội dung ngoài phạm vi chữ ký |
-| Kiểu nội dung từ DANH SÁCH TRẮNG theo đuôi | ép trình duyệt coi một tệp là HTML |
+| Paths go through the standard's own `check_path` | `../` escaping the package |
+| Only files PRESENT in the signed tree are served | content outside the signature's scope |
+| Content type from an extension ALLOWLIST | forcing the browser to treat a file as HTML |
 
-Ba chi tiết dễ bỏ sót, đều có phép thử:
+Three details easy to miss, each with a test:
 
-1. **Giải mã phần trăm TRƯỚC khi kiểm.** `%2e%2e%2f` chính là `../` viết trá
-   hình. Không giải mã thì `check_path` không nhìn thấy, mà trình duyệt thì có.
-2. **Cắt phần truy vấn và phần neo trước khi kiểm.** Không cắt thì chuỗi đem
-   kiểm khác chuỗi đem tra cứu.
-3. **Không có SVG trong danh sách trắng.** SVG chạy được kịch bản và nhúng được
-   tài nguyên ngoài — nó là một tài liệu, không phải một tấm ảnh.
+1. **Percent-decode BEFORE checking.** `%2e%2e%2f` is `../` in disguise. Without
+   decoding, `check_path` cannot see it — but the browser can.
+2. **Strip query and fragment before checking.** Otherwise the string checked
+   differs from the string looked up.
+3. **No SVG in the allowlist.** SVG runs script and embeds external resources —
+   it is a document, not a picture.
 
-**B36**: hộp thoại hỏi quyền là màn hình CỦA TRÌNH DUYỆT, nên nó truyền
-`|_| None` — ứng dụng không đưa được một byte nào vào đó. Cho phép là mở đường
-vẽ đè lên chính câu cảnh báo.
+**B36**: the permission dialog is a screen belonging to **the browser**, so it
+passes `|_| None` — the app cannot place a single byte inside it. Allowing that
+would open a path to drawing over the warning itself.
 
-Từ chối thì trả **404 rỗng**, không kèm thông báo: nói chi tiết là cho trang
-biết cái gì có và cái gì không có trong gói.
+Denials return an **empty 404** with no message: explaining would tell the page
+what does and does not exist inside the package.
 
-**B32/B33 — soi cây trợ năng THẬT tìm ra hai lỗi nữa (13/08/2026).**
+**B32/B33 — inspecting the REAL accessibility tree found two more bugs (2026-08-13).**
 
-Sau khi có quyền Trợ năng, soi được cây mà VoiceOver thật sự thấy. Hai phát hiện,
-và **lỗi thứ nhất do chính bản vá trước của tôi gây ra**:
+Once Accessibility permission was granted, the tree VoiceOver actually sees became
+inspectable. Two findings, and **the first was caused by my own earlier patch**:
 
-| # | Lỗi | Nguyên nhân |
+| # | Bug | Cause |
 |---|---|---|
-| 1 | Ô mật khẩu ra `AXTextField` thường | Tôi thêm `role="textbox"` cho bất biến "mọi nút mang vai trò rõ ràng" — **ARIA đè lên ngữ nghĩa gốc** và kéo `AXSecureTextField` tụt xuống |
-| 2 | Nút mất mát không mang tín hiệu gì | `aria-description` **không lên được** trục trợ năng của macOS |
+| 1 | Password fields exposed as a plain `AXTextField` | I added `role="textbox"` to satisfy the "every control carries an explicit role" invariant — **ARIA overrides native semantics** and downgraded `AXSecureTextField` |
+| 2 | The destructive button carried no signal at all | `aria-description` **does not reach** the macOS accessibility axis |
 
-Lỗi 1 là bài học đắt: một bất biến tôi thêm vào để tăng an toàn lại **làm hỏng
-đúng thứ nó định bảo vệ**. Luật ARIA số một — *đừng dùng ARIA khi thẻ gốc đã nói
-đúng* — tôi biết mà vẫn vi phạm, vì đuổi theo một con số đếm được.
+Bug 1 was the expensive lesson: an invariant I added to increase safety **broke
+the very thing it was meant to protect**. The first rule of ARIA — *don't use
+ARIA when the native element already says the right thing* — I knew it and
+violated it anyway, chasing a number I could count.
 
-Bất biến đã sửa: **ô nhập KHÔNG được mang `role`**, mọi loại khác thì có. Công
-tắc vẫn giữ `role="switch"` vì đó là ARIA **nâng cấp** (ô đánh dấu → công tắc),
-dùng đúng chỗ.
+Fixed invariant: **input fields must carry NO `role`**; every other kind does.
+Toggles keep `role="switch"` because that is ARIA **upgrading** a checkbox into a
+switch — the correct use.
 
-Lỗi 2 sửa bằng `title` (→ AXHelp) cộng `aria-roledescription` (→ AXRoleDescription).
-Lưu ý `aria-roledescription` **thay thế** tên vai trò, nên chuỗi của nó phải tự
-nhắc đây là nút — nếu không người dùng mất thông tin đó.
+Bug 2 was fixed with `title` (→ AXHelp) plus `aria-roledescription`
+(→ AXRoleDescription). Note that `aria-roledescription` **replaces** the role
+name, so its string must state that this is a button — otherwise the user loses
+that information.
 
-Đo được sau khi sửa, đây là câu VoiceOver sẽ đọc:
+Measured after the fix, this is what VoiceOver announces:
 
 ```
 "Gõ thử tiếng Việt, text field"
@@ -160,579 +193,613 @@ nhắc đây là nút — nếu không người dùng mất thông tin đó.
 "Xoá dữ liệu, nút — hành động không hoàn tác được"
 ```
 
-**⚠️ NỢ ĐÃ GHI**: câu cảnh báo cứng bằng tiếng Việt trong bộ dựng, trong khi giao
-diện mặc định là tiếng Anh. Người dùng trình đọc màn hình ở chế độ tiếng Anh sẽ
-nghe một câu tiếng Việt. Sửa đúng nghĩa là **bộ dựng phải biết ngôn ngữ** — một
-thay đổi kiến trúc, không phải một dòng sửa.
+**B30/B31 — three bugs 211 tests missed and one screenshot caught.**
 
-**B30/B31 — ba lỗi mà 211 phép thử không bắt được, ảnh chụp bắt ngay.**
+On 2026-08-13, once Screen Recording was granted, the window could be captured
+for the first time. The image exposed three things:
 
-Ngày 13/08/2026, sau khi có quyền Ghi màn hình, chụp được cửa sổ lần đầu. Ảnh
-lộ ra ba thứ:
-
-| # | Lỗi | Vì sao phép thử mù |
+| # | Bug | Why the tests were blind |
 |---|---|---|
-| 1 | Công tắc quyền là **ô vuông trống**, nhãn chỉ nằm trong `aria-label` | Cây trợ năng CÓ nhãn nên phép kiểm định trợ năng qua sạch |
-| 2 | Ô nhập cũng vậy — cùng một lớp lỗi | Như trên |
-| 3 | Nút `Tone::Danger` trông **y hệt** nút thường | Phép thử kiểm thuộc tính `data-sac-thai` có mặt, không kiểm nó có tác dụng gì |
+| 1 | The permission toggle was an **empty square**; its label existed only in `aria-label` | The accessibility tree HAD the label, so the accessibility check passed cleanly |
+| 2 | Input fields the same — the same class of bug | As above |
+| 3 | A `Tone::Danger` button looked **identical** to an ordinary one | The test checked that the `data-sac-thai` attribute was present, not that it did anything |
 
-Lỗi 1 nặng nhất: ở hộp thoại hỏi quyền, công tắc **là** nút quyết định. Người
-dùng sáng mắt thấy một ô vuông không chữ và không biết mình đang bật cái gì —
-trong khi trình đọc màn hình nghe đủ. Cả tầng quyền năng vô nghĩa với người nhìn.
+Bug 1 was the worst: in the permission dialog, the toggle **is** the decision
+control. A sighted user saw a blank square with no text and could not tell what
+they were switching on — while a screen reader heard everything. The whole
+capability layer was meaningless to anyone looking at it.
 
-Lỗi 3 làm hỏng B10: ứng dụng khai ý định, bộ dựng quyết định hình thức — nhưng
-bộ dựng **không có bảng kiểu nào**, nên mọi ý định khai ra đều vẽ giống hệt nhau.
-Đã thêm `BANG_KIEU` tối thiểu: mỗi ý định khai ra phải có một biểu hiện nhìn
-thấy được.
+Bug 3 broke B10: apps declare intent and the renderer decides appearance — but
+the renderer **had no stylesheet**, so every declared intent was drawn
+identically. A minimal `BANG_KIEU` was added: every declarable intent must have a
+visible manifestation.
 
-**Bài học chung**: kiểm cây trợ năng chứng minh *người khiếm thị nghe được*, nó
-**không** chứng minh *người sáng mắt nhìn được*. Hai câu khác nhau, và tôi đã
-tưởng câu đầu bao hàm câu sau.
+**The general lesson**: checking the accessibility tree proves *a blind user can
+hear it*. It does **not** prove *a sighted user can see it*. Two different
+claims, and I had assumed the first contained the second.
 
-**B29 — ghim khoá kiểu TIN-LẦN-ĐẦU, và giới hạn của nó.**
+**B29 — trust-on-first-use key pinning, and its limits.**
 
-Nó **không** trả lời "gói này có đúng của nhà phát hành X không" — chưa tầng nào
-trả lời được câu đó. Nó trả lời câu hẹp hơn: **"khoá ký lần này có giống lần
-trước không"**. Câu hẹp đó bắt đúng một tình huống, và là tình huống nguy hiểm
-nhất: gói mang mã ứng dụng quen thuộc nhưng ký bằng khoá lạ.
+It does **not** answer "is this package really from publisher X" — no layer here
+answers that yet. It answers a narrower question: **"is this the same signing key
+as last time?"** That narrow question catches exactly one situation, and it is the
+most dangerous one: a package bearing a familiar app id signed with an unfamiliar
+key.
 
-Trước đây người dùng chỉ thấy hộp thoại hiện lại **như lần đầu** — không có cách
-nào biết ứng dụng đã đổi tay.
+Previously the user saw the dialog reappear **as if for the first time**, with no
+way to know the app had changed hands.
 
-Hai chi tiết đáng nói:
+Two details worth stating:
 
-**Chữ phải là sự thật quan sát được, không phải phán quyết.** "Ứng dụng này
-trước đây được ký bằng một khoá KHÁC" — chứ không phải "ứng dụng này giả mạo".
-Ta không biết ai đúng ai sai: có thể nhà phát hành đổi khoá hợp lệ. Phép thử
-`khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh` nay cấm thêm "giả mạo", "lừa
-đảo", "is fake", "is malicious".
+**The text must be an observable fact, not a verdict.** "This app was previously
+signed with a DIFFERENT key" — not "this app is fake". We do not know who is
+right: the publisher may have rotated keys legitimately. The test
+`khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh` now also forbids "giả mạo",
+"lừa đảo", "is fake" and "is malicious".
 
-**Vị trí là một phần của cảnh báo.** Nó đứng ngay sau tên ứng dụng, TRƯỚC danh
-sách quyền. Đặt ở cuối thì người dùng đã đọc xong danh sách và tay đã ở nút bấm.
-Đột biến "dời cảnh báo xuống cuối" bị bắt.
+**Position is part of the warning.** It sits immediately after the app name,
+BEFORE the permission list. Put it at the end and the user has already read the
+list with their hand on the button. The mutation "move the warning to the bottom"
+is caught.
 
-**B26/B27 — hai cách làm hỏng việc "nhớ quyền".**
+**B26/B27 — two ways to get "remember this permission" wrong.**
 
-Hỏi lại mỗi lần chạy là cách nhanh nhất khiến người dùng bấm bừa, nên phải nhớ.
-Nhưng nhớ sai thì tệ hơn không nhớ:
+Asking on every launch is the fastest way to train users to click blindly, so it
+must be remembered. But remembering it wrongly is worse than not remembering:
 
-| Nhớ theo | Kẻ gian làm gì |
+| Keyed by | What an attacker does |
 |---|---|
-| Chỉ mã ứng dụng | Ship gói mang `com.tcc.vi` → thừa hưởng mọi quyền của ví thật |
-| Chỉ tên quyền | Bản 1.0 xin `[shop]` được đồng ý; bản 1.1 xin `[shop, thu-thap]` → quyền cũ **tự phủ lên phạm vi mới** |
+| App id alone | Ship a package claiming `com.tcc.vi` → inherit every permission of the real wallet |
+| Capability name alone | v1.0 requests `[shop]` and is approved; v1.1 requests `[shop, harvest]` → the old grant **covers the new scope by itself** |
 
-Nên bản ghi kèm **cả khoá công khai người ký lẫn vân tay phạm vi**. Đổi một
-trong hai là `tra()` trả `None`, tức là hỏi lại.
+So a record carries **both the signer's public key and a fingerprint of the
+scope**. Change either and `tra()` returns `None`, meaning ask again.
 
-Vân tay phạm vi dùng **tiền tố độ dài**, đúng lối của `tcc_spec::tree` — không
-có tiền tố thì `["ab","c"]` và `["a","bc"]` cho cùng chuỗi byte, và hai phạm vi
-khác nhau cùng vân tay là cấp nhầm quyền. Có phép thử chốt.
+The scope fingerprint uses **length prefixes**, following `tcc_spec::tree` —
+without them `["ab","c"]` and `["a","bc"]` produce the same bytes, and two
+different scopes sharing a fingerprint is a misgranted permission. A test pins it.
 
-**Điều kho quyền KHÔNG bảo vệ được.** Người sửa được tệp này là người đã có
-quyền vào tài khoản của người dùng — lúc đó họ đọc được cả kho khoá lẫn dữ liệu
-duyệt web. Tệp ghi quyền 0600 và ghi qua tệp tạm rồi đổi tên, nhưng đó là chống
-hỏng nửa chừng và chống người dùng khác trên cùng máy, **không** phải chống kẻ
-đã chiếm được tài khoản. Ghi rõ để không ai tưởng nó mạnh hơn thực tế.
+**What the permission store CANNOT protect against.** Anyone who can edit this
+file already has access to the user's account — at which point they can read the
+keystore and the browsing data too. The file is written 0600 and through a
+temporary file then renamed, but that guards against half-written files and
+against other users on the same machine, **not** against someone who has taken
+the account. Stated explicitly so nobody assumes it is stronger than it is.
 
-**B23 — chuyển hướng là đòn THOÁT KHỎI QUYỀN NĂNG.**
+**B23 — a redirect is a CAPABILITY ESCAPE.**
 
-Quyền năng cho phép gọi `shop.tcc-coin.com`. Máy chủ đó trả `302 → ke-gian.example`.
-Máy khách nào tự đi theo thì ứng dụng vừa **chạm tới một máy chủ chưa bao giờ
-được cấp quyền** — mà cổng quyền năng ở `tcc-runtime` đã đóng lại phía sau và
-không có cách nào biết.
+The capability permits calling `shop.tcc-coin.com`. That server returns
+`302 → attacker.example`. Any client that follows it has just let the app **reach
+a server that was never granted** — while the capability gate in `tcc-runtime`
+has already closed behind it with no way to know.
 
-Chặn bằng hai lớp cố ý: `max_redirects(0)` trong cấu hình, **và** mã của ta tự
-từ chối mọi trạng thái 3xx. Lớp hai kiểm thử được mà không cần máy chủ thật nên
-nó không bao giờ mục. Đã kiểm với máy chủ thật: `http.badssl.com` trả 301 và bị
-từ chối đúng như thiết kế.
+Blocked by two deliberate layers: `max_redirects(0)` in the configuration, **and**
+our own code rejecting every 3xx status. The second layer is testable without a
+real server, so it never rots. Verified against a real one: `http.badssl.com`
+returns 301 and is refused exactly as designed.
 
-**B25 — vì sao `tcc-net` là crate RIÊNG.**
+**B25 — why `tcc-net` is its OWN crate.**
 
-Để đọc `Cargo.toml` là biết ngay bộ nạp ứng dụng không tự mở socket được:
-`tcc-runtime` không phụ thuộc `tcc-net`, nó chỉ gọi qua `trait Mang` tiêm từ
-ngoài vào. Luật 8 trong CI chốt điều đó.
+So that reading `Cargo.toml` is enough to see the app loader cannot open a socket:
+`tcc-runtime` does not depend on `tcc-net`, it only calls through an injected
+`trait Mang`. Rule 8 in CI pins this.
 
-Cờ tính năng `mang` tách riêng, nên dựng được một bản trình duyệt **không có
-mạng** — hữu ích khi soi bảo mật: chạy bản đó thì chắc chắn không gói tin nào
-rời máy, dù mã có lỗi gì.
+The `mang` feature flag is separate, so a **network-free** build of the browser is
+possible — useful during a security review: run that build and no packet can
+leave the machine no matter what bug the code contains.
 
-**Chọn `ureq` + rustls**: đã đo, 22 crate so với `reqwest` 86 (kéo theo cả
-runtime async). Rustls chứ không phải OpenSSL — hợp `unsafe_code = deny` và
-tránh cả một lịch sử lỗi.
+**Choosing `ureq` + rustls**: measured at 22 crates against `reqwest`'s 86 (which
+drags in an async runtime). Rustls rather than OpenSSL — consistent with
+`unsafe_code = deny`, and it avoids an entire history of vulnerabilities.
 
-**B20 — vì sao hành vi ở bản kê khai chứ không ở `ui.json`.**
+**B20 — why behaviour lives in the manifest, not in `ui.json`.**
 
-Ba lý do, lý do nào cũng đủ: chữ ký bao trùm bản kê khai nên hành vi không sửa
-được sau khi ký; bản kê khai là thứ hộp thoại hỏi quyền đọc, nên về sau hiện
-được "nút này gọi shop.tcc-coin.com"; và khai ở `ui.json` nghĩa là `tcc-ui` phải
-biết tới mạng — mà crate đó không được biết gì ngoài giao diện.
+Three reasons, each sufficient on its own: the signature covers the manifest, so
+behaviour cannot be edited after signing; the manifest is what the permission
+dialog reads, so it can later show "this button calls shop.tcc-coin.com"; and
+declaring it in `ui.json` would mean `tcc-ui` has to know about the network —
+and that crate must know nothing beyond the interface.
 
-**B21 — bắt sự KHÔNG NHẤT QUÁN, không chỉ bắt vi phạm.**
+**B21 — catching INCONSISTENCY, not just violation.**
 
-Ứng dụng khai được một nút gọi `ke-gian.example` trong khi chỉ xin quyền tới
-`shop.tcc-coin.com`. Lúc chạy quyền năng vẫn chặn — nhưng người dùng đã bấm,
-không thấy gì xảy ra, và **không ai biết vì sao**. Chặn ở `validate_shape` nghĩa
-là `tcc verify` báo cho người viết ứng dụng lúc họ còn ngồi trước máy. Luật khớp
-tên miền ở đây phải **y hệt** luật của `tcc-capability` (chính xác, không khớp
-tên miền con) — lệch hai bên là lỗ, có phép thử chốt.
+An app can declare a button calling `attacker.example` while requesting
+capabilities only for `shop.tcc-coin.com`. At runtime the capability still blocks
+it — but the user has already clicked, nothing happened, and **nobody knows why**.
+Blocking it in `validate_shape` means `tcc verify` tells the app author while they
+are still sitting at their machine. The host-matching rule here must be
+**identical** to `tcc-capability`'s (exact, no subdomain matching) — a mismatch
+between the two is a hole, and a test pins it.
 
-**B22 — khẳng định "bị từ chối" là CHƯA ĐỦ.**
+**B22 — asserting "it was denied" is NOT ENOUGH.**
 
-Phép thử không chỉ kiểm hàm trả lỗi mà đếm số lần đường mạng bị gọi, và đòi số
-đó bằng **0**. Kiểm quyền sau khi gọi thì gói tin đã đến nơi — mà với một máy
-chủ theo dõi, chỉ cần gói tin đến là đủ, nội dung trả về không quan trọng. Đột
-biến "gọi trước, kiểm sau" bị bắt bởi đúng phép thử này.
+The test does not merely check that the function returns an error; it counts how
+many times the network path was invoked and demands that number be **0**. Check
+the permission after the call and the packet has already arrived — and for a
+tracking server, arrival is the entire point; the response is irrelevant. The
+mutation "call first, check second" is caught by exactly this test.
 
-Đường ra mạng được **tiêm từ ngoài vào** (`trait Mang`): `tcc-runtime` không mở
-socket, nên nó kiểm thử được mà không đụng mạng thật, và mọi đường ra khỏi máy
-đều nhìn thấy được ngay tại chỗ gọi — không có lối đi ngầm chôn trong thư viện.
+The network path is **injected from outside** (`trait Mang`): `tcc-runtime` opens
+no socket, so it is testable without touching a real network, and every path off
+the machine is visible right at the call site — no hidden route buried in a
+library.
 
-**B17 — hỏi từng mục, đổi 13/08/2026.**
+**B17 — item-by-item consent, changed 2026-08-13.**
 
-Trước kia một nút "Cho phép" cấp **toàn bộ** quyền ứng dụng xin. Giờ mỗi quyền
-một công tắc, mặc định TẮT, và `Allow` cần **hai** điều kiện: bấm nút cho phép
-**và** công tắc của đúng quyền đó đang bật. Bấm "Cho phép" mà không bật gì thì
-không quyền nào được cấp.
+Previously a single "Allow" button granted **everything** the app requested. Now
+each capability has its own toggle, default OFF, and `Allow` requires **two**
+conditions: the allow button pressed **and** that specific capability's toggle
+switched on. Pressing "Allow" with nothing switched on grants nothing.
 
-Thêm loại component `Toggle` là **đổi tiêu chuẩn**. Đúng như tài liệu đã hứa,
-`NodeKind` không đánh dấu `#[non_exhaustive]` nên bộ dựng **không biên dịch
-được** cho tới khi xử lý loại mới. Đó là cái giá đã ghi từ đầu, giờ trả lần đầu
-— và nó hoạt động đúng như thiết kế.
+Adding the `Toggle` component kind was **a change to the standard**. Exactly as
+documented, `NodeKind` is not marked `#[non_exhaustive]`, so the renderer **does
+not compile** until it handles the new kind. That was the price recorded up
+front, now paid for the first time — and it behaved exactly as designed.
 
-**B19 — một điểm yếu do KIỂM ĐỘT BIẾN lộ ra.**
+**B19 — a weakness exposed by MUTATION TESTING.**
 
-Đột biến thử: bỏ chặn `role === 'switch'` trong kịch bản nối sự kiện, để công
-tắc tự gửi tin ngay khi bấm. Phép thử vẫn XANH — vì hai cú bấm xảy ra liên tiếp
-trong cùng một nhịp và thông điệp sau **ghi đè** thông điệp trước, nên host vẫn
-nhận đúng `cho-phep`.
+The mutation: remove the `role === 'switch'` guard from the event-wiring script so
+a toggle sends its message the moment it is pressed. The tests stayed GREEN —
+because two clicks landed in the same tick and the later message **overwrote** the
+earlier one, so the host still received the correct `cho-phep`.
 
-Ghi đè được là điểm yếu thật, không chỉ là lỗ hổng của phép thử: một quyết định
-đã chốt thì không ai được sửa, kể cả chính trang đó. Sửa bằng `o.is_none()` —
-quyết định đầu tiên thắng. Sau khi sửa, đột biến bị bắt ngay.
+Being overwritable is a real weakness, not merely a gap in a test: once a decision
+is settled nobody may amend it, including the page itself. Fixed with
+`o.is_none()` — the first decision wins. After the fix, the mutation is caught.
 
-**B15 — một mâu thuẫn ở tầng TIÊU CHUẨN, tự tìm ra 13/08/2026.**
+**B15 — a contradiction at the STANDARD level, found 2026-08-13.**
 
-`tcc new` từng sinh ra `entry: "index.html"`. Nó chạy được, và nó phá đúng luật
-trung tâm của cả dự án: ứng dụng ship HTML nghĩa là ngày có bộ dựng GPU riêng,
-**mọi ứng dụng phải viết lại** — và lúc đó không ai dám bỏ WebView nữa. Giàn
-giáo hoá thành nhà. Không phép thử nào bắt được vì không có gì "hỏng"; nó lộ ra
-khi ngồi đối chiếu tệp mẫu với luật đã viết.
+`tcc new` used to generate `entry: "index.html"`. It worked, and it violated the
+central rule of the entire project: an app shipping HTML means that on the day a
+GPU renderer exists, **every app has to be rewritten** — and at that point nobody
+dares drop WebView. The scaffolding becomes the building. No test caught it
+because nothing was "broken"; it surfaced while comparing the template file
+against the written rule.
 
-Đã sửa: điểm vào là **cây component khai báo** (`ui.json`). Ứng dụng nói *có gì
-trên màn hình*, bộ dựng quyết định *vẽ ra sao*.
+Fixed: the entry point is a **declarative component tree** (`ui.json`). The app
+states *what is on screen*, the renderer decides *how it is drawn*.
 
-**B16 đáng nói riêng — cạm bẫy suýt dẫm.**
+**B16 deserves its own note — a trap nearly walked into.**
 
-Gắn `#[derive(Deserialize)]` thẳng lên `Node` là xong về mặt biên dịch, và
-**thủng toàn bộ tầng kiểm tra**: `Node` để mọi trường riêng tư chính là để mỗi
-nút chỉ ra đời qua một hàm dựng có kiểm, còn giải mã trực tiếp thì nhồi thẳng
-vào trường. Bỏ qua sạch: trần độ sâu, trần số nút, lọc ký tự giả mạo, ràng buộc
-mã hành động, cấm ảnh trỏ ra mạng. Kẻ gian không cần tấn công gì — chỉ cần ship
-một tệp JSON.
+Putting `#[derive(Deserialize)]` straight onto `Node` compiles fine and **punches
+through the entire validation layer**: `Node` keeps all its fields private
+precisely so every node is born through a checking constructor, whereas direct
+deserialization writes into the fields. Everything skipped: the depth ceiling, the
+node-count ceiling, spoofing-character filtering, action-id constraints, the ban
+on network-sourced images. An attacker need mount no attack at all — they ship a
+JSON file.
 
-Nên có hai kiểu riêng: `UiNode` là dữ liệu trần để giải mã, rồi `TryFrom` dựng
-lại **qua đúng những hàm dựng đó**. Sáu phép thử chốt: nhãn giật gân, ảnh ra
-mạng, mã hành động bậy, vượt trần số nút, vượt trần độ sâu, thiếu mô tả ảnh —
-tất cả đều bị chặn khi đến từ JSON y như khi viết tay trong mã Rust.
+So there are two types: `UiNode` is plain data for decoding, and `TryFrom` rebuilds
+**through exactly those constructors**. Six tests pin it: sensational labels,
+network images, malformed action ids, exceeding the node ceiling, exceeding the
+depth ceiling, missing image descriptions — all rejected when arriving from JSON
+just as when written by hand in Rust.
 
-Một chi tiết đáng ghi: phép thử ký tự đảo chiều chữ phải dựng chuỗi LÚC CHẠY, vì
-`rustc` **từ chối biên dịch** tệp nguồn chứa ký tự đó (phòng thủ thêm sau vụ
-"Trojan Source"). Trình biên dịch đang cưỡng chế đúng cái luật ta cưỡng chế lúc
-chạy.
+One detail worth recording: the bidi-character test must build its string **at
+runtime**, because `rustc` **refuses to compile** a source file containing that
+character (a defence added after "Trojan Source"). The compiler is enforcing the
+same rule we enforce at runtime.
 
-**B12 đáng nói riêng.** `hoi_quyen` KHÔNG trả `Result` — cố ý. Có `Result` là có
-chỗ cho ai đó viết `.unwrap_or(Allow)`. Đóng cửa sổ, cửa sổ hỏng, không dựng nổi
-hộp thoại, mã hành động lạ — tất cả ra `Deny`. Đúng MỘT đường ra `Allow`: người
-dùng bấm đúng nút. Phần quyết định tách thành hàm thuần `quyet_dinh()` nên kiểm
-được mà không cần màn hình, và phép thử liệt kê cả các trường hợp gần đúng
-(`"cho-phep "`, `"Cho-Phep"`, `"cho-phep-tat-ca"`) — mọi cái đều phải ra `Deny`.
+**B12 deserves its own note.** `hoi_quyen` does NOT return a `Result` — deliberately.
+A `Result` is room for someone to write `.unwrap_or(Allow)`. Window closed, window
+broken, dialog fails to build, unknown action id — all produce `Deny`. There is
+exactly ONE path to `Allow`: the user pressing the right button. The decision
+logic is split into a pure `quyet_dinh()` so it is testable without a screen, and
+the test enumerates the near misses too (`"cho-phep "`, `"Cho-Phep"`,
+`"cho-phep-tat-ca"`) — every one must produce `Deny`.
 
-**B13 đáng nói riêng.** Ứng dụng chỉ khai một `ActionId`; nó không có và không
-được có một dòng kịch bản nào. Kịch bản nối sự kiện chạy ở giai đoạn khởi tạo
-nên nó là kịch bản của BỘ DỰNG — ứng dụng không có đường chèn vào. Nhờ vậy
-"ứng dụng chạy mã khi người dùng bấm nút" là chuyện không xảy ra được.
+**B13 deserves its own note.** An app declares only an `ActionId`; it has no line
+of script and may not have one. The event-wiring script runs at the initialization
+stage, so it is the **renderer's** script — the app has no way to inject into it.
+That makes "the app runs code when the user clicks a button" something that cannot
+happen.
 
-**B14 và một lỗ hổng của chính phép thử.** Danh sách trắng chỉ nhận hành động
-thật sự có trên cây. Nhưng phép thử ban đầu chỉ gửi hành động HỢP LỆ, nên khi
-tôi thử gỡ bỏ danh sách trắng thì **mọi phép thử vẫn xanh** — nới lỏng một bộ
-lọc là loại đột biến mà phép thử chỉ-gửi-dữ-liệu-hợp-lệ không bao giờ chạm tới.
-Đã bịt bằng chế độ `kiem-bam-nut ma`: gửi thẳng một mã bịa ra, phải không nhận
-được gì.
+**B14, and a hole in the test itself.** The allowlist accepts only actions that
+actually exist on the tree. But the original test sent only VALID actions, so when
+the allowlist was removed as an experiment **every test stayed green** — loosening
+a filter is the mutation class that valid-input-only tests never touch. Closed
+with the `kiem-bam-nut ma` mode: send a fabricated id directly and require that
+nothing arrives.
 
-**B7 đáng nói riêng — ba tầng, mỗi tầng đã được thử RIÊNG.**
+**B7 deserves its own note — three layers, each tested ALONE.**
 
-| Tầng | Chặn cái gì | Thử riêng bằng cách nào |
+| Layer | Blocks | How it is tested alone |
 |---|---|---|
-| 1. Thoát ký tự | `<script>` không thành thẻ | Gỡ thoát `"` → phép thử đỏ |
-| 2. Bộ quét trợ năng | Tài liệu không đọc ngược được thì KHÔNG nạp | Gỡ thoát `<` → bộ quét từ chối |
-| 3. Chính sách nội dung | Kịch bản có mặt cũng không chạy | Nạp tài liệu độc THÔ, bỏ qua tầng 1–2 |
+| 1. Escaping | `<script>` never becomes a tag | Remove `"` escaping → the test goes red |
+| 2. Accessibility scanner | A document that cannot be read back is NOT loaded | Remove `<` escaping → the scanner refuses |
+| 3. Content policy | Script that is present still does not run | Load a RAW hostile document, bypassing layers 1–2 |
 
-Tầng 3 phải kiểm riêng vì ở đường ống thật nó **không bao giờ được thử sức** —
-tầng 1 và 2 chặn trước. Một tầng phòng thủ chưa bao giờ được thử là một tầng
-chưa biết có tồn tại hay không. Chạy:
+Layer 3 must be tested separately because in the real pipeline it is **never put
+to the test** — layers 1 and 2 stop everything first. A defensive layer that has
+never been exercised is a layer nobody knows exists. Run:
 
 ```sh
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # cả đường ống
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # chỉ tầng 3
+cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # full pipeline
+cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # layer 3 only
 ```
 
-**B8 đáng nói riêng.** `published_accessibility()` rất dễ cài đặt gian: trả
-`tree.accessibility_tree()` là luôn đạt. Bộ dựng thật KHÔNG làm thế — nó dựng
-lại cây từ **chính chuỗi đánh dấu sắp nạp vào WebView** (`quet_tro_nang.rs`), nên
-hai cây đi bằng hai đường khác nhau. Bộ quét còn kiểm chữ hiện trên màn hình có
-trùng nhãn đọc lên không: một nút hiện "Huỷ" mà đọc lên "Xác nhận" là dạng lừa
-dối mà cả tầng trợ năng sinh ra để chặn.
+**B8 deserves its own note.** `published_accessibility()` is trivially easy to
+implement dishonestly: return `tree.accessibility_tree()` and it always passes.
+The real renderer does NOT do that — it rebuilds the tree from **the very markup
+about to be loaded into WebView** (`quet_tro_nang.rs`), so the two trees arrive by
+different routes. The scanner also checks that visible text matches the announced
+label: a button reading "Cancel" that announces "Confirm" is the exact deception
+the accessibility layer exists to prevent.
 
-**B3 đáng nói riêng.** Nó không được giữ bằng kỷ luật hay bằng soi mã, mà bằng
-**trình biên dịch**: `NetworkCapability` có mọi trường riêng tư, nên không dựng
-được từ ngoài crate. Không có quyền thì không có giá trị; không có giá trị thì
-không biên dịch nổi. "Quên một lần kiểm" là chuyện không xảy ra được.
+**B3 deserves its own note.** It is held not by discipline or code review but by
+**the compiler**: `NetworkCapability` has all-private fields, so it cannot be
+constructed outside its crate. No permission means no value; no value means no
+compile. "Forgetting a check once" cannot happen.
 
 ---
 
-## 2. Lỗ tự tìm ra khi soi lại, và đã sửa
+## 2. Holes found by re-reading, and fixed
 
-Sáu lỗ dưới đây **không phải do kiểm thử phát hiện** — mọi phép thử đều xanh khi
-chúng còn ở đó. Chúng lộ ra khi ngồi đọc lại mã và tự hỏi "kẻ gian sẽ làm gì".
+The holes below were **not found by testing** — every test was green while they
+were present. They surfaced while re-reading the code and asking "what would an
+attacker do".
 
-| # | Lỗ | Khai thác thế nào | Sửa ở đâu |
+| # | Hole | How it is exploited | Fixed in |
 |---|---|---|---|
-| L1 | Xin trùng một quyền hai lần | Mục đầu vô hại cho người duyệt đọc, mục sau mới là mục thật được cấp | `tcc-spec` + `tcc-capability`, **chặn ở cả hai tầng** |
-| L2 | Không có trần kích thước `manifest.json` | Gửi tệp hàng trăm MB, ta phân tích hết **trước khi** kiểm được chữ ký | `MAX_MANIFEST_BYTES`, kiểm ở **bước 0** |
-| L3 | `name` / `reason` không lọc ký tự | `U+202E` đảo chiều chữ làm hộp hỏi quyền đọc ra nghĩa khác | `check_display_safe` |
-| L4 | Tên máy chủ ngoài ASCII | `shоp.tcc-coin.com` với "о" Kirin nhìn y hệt bản thật | Bắt buộc ASCII/punycode |
-| L6 | `grant()` không tự chặn khai trùng | Bên gọi quên `validate_shape` là lọt | Chặn ngay trong `grant` |
-| L7 | Phân loại ký tự sai thứ tự nhánh | `\r` rơi nhầm dải, nhánh sau không chạy tới | Nhánh cụ thể đặt trước dải rộng |
-| L8 | **Mã ứng dụng không kiểm khi giải mã JSON** | Ship `id: "com.TCC.hello"` — hai danh tính trông y hệt nhau | `AppId::parse` trong `validate_shape` |
-| L9 | **Tên máy chủ không kiểm hình dạng** | `shop.tcc-coin.com:8080@evil.example` — giả mạo userinfo | `check_host` |
-| L10 | **Chồng dấu vô hạn lên một chữ** | 500 dấu sắc vẽ thành vệt dọc trùm lên câu cảnh báo | `MAX_DAU_KET_HOP` |
+| L1 | The same capability requested twice | The first entry looks harmless to whoever reviews it; the second is the one actually granted | `tcc-spec` + `tcc-capability`, **blocked at both layers** |
+| L2 | No size ceiling on `manifest.json` | Send hundreds of MB and we parse all of it **before** the signature can be checked | `MAX_MANIFEST_BYTES`, checked at **step 0** |
+| L3 | `name` / `reason` not filtered | `U+202E` reverses the text so the permission dialog reads as something else | `check_display_safe` |
+| L4 | Non-ASCII hostnames | `shоp.tcc-coin.com` with a Cyrillic "о" looks identical to the real one | ASCII/punycode required |
+| L6 | `grant()` did not itself block duplicate declarations | A caller forgetting `validate_shape` lets it through | Blocked inside `grant` |
+| L7 | Character classification branches in the wrong order | `\r` fell into the wrong range; the later branch was never reached | Specific branches before wide ranges |
+| L8 | **App id not validated when decoding JSON** | Ship `id: "com.TCC.hello"` — two identities that look identical | `AppId::parse` inside `validate_shape` |
+| L9 | **Hostname shape not validated** | `shop.tcc-coin.com:8080@evil.example` — userinfo spoofing | `check_host` |
+| L10 | **Unlimited combining marks on one character** | 500 acute accents draw a vertical streak over the warning | `MAX_DAU_KET_HOP` |
 
-**L10 — chồng dấu che mất cảnh báo (13/08/2026).**
+**L10 — stacked marks hiding the warning (2026-08-13).**
 
-Dấu kết hợp không có giới hạn tự nhiên. Nhãn nút `"Huỷ" + 500 dấu sắc` qua hết
-mọi phép kiểm cũ — nó không có ký tự điều khiển, không đảo chiều chữ, không rộng
-bằng không. Nhưng bộ dựng vẽ nó thành một **vệt dọc trùm lên phần màn hình bên
-trên**, mà trong hộp thoại hỏi quyền phần bên trên chính là câu cảnh báo danh
-tính — cái người dùng phải đọc trước khi bấm.
+Combining marks have no natural limit. A button label of `"Huỷ"` plus 500 acute
+accents passed every existing check — no control characters, no bidi override, no
+zero-width characters. But the renderer drew it as a **vertical streak covering
+the area above**, and in a permission dialog the area above is the identity
+warning — the thing the user must read before pressing anything.
 
-Không cấm hẳn dấu kết hợp được: **tiếng Việt sống bằng nó**. Nên đặt trần 8 dấu
-liên tiếp trên một chữ:
+Banning combining marks outright is impossible: **Vietnamese lives on them.** So
+the ceiling is 8 consecutive marks on one base character:
 
-| | Số dấu tối đa trên một chữ |
+| | Max marks on one character |
 |---|---|
-| Tiếng Việt (`ỡ` = o + móc + ngã) | 2 |
-| Thái, Devanagari — cụm nặng nhất | ~4–6 |
-| **Trần** | **8** |
-| UAX #15 cho trao đổi dữ liệu | 30 |
+| Vietnamese (`ỡ` = o + horn + tilde) | 2 |
+| Thai, Devanagari — heaviest clusters | ~4–6 |
+| **Ceiling** | **8** |
+| UAX #15, for data interchange | 30 |
 
-UAX #15 nới tới 30 vì nó lo việc **trao đổi** dữ liệu; ta lo việc **hiển thị**
-trên một màn hình quyết định bảo mật.
+UAX #15 allows 30 because it is concerned with **interchanging** data; we are
+concerned with **displaying** it on a screen where a security decision is made.
 
-Dùng `unicode-general-category` (1 crate, không phụ thuộc gì) thay vì tự đoán
-dải mã — tự đoán thì sót, mà sót ở đây là lọt đòn.
+Uses `unicode-general-category` (1 crate, no dependencies) rather than guessing
+codepoint ranges — guessing misses cases, and a miss here is a landed attack.
 
-**Kiểm đột biến hai chiều** — đây là hình dạng đúng của một cái trần: nới lỏng
-thì phép thử Zalgo đỏ, siết xuống 1 thì phép thử tiếng Việt đỏ. Chặn Zalgo thì
-dễ; chặn mà **không giết tiếng Việt** mới là phần khó.
+**Mutation-tested in both directions** — this is the correct shape for a ceiling:
+loosen it and the Zalgo test goes red; tighten it to 1 and the Vietnamese test
+goes red. Blocking Zalgo is easy; blocking it **without killing Vietnamese** is
+the hard part.
 
-Lỗ này tìm ra khi đang chuẩn bị cho cổng "gõ tiếng Việt có dấu" của Giai đoạn 1
-— hỏi "dấu kết hợp đi qua được thì chồng bao nhiêu cũng đi qua được?"
+Found while preparing for Phase 1's "type Vietnamese with diacritics" gate, by
+asking: *if combining marks pass, how many can stack?*
 
-**L9 — đòn giả mạo userinfo (13/08/2026).**
+**L9 — the userinfo spoofing attack (2026-08-13).**
 
-Trước đây `hosts` chỉ kiểm ASCII, không rỗng, không có ký tự đại diện. Bản kê
-khai khai được:
+Previously `hosts` was checked only for ASCII, non-empty, and no wildcards. A
+manifest could declare:
 
 ```json
 "hosts": ["shop.tcc-coin.com:8080@evil.example"]
 ```
 
-Chuỗi đó qua hết mọi phép kiểm cũ. Nhưng khi dựng địa chỉ,
-`shop.tcc-coin.com:8080` thành phần **userinfo** còn máy chủ THẬT là
-`evil.example`. Hộp thoại hỏi quyền hiện nguyên chuỗi, và người đọc lướt thấy
-"shop.tcc-coin.com".
+That string passed every existing check. But when a URL is built,
+`shop.tcc-coin.com:8080` becomes the **userinfo** component and the REAL host is
+`evil.example`. The permission dialog displays the whole string, and a reader
+skimming it sees "shop.tcc-coin.com".
 
-**Vì sao không phép thử nào chạm tới**: mọi phép thử đều dùng tên máy chủ hợp
-lệ. Lỗ chỉ lộ ra khi ngồi hỏi *"tên máy chủ đi thẳng vào việc dựng địa chỉ — nó
-đã được kiểm hình dạng chưa?"* — đúng lúc sắp viết máy khách HTTP. Nếu viết máy
-khách trước rồi mới hỏi thì lỗ đã sống trong một bản có mạng.
+**Why no test came near it**: every test used a well-formed hostname. The hole
+surfaced only when asking *"the hostname goes straight into URL construction —
+has its shape been checked?"* — right before writing the HTTP client. Written in
+the other order, the hole would have been living in a build that had networking.
 
-Đã chặn ở **cả hai đường**: `Scope::Network.hosts` và `Effect::Fetch.host`. Chặn
-một đường thì đường kia vẫn dựng được địa chỉ trỏ đi nơi khác.
+Blocked on **both paths**: `Scope::Network.hosts` and `Effect::Fetch.host`. Block
+one and the other still builds a URL pointing somewhere else.
 
-**L8 — bộ kiểm định tuân thủ tìm ra, không phải kiểm thử đơn vị (13/08/2026).**
+**L8 — found by the conformance suite, not by unit tests (2026-08-13).**
 
-`AppId` khai `#[serde(transparent)]`, nên giải mã từ JSON lấy thẳng chuỗi và
-**không đi qua `AppId::parse`**. `validate_shape` cũng không kiểm lại. Gói ship
-được `id: "hello"` (thiếu đoạn) hoặc `id: "com.TCC.hello"` — mà mã khác hoa
-thường là hai danh tính trông y hệt nhau, đúng cái mà `AppId::parse` sinh ra để
-chặn.
+`AppId` declares `#[serde(transparent)]`, so decoding from JSON takes the string
+directly and **never passes through `AppId::parse`**. `validate_shape` did not
+re-check it either. A package could ship `id: "hello"` (missing a segment) or
+`id: "com.TCC.hello"` — and ids differing only in case are two identities that
+look identical, exactly what `AppId::parse` exists to prevent.
 
-**Vì sao 34 phép thử đơn vị mù hoàn toàn**: chúng luôn dựng `AppId` bằng
-`AppId::parse`, nên không lần nào đi qua đường giải mã JSON. Bộ kiểm định thì
-nạp bản kê khai từ JSON **như người dùng thật**, nên chạm ngay.
+**Why 34 unit tests were completely blind**: they always built `AppId` via
+`AppId::parse`, so not one of them travelled the JSON decoding path. The
+conformance suite loads manifests from JSON **like a real user**, so it hit it
+immediately.
 
-Đây là **cùng một lớp lỗ** với B16 (giải mã cây giao diện đi vòng qua hàm dựng).
-Bài học rộng hơn: **ở đâu có kiểu dữ liệu bảo vệ bất biến bằng hàm dựng, ở đó
-phải hỏi "giải mã có đi qua hàm dựng đó không"** — và câu trả lời mặc định của
-serde là KHÔNG.
+This is the **same class of hole** as B16 (interface-tree decoding bypassing the
+constructors) and as B40. The broader lesson: **wherever a type protects an
+invariant with a constructor, ask "does decoding go through that constructor?"** —
+and serde's default answer is NO.
 
-**L5 — nghi ngờ nhưng KHÔNG phải lỗ.** Tôi nghi khoá JSON trùng lặp có thể khiến
-công cụ hiển thị và bên kiểm chữ ký thấy hai giá trị khác nhau. Kiểm chứng bằng
-mã chạy thật: `serde` từ chối thẳng với lỗi `duplicate field`. Không thêm mã
-phòng thủ cho vấn đề không tồn tại — nhưng **đã ghim hành vi đó bằng phép thử**
-`khoa_json_trung_lap_bi_tu_choi`, vì giờ ta đang dựa vào nó và việc đổi thư viện
-JSON sau này phải làm phép thử đó gãy.
+**L5 — suspected but NOT a hole.** I suspected duplicate JSON keys might let a
+display tool and a signature verifier see two different values. Verified with
+running code: `serde` rejects them outright with a `duplicate field` error. No
+defensive code was added for a problem that does not exist — but the behaviour is
+**pinned by a test**, `khoa_json_trung_lap_bi_tu_choi`, because we now depend on
+it and a future change of JSON library must break that test.
 
-**L7 do clippy bắt, không phải do tôi.** Kiểm thử của tôi chỉ thử `\n` và `\u{0}`
-nên không lộ ra. Đây là lý do CI chạy `clippy -D warnings` **trước** bước kiểm thử.
+**L7 was caught by clippy, not by me.** My tests only tried `\n` and `\u{0}`, so it
+never surfaced. This is why CI runs `clippy -D warnings` **before** the test step.
 
 ---
 
-## 3. ⚠️ Những gì CHƯA được soi — đọc kỹ mục này
+## 3. ⚠️ What has NOT been examined — read this section carefully
 
-### 3.1 Chữ ký chứng minh TOÀN VẸN, không chứng minh DANH TÍNH
+### 3.1 A signature proves INTEGRITY, not IDENTITY
 
-Khoá công khai nằm ngay trong bản kê khai — gói **tự ký**. Bất kỳ ai cũng sinh
-được cặp khoá rồi ký gói của mình.
+The public key sits inside the manifest — packages are **self-signed**. Anyone can
+generate a keypair and sign their own package.
 
-Muốn biết "khoá này có đúng của nhà phát hành X không" cần một tầng nữa: sổ đăng
-ký, hoặc tin-lần-đầu rồi ghim khoá. **Tầng đó chưa có ở 0.1.**
+Answering "does this key really belong to publisher X" requires another layer: a
+registry, or trust-on-first-use with key pinning. **That layer does not exist in
+0.1.**
 
-> **Luật cho giao diện:** không được hiện chữ "đã xác minh nhà phát hành" khi mới
-> chỉ kiểm được chữ ký. Câu đúng là "chữ ký hợp lệ".
+> **Rule for the interface:** never display "verified publisher" when only the
+> signature has been checked. The correct sentence is "valid signature".
 
-Luật này giờ **có phép thử cưỡng chế**: `loi::kiem_thu::khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh`
-quét toàn bộ bảng dịch tìm sáu cụm cấm ở cả hai ngôn ngữ. Ai thêm chuỗi vi phạm
-sẽ bị chặn ngay, kể cả khi chưa đọc tệp này. Hộp thoại hỏi quyền còn luôn hiện
-"Unknown publisher / Không rõ nhà phát hành" và câu cảnh báo đầy đủ hai vế.
+This rule now has **an enforcing test**:
+`loi::kiem_thu::khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh` scans the whole
+translation table for six forbidden phrases in both languages. Anyone adding a
+violating string is stopped immediately, even without having read this file. The
+permission dialog also always shows "Unknown publisher / Không rõ nhà phát hành"
+alongside the full two-part warning.
 
-### 3.1b Hộp thoại hỏi quyền vẽ qua WebKit — ĐÃ ĐO, 14/08/2026
+### 3.1b The permission dialog is drawn through WebKit — MEASURED, 2026-08-14
 
-Món nợ này từng ghi bằng một câu lo chung chung. Nay đã đo, và nó **nhỏ hơn
-nhiều** so với cách nó được ghi:
+This debt used to be recorded as a vague worry. It has now been measured, and it
+is **much smaller** than the way it was written down:
 
-| Đo được | |
+| Measured | |
 |---|---|
-| Một cửa sổ WebView | sinh ra **một tiến trình nội dung RIÊNG** của WebKit; đóng cửa sổ là nó biến mất |
-| Hộp thoại hỏi quyền và màn hình ứng dụng | **không bao giờ tồn tại cùng lúc** |
+| One WebView window | spawns its **own WebKit content process**; closing the window destroys it |
+| The permission dialog and the app screen | **never exist at the same time** |
 
-Điều thứ hai không phải may mắn: `tao` chạy **một vòng lặp sự kiện tại một
-thời điểm**, và `hoi()` dùng `run_return` nên nó trả về *sau khi cửa sổ đã
-đóng*. Màn hình ứng dụng chỉ mở sau đó. Kiến trúc một-vòng-lặp tự nó cấm hai
-cửa sổ cùng sống.
+The second is not luck: `tao` runs **one event loop at a time**, and `hoi()` uses
+`run_return`, so it returns *after the window has closed*. The app screen opens
+only afterwards. The single-event-loop architecture forbids two live windows by
+construction.
 
-**⚠️ Điều gì sẽ phá guarantee này**: mở hộp thoại như cửa sổ con của cửa sổ ứng
-dụng, hoặc chuyển sang vòng lặp đa cửa sổ. Ai định làm một trong hai thì phải
-đọc lại mục này trước.
+**⚠️ What would break this guarantee**: opening the dialog as a child window of
+the app window, or moving to a multi-window loop. Anyone attempting either must
+re-read this section first.
 
-**Rủi ro còn lại, đã thu hẹp**: hai tiến trình vẫn đều là WebKit. Một cú thoát
-sandbox từ nội dung ứng dụng có thể tồn tại qua thời gian và ảnh hưởng tới một
-hộp thoại mở sau đó. Đây mới là thứ widget gốc sửa được — và cũng chỉ thứ đó.
+**Residual risk, now narrowed**: both processes are still WebKit. A sandbox escape
+from app content could persist and affect a dialog opened later. That is what a
+native widget would fix — and only that.
 
-**Vì sao CHƯA làm bây giờ**: nó thuộc Giai đoạn 4 của kế hoạch ("thoát WebView"),
-mà Giai đoạn 1 còn chưa đóng. Làm ngay nghĩa là thêm `unsafe` FFI, chỉ phủ macOS,
-và dựng lại từ đầu toàn bộ tầng trợ năng vừa xây — trên đúng thứ sẽ được thay.
+**Why not now**: it belongs to Phase 4 of the plan ("leave WebView"), and Phase 1
+is not closed. Doing it now means adding `unsafe` FFI, covering macOS only, and
+rebuilding the entire accessibility layer just built — on top of the very thing
+scheduled for replacement.
 
-### 3.1c ⚠️ Giả mạo tiêu đề cửa sổ — tìm ra khi đang ĐO món nợ trên
+### 3.1c ⚠️ Window title spoofing — found while MEASURING the debt above
 
-Ứng dụng tự khai `name`, và tên đó từng là **toàn bộ** tiêu đề cửa sổ của nó.
-Một ứng dụng đặt tên `"TCC — quyền đã cấp"` có cửa sổ mang tiêu đề y hệt màn
-hình quản lý quyền của trình duyệt — rồi vẽ một danh sách quyền giả với một nút
-"Cho phép" giả bên trong.
+An app declares its own `name`, and that name used to be the **entire** title of
+its window. An app named `"TCC — granted permissions"` gets a window titled
+identically to the browser's own permission management screen — and can then draw
+a fake permission list with a fake "Allow" button inside it.
 
-Không chặn được nó đặt tên đó (tên là chữ của ứng dụng), nhưng chặn được việc
-tên đó **chiếm trọn tiêu đề**. Nay: `com.tcc.vi-du.hello — Xin chào TCC`.
+Stopping it from choosing that name is impossible (the name is the app's own
+text), but stopping that name from **occupying the whole title** is not. Now:
+`com.tcc.vi-du.hello — Xin chào TCC`.
 
-Mã ứng dụng không giả được: nó nằm trong phạm vi chữ ký và bị `AppId::parse` ép
-về `a-z0-9.` — không dấu cách, không gạch ngang dài, nên **không bắt chước nổi**
-tiêu đề của trình duyệt. Có phép thử chốt cả hai chiều: tên giả mạo không chiếm
-được đầu tiêu đề, và tiêu đề của trình duyệt không trông giống một mã ứng dụng.
+The app id cannot be faked: it sits inside the signature's scope and `AppId::parse`
+constrains it to `a-z0-9.` — no spaces, no em dashes, so it **cannot imitate** a
+browser title. Tests pin both directions: a spoofing name cannot occupy the front
+of the title, and the browser's own title does not look like an app id.
 
-Đây **không phải lời giải trọn vẹn** cho giả mạo tiêu đề — không có lời giải
-trọn vẹn nào bằng phần mềm. Nó chặn đúng đòn rẻ nhất.
+This is **not a complete answer** to title spoofing — no complete answer exists in
+software. It blocks the cheapest attack.
 
-### 3.2 `ml-dsa` còn ở 0.1.1
+### 3.2 `ml-dsa` is still at 0.1.1
 
-Chưa có kiểm định độc lập nào được công bố cho thư viện này. Chọn nó vì thuần
-Rust (hợp `unsafe_code = deny`) và cùng hệ trait với phần còn lại.
+No independent audit of this library has been published. It was chosen for being
+pure Rust (consistent with `unsafe_code = deny`) and for sharing a trait system
+with the rest.
 
-Giảm rủi ro bằng hai cách: chữ ký **lai** — Ed25519 vẫn đứng nếu ML-DSA hỏng — và
-đặt sau trait `SignatureScheme` để đổi thư viện mà không sửa chỗ gọi.
+Risk is reduced two ways: the signature is **hybrid** — Ed25519 still stands if
+ML-DSA fails — and it sits behind a `SignatureScheme` trait so the library can be
+swapped without touching the call sites.
 
-### 3.3 ~~Nội dung là MỘT khối byte~~ — ĐÃ XỬ LÝ 13/08/2026
+### 3.3 ~~Content is ONE blob of bytes~~ — RESOLVED 2026-08-13
 
-`verify_package` giờ nhận `&FileTree`, và băm lên **dạng chuẩn tắc** định nghĩa ở
-`tcc_spec::tree`:
+`verify_package` now takes a `&FileTree` and hashes the **canonical form** defined
+in `tcc_spec::tree`:
 
 ```text
-với mỗi tệp, sắp theo thứ tự byte của đường dẫn:
-    u64 độ dài đường dẫn (BE) ‖ đường dẫn ‖ u64 độ dài nội dung (BE) ‖ nội dung
+for each file, in byte order of its path:
+    u64 path length (BE) ‖ path ‖ u64 content length (BE) ‖ content
 ```
 
-**Ghi độ dài trước mọi trường** là thứ chặn đòn nhập nhằng: tệp `"ab"` nội dung
-`"c"` và tệp `"a"` nội dung `"bc"` nếu chỉ nối chuỗi thì cùng ra `"abc"` — hai cây
-khác hẳn nhau, một chữ ký hợp lệ cho cả hai. Phép thử
-`khong_trao_duoc_cay_khac_ma_giu_chu_ky` chốt lại.
+**Writing a length before every field** is what blocks the ambiguity attack: a
+file `"ab"` containing `"c"` and a file `"a"` containing `"bc"` both concatenate to
+`"abc"` — two entirely different trees, one signature valid for both. The test
+`khong_trao_duoc_cay_khac_ma_giu_chu_ky` pins it.
 
-Kèm theo, `FileTree::insert` chặn: `..` (thoát thư mục), đường dẫn tuyệt đối,
-`\` (Linux thấy một tệp, Windows thấy hai cấp), dấu hai chấm (ổ đĩa Windows), ký
-tự điều khiển, và **tên chỉ khác nhau hoa/thường** — vì trên macOS/Windows
-`Logo.png` và `logo.png` là cùng một tệp, nên gói chứa cả hai sẽ giải nén ra khác
-nhau tuỳ hệ điều hành: cùng một chữ ký, hai kết quả.
+Alongside it, `FileTree::insert` rejects: `..` (directory escape), absolute paths,
+`\` (Linux sees one file, Windows sees two levels), colons (Windows drive
+letters), control characters, and **names differing only in case** — because on
+macOS and Windows `Logo.png` and `logo.png` are the same file, so a package
+containing both unpacks differently depending on the operating system: one
+signature, two outcomes.
 
-**Còn lại:** `canonical_bytes` dựng cả gói trong bộ nhớ. Chấp nhận được ở 0.1;
-gói lớn cần băm theo luồng.
+**Remaining:** `canonical_bytes` builds the whole package in memory. Acceptable at
+0.1; large packages need streaming hashes.
 
-### 3.4 Chưa soi kênh biên
+### 3.4 Side channels not examined
 
-Chưa đo thời gian chạy của `verify`. Với dữ liệu công khai (chữ ký, băm nội dung)
-thì rò rỉ thời gian không lộ bí mật, nhưng **chưa ai kiểm chứng** điều đó.
+`verify` has never been timed. With public data (signatures, content hashes) a
+timing leak reveals no secret, but **nobody has verified that claim**.
 
-### 3.5 Chưa có mã ví nào chạm khoá riêng thật
+### 3.5 No wallet code touches a real private key yet
 
-Đúng theo kế hoạch. Cổng chặn cứng:
+As planned. The hard gate:
 
-> **Không giao dịch nào lên mainnet trước khi qua kiểm định bảo mật độc lập.**
+> **No transaction reaches mainnet before an independent security audit.**
 
-### 3.6 Chưa fuzzing
+### 3.6 No fuzzing
 
-Chưa có bộ fuzz nào cho bước phân tích bản kê khai. Đây là đầu vào không tin cậy
-đầu tiên mà mã ta chạm tới, nên đáng làm sớm.
+There is no fuzzing harness for manifest parsing. That is the first untrusted
+input our code touches, so it is worth doing early.
 
 ---
 
-## 3bis. Bộ kiểm định tuân thủ
+## 3bis. The conformance suite
 
-`conformance/vectors/*.json` — **dữ liệu, không phải mã**, để bản triển khai bằng
-ngôn ngữ khác đọc được đúng những tệp đó. So khớp bằng **mã lỗi ổn định**
-(`unsafe-display-string`, `bad-app-id`…), không bằng thông báo: thông báo là văn
-xuôi tiếng Việt và được phép sửa, mã thì không.
+`conformance/vectors/*.json` — **data, not code**, so implementations in other
+languages read exactly those files. Matching is on **stable error codes**
+(`unsafe-display-string`, `bad-app-id`…), never on messages: messages are prose
+and may be reworded, codes may not.
 
-| Nhóm | Số vector | Kiểm cái gì |
+| Group | Vectors | Checks |
 |---|---|---|
-| `canonical` | 7 | Dạng chuẩn tắc + băm — **interop** |
-| `signature` | 15 | Chữ ký lai — **interop**, ba chiều |
-| `acvp-mldsa65` | 26 | **Mốc ngoài NIST** cho nửa hậu lượng tử |
-| `manifest` | 28 | Nhận/từ chối bản kê khai, hành vi của nút, hình dạng tên máy chủ |
-| `ui` | 17 | Nhận/từ chối cây giao diện |
-| `capability` | 8 | Khớp phạm vi quyền mạng |
+| `canonical` | 7 | Canonical form + hash — **interop** |
+| `signature` | 15 | Hybrid signature — **interop**, three directions |
+| `acvp-mldsa65` | 26 | **An external NIST anchor** for the post-quantum half |
+| `manifest` | 31 | Accepting/rejecting manifests, button behaviour, hostname shape, unknown fields |
+| `ui` | 17 | Accepting/rejecting interface trees |
+| `capability` | 8 | Network scope matching |
 
-Nhóm `canonical` được sinh bằng **một bản cài đặt Python ĐỘC LẬP**, không lấy từ
-mã Rust — nếu không thì vector chỉ nói "chúng tôi khớp với chính chúng tôi". Cây
-rỗng cho ra `af1349b9f5f9a1a6…`, khớp KAT Blake3 công khai của chuỗi rỗng, nên
-bản Python được neo vào một mốc bên ngoài. Rust và Python khớp **từng byte** ở
-cả 7 trường hợp.
+The `canonical` group is generated by an **INDEPENDENT Python implementation**,
+not taken from the Rust code — otherwise the vectors would only say "we agree with
+ourselves". The empty tree yields `af1349b9f5f9a1a6…`, matching the public BLAKE3
+KAT for the empty string, which anchors the Python side to something external.
+Rust and Python agree **byte for byte** on all 7 cases.
 
-### Nhóm `signature` kiểm BA chiều, không phải một
+### The `signature` group checks THREE directions, not one
 
-| Chiều | Vì sao cần |
+| Direction | Why it is needed |
 |---|---|
-| **Sinh khoá** | Cùng khoá bí mật phải suy ra cùng khoá công khai |
-| **Ký** | Ký lại phải ra ĐÚNG chuỗi byte cũ (ký ở đây tất định) |
-| **Kiểm** | Chữ ký hợp lệ phải đạt, sáu đòn phá phải hỏng |
+| **Key generation** | The same secret key must derive the same public key |
+| **Signing** | Re-signing must produce the EXACT same bytes (signing here is deterministic) |
+| **Verification** | Valid signatures must pass, six attacks must fail |
 
-Chỉ kiểm chiều thứ ba là không đủ: một bản triển khai kiểm được chữ ký của ta mà
-sinh ra chữ ký ta không kiểm được thì **vẫn không dùng chung gói được**.
+Checking only the third is not enough: an implementation that verifies our
+signatures but produces signatures we cannot verify **still cannot share packages
+with us**.
 
-Sáu đòn phá: lật bit trong nửa Ed25519 · lật bit trong nửa ML-DSA · lật bit
-CUỐI CÙNG · cắt ngắn · thêm byte thừa · **đảo thứ tự hai nửa** (bố cục byte là
-một phần của tiêu chuẩn, không phải chi tiết cài đặt).
+The six attacks: flip a bit in the Ed25519 half · flip a bit in the ML-DSA half ·
+flip the LAST bit · truncate · append a byte · **swap the order of the two halves**
+(the byte layout is part of the standard, not an implementation detail).
 
-**Cả hai nửa nay đều có mốc ngoài (13/08/2026).**
+**Both halves now have an external anchor (2026-08-13).**
 
-| Nửa | Mốc ngoài | Số ca |
+| Half | External anchor | Cases |
 |---|---|---|
 | Ed25519 | RFC 8032 §7.1 TEST 1 | 1 |
-| ML-DSA-65 keyGen | **NIST ACVP** (`ML-DSA-keyGen-FIPS204`) | **25 / 25 khớp** |
+| ML-DSA-65 keyGen | **NIST ACVP** (`ML-DSA-keyGen-FIPS204`) | **25 / 25 match** |
 | ML-DSA-65 sigVer | **NIST ACVP** (`ML-DSA-sigVer-FIPS204`) | 1 |
 
-**⚠️ PHÁT HIỆN QUAN TRỌNG HƠN CẢ VECTOR: giao diện FIPS 204.**
+**⚠️ A FINDING MORE IMPORTANT THAN THE VECTORS: the FIPS 204 interface.**
 
-FIPS 204 có **hai** giao diện ký. Giao diện *ngoài* tính
-`M' = 0x00 ‖ len(ctx) ‖ ctx ‖ M` rồi mới ký; giao diện *trong* ký thẳng `M`.
+FIPS 204 defines **two** signing interfaces. The *external* one computes
+`M' = 0x00 ‖ len(ctx) ‖ ctx ‖ M` and signs that; the *internal* one signs `M`
+directly.
 
-Chạy vector sigVer của NIST qua bản triển khai này: nhóm `external` khớp 1/1,
-nhóm `internal` **lệch 3/15** — và chỉ lệch ở những ca NIST bảo ĐẠT. Đó đúng là
-dấu hiệu của một bên dùng giao diện ngoài.
+Running NIST's sigVer vectors through this implementation: the `external` group
+matched 1/1, while the `internal` group **disagreed on 3 of 15** — and only on
+cases NIST marks as passing. That is exactly the signature of one side using the
+external interface.
 
-Kết luận, nay là **một câu của tiêu chuẩn** chứ không còn là giả định:
-**TCC dùng giao diện NGOÀI, context RỖNG.**
+The conclusion is now **a sentence of the standard** rather than an assumption:
+**TCC uses the EXTERNAL interface with an EMPTY context.**
 
-Một bản triển khai TCC dùng nhầm giao diện sẽ sinh ra chữ ký mà bên kia không
-kiểm được — mà **cả hai bên đều "đúng FIPS 204"**. Đây là bẫy interop im lặng,
-và trước hôm nay nó không nằm ở đâu trong đặc tả.
+A TCC implementation choosing the wrong interface produces signatures the other
+side cannot verify — while **both sides are "FIPS 204 compliant"**. This is the
+quietest interoperability trap in the standard, and until that day it was written
+down nowhere.
 
-**Chiều KÝ neo bằng ĐỐI CHIẾU CHÉO, không bằng vector (14/08/2026).**
+**The SIGNING direction is anchored by CROSS-CHECKING, not by vectors (2026-08-14).**
 
-Nhóm `sigGen` của ACVP không dùng được: nó cho khoá bí mật ở dạng đã BUNG 4032
-byte, còn thư viện `ml-dsa` chỉ nạp được HẠT GIỐNG 32 byte. Không có đường ghép.
+ACVP's `sigGen` group is unusable here: it supplies secret keys in EXPANDED
+4032-byte form, while the `ml-dsa` library loads only a 32-byte SEED. There is no
+bridge between them.
 
-Nên đi đường khác: `dilithium-py` 1.4.0 — bản cài đặt **thuần Python, viết bởi
-người khác, không dùng chung một dòng mã nào** với bản Rust. Ký cùng thông điệp
-bằng cùng hạt giống, so từng byte.
+So a different route: `dilithium-py` 1.4.0 — a **pure-Python implementation,
+written by someone else, sharing not one line of code** with the Rust. Sign the
+same messages with the same seed and compare byte for byte.
 
-**Bước bắt buộc trước:** bản Python phải tự khớp vector NIST (25/25 keyGen).
-Không có bước đó thì nó chỉ là *ý kiến thứ hai* — hai bản cùng sai theo một kiểu
-vẫn khớp nhau, và ta sẽ tin nhầm.
+**A mandatory step first:** the Python side must itself match the NIST vectors
+(25/25 keyGen). Without that it is merely a *second opinion* — two implementations
+wrong in the same way still agree with each other, and we would believe them.
 
-Kết quả: **thống nhất từng byte** trên cả ba thông điệp. Mạnh hơn vài vector rời,
-vì nó khớp trên ĐÚNG cách dùng của dự án — giao diện ngoài, context rỗng, tất định.
+Result: **byte-for-byte agreement** on all three messages. Stronger than a handful
+of isolated vectors, because it agrees on exactly the usage this project has —
+external interface, empty context, deterministic.
 
 ```sh
-python3 conformance/doi-chieu-doc-lap.py <thư-mục-vector-ACVP>
+python3 conformance/doi-chieu-doc-lap.py <ACVP-vector-directory>
 ```
 
-**Một điều kịch bản này dạy lại về chữ ký lai.** Bản đầu tôi đưa cả sáu đòn phá
-cho bản Python kiểm, và nó **nhận** đòn "lật một bit trong nửa Ed25519" — đúng,
-vì đòn đó không đụng nửa ML-DSA. Chữ ký lai vẫn hỏng, nhưng hỏng ở nửa kia.
-Kịch bản kiểm sai, không phải mã sai. Nó cũng là minh hoạ sống cho B1: **phá một
-nửa không lan sang nửa kia, và đó chính là lý do dùng chữ ký lai.**
+**What this script taught back about hybrid signatures.** My first version handed
+all six attacks to the Python side to verify, and it **accepted** the "flip one bit
+in the Ed25519 half" attack — correctly, because that attack never touches the
+ML-DSA half. The hybrid signature still fails, but it fails on the other half. The
+script was wrong, not the code. It is also a live demonstration of B1: **breaking
+one half does not propagate to the other, and that is precisely why the signature
+is hybrid.**
 
 ```sh
-cargo run -p tcc-conformance                 # 101 trường hợp
+cargo run -p tcc-conformance                 # 104 cases
 cargo run -p tcc-conformance -- --chi-tiet
 ```
 
 ---
 
-## 4. Cách chạy lại toàn bộ
+## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 234 phép thử
-cargo test --workspace --features tcc-shell/cua-so  # 237 — thêm 3 phép thử cần cửa sổ
-cargo run -p tcc-conformance                        # 101 vector tuân thủ
-python3 conformance/doi-chieu-doc-lap.py <vector>   # đối chiếu chéo dilithium-py
+cargo test --workspace                              # 234 tests
+cargo test --workspace --features tcc-shell/cua-so  # 237 — three more that need a window
+cargo run -p tcc-conformance                        # 104 conformance vectors
+python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 12 luật kiến trúc
+tools/kiem-luat-phu-thuoc.sh                        # 12 architecture rules
 ```
 
-Cả ba phải sạch. `kiem-luat-phu-thuoc.sh` chạy **trước** bước biên dịch trong CI:
-mã có chạy được mà sai kiến trúc thì vẫn là sai.
+All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in
+CI: code that runs but has the wrong architecture is still wrong.
 
-Ba lệnh trên **không** đụng tới WebKit. Phần đi qua bộ dựng thật phải chạy riêng
-trên máy có màn hình:
+None of the above touches WebKit. The parts that go through the real renderer must
+be run separately, on a machine with a screen:
 
 ```bash
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # cả đường ống
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # riêng CSP
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut cho-phep       # cú bấm → Allow
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut tu-choi        # cú bấm → Deny
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut bat           # bật công tắc → Allow
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ma             # hành động ma bị vứt
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ct-ma          # công tắc ma bị vứt
-cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung <gói>  # màn hình ứng dụng
-cargo run -p tcc-shell --example kiem-hanh-vi <gói>                              # cổng quyền năng ba chiều
-cargo run -p tcc-shell --example kiem-ghi-nho <gói>                              # kho quyền trên đĩa thật
+cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # full pipeline
+cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # CSP alone
+cargo run -p tcc-shell --features cua-so --example kiem-bam-nut cho-phep       # click → Allow
+cargo run -p tcc-shell --features cua-so --example kiem-bam-nut tu-choi        # click → Deny
+cargo run -p tcc-shell --features cua-so --example kiem-bam-nut bat            # toggle on → Allow
+cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ma             # phantom action discarded
+cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ct-ma          # phantom toggle discarded
+cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung <pkg>  # app screen
+cargo run -p tcc-shell --example kiem-hanh-vi <pkg>                              # three-way capability gate
+cargo run -p tcc-shell --example kiem-ghi-nho <pkg>                              # permission store on real disk
 ```
 
-Hai lệnh này nạp bản kê khai thù địch vào WebKit thật rồi hỏi lại WebKit nó nhìn
-thấy gì. Chúng **không** nằm trong `cargo test` vì trên macOS vòng lặp sự kiện
-bắt buộc chạy trên luồng chính, mà bộ khung kiểm thử của Rust chạy trên luồng
-phụ. Đừng bỏ qua chúng chỉ vì `cargo test` xanh.
+These load hostile manifests into real WebKit and then ask WebKit what it sees.
+They are **not** part of `cargo test` because on macOS the event loop must run on
+the main thread while Rust's test harness runs on worker threads. Do not skip them
+just because `cargo test` is green.
 
 ---
 
-## 5. Báo lỗi bảo mật
+## 5. Reporting a security issue
 
-Đừng mở issue công khai. Liên hệ bộ phận công nghệ thông tin của TCC.
+Please do not open a public issue. Use GitHub's private vulnerability reporting on
+this repository, or contact the TCC IT department directly.
+
+Bear in mind what §3 says about the current state: this is pre-audit software
+implementing an unfrozen draft standard, written by a single party. A report that
+the design itself is wrong is more valuable here than a report that the code
+disagrees with the design.

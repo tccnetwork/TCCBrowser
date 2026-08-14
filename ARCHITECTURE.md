@@ -1,63 +1,66 @@
-# TCC Browser — Kiến trúc
+# TCC Browser — Architecture
 
-> Trình duyệt thế hệ mới cho hệ TCC. Tài liệu này mô tả **cách các phần ghép lại**
-> và **vì sao chia như vậy**. Đặc tả tiêu chuẩn nằm ở `spec/`, kế hoạch triển khai
-> ở `docs/ke-hoach.md`, đặc tả gốc v0.1 giữ ở `docs/dac-ta-goc-v0.1.md`.
+> How the pieces fit together and **why they are divided this way**. The standard
+> itself lives in [`spec/`](spec/), the implementation plan in
+> [`docs/ke-hoach.md`](docs/ke-hoach.md), and the original v0.1 draft is kept for
+> reference in [`docs/dac-ta-goc-v0.1.md`](docs/dac-ta-goc-v0.1.md). Those two
+> `docs/` files are internal working notes and are in Vietnamese.
 
 ---
 
-## 1. Ba tầng nội dung
+## 1. Three tiers of content
 
-Trình duyệt mở ba loại thứ, và **cố ý** không giả vờ rằng cả ba như nhau.
+The browser opens three kinds of thing, and **deliberately** refuses to pretend
+they are the same kind of thing.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        TCC BROWSER                           │
 │                                                              │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  │
-│  │  TẦNG 1        │  │  TẦNG 2        │  │  TẦNG 3        │  │
-│  │  Ứng dụng TCC  │  │  Web hiện đại  │  │  Lối thoát     │  │
+│  │  TIER 1        │  │  TIER 2        │  │  TIER 3        │  │
+│  │  TCC apps      │  │  Modern web    │  │  Escape hatch  │  │
 │  ├────────────────┤  ├────────────────┤  ├────────────────┤  │
-│  │ WASM           │  │ HTML/CSS/JS    │  │ Mở bằng trình  │  │
-│  │ Quyền năng     │  │ theo chuẩn đã  │  │ duyệt hệ điều  │  │
-│  │ Ví, danh tính  │  │ công bố        │  │ hành           │  │
-│  │ Ký hậu lượng tử│  │                │  │                │  │
-│  │                │  │ Nhãn TCC Ready │  │ Netflix, trang │  │
-│  │ ← ĐÂY LÀ THỨ   │  │                │  │ cần DRM, trang │  │
-│  │   TA BÁN       │  │                │  │ quá cũ         │  │
+│  │ Declarative    │  │ HTML/CSS/JS    │  │ Hand off to    │  │
+│  │ Capabilities   │  │ to published   │  │ the OS browser │  │
+│  │ Wallet,identity│  │ standards      │  │                │  │
+│  │ PQ signatures  │  │                │  │ Netflix, DRM,  │  │
+│  │                │  │ "TCC Ready"    │  │ sites too old  │  │
+│  │ ← THIS IS THE  │  │                │  │ to care about  │  │
+│  │   PRODUCT      │  │                │  │                │  │
 │  └────────────────┘  └────────────────┘  └────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Tầng 3 là thứ khiến cả chiến lược khả thi.** Không có nó, ta bị buộc phải đuổi
-theo Chromium mãi mãi — và cuộc đua đó không ai thắng được. Có nó, ta được phép
-nói "trang này chúng tôi không chạy" mà người dùng vẫn làm được việc.
+**Tier 3 is what makes the whole strategy viable.** Without it we are forced to
+chase Chromium forever — a race nobody wins. With it, we are allowed to say "we
+don't run that page" and the user still gets their work done.
 
 ---
 
-## 2. Cây phụ thuộc
+## 2. The dependency tree
 
-Mũi tên đọc là "phụ thuộc vào". Chiều mũi tên **không bao giờ được đảo**.
+Arrows read "depends on". Their direction **must never be reversed**.
 
 ```
                     ┌──────────────┐
-                    │ tcc-browser  │  ứng dụng (mỏng)
+                    │ tcc-browser  │  the application (thin)
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
-                    │  tcc-shell   │  ★ ĐIỂM LẮP RÁP
-                    │              │    nơi DUY NHẤT chọn bộ dựng
+                    │  tcc-shell   │  ★ ASSEMBLY POINT
+                    │              │    the ONLY place a renderer is chosen
                     └──┬────────┬──┘
               ┌────────┘        └────────┐
               │                          │
       ┌───────▼────────┐      ┌──────────▼─────────┐
-      │  tcc-runtime   │      │ tcc-render-webview │  giàn giáo
+      │  tcc-runtime   │      │ tcc-render-webview │  scaffolding
       └───┬────┬───┬───┘      └──────────┬─────────┘
           │    │   │                     │
           │    │   └─────────┐  ┌────────┘
           │    │             ▼  ▼
           │    │        ┌─────────┐
-          │    │        │ tcc-ui  │  API component TRỪU TƯỢNG
+          │    │        │ tcc-ui  │  ABSTRACT component API
           │    │        └────┬────┘
           │    │             │
    ┌──────▼──┐ │        ┌────▼─────────┐
@@ -73,156 +76,177 @@ Mũi tên đọc là "phụ thuộc vào". Chiều mũi tên **không bao giờ 
    ┌──▼──────┐   ┌──▼──────────────────▼──┐
    │tcc-crypto│   │       tcc-spec        │
    └─────────┘   └───────────────────────┘
-      ★ LÁ            ★ LÁ
-   biên giới       kiểu dữ liệu
-   tin cậy         của tiêu chuẩn
+      ★ LEAF          ★ LEAF
+   trust boundary   the standard's
+                     data types
 ```
 
-### Vì sao chia đúng chỗ này
+`tcc-net` hangs off `tcc-shell` alone — see rule 8 below.
 
-Crate không chia theo **chủ đề**, mà theo **biên giới tin cậy và biên giới thay thế**:
+### Why the seams are here
 
-| Crate | Chia ra vì |
+Crates are not divided by **topic**. They are divided by **trust boundaries and
+replacement boundaries**:
+
+| Crate | Split out because |
 |---|---|
-| `tcc-crypto` | **Biên giới tin cậy.** Cần kiểm định độc lập, nên phải ít phụ thuộc nhất và đọc được một mình. |
-| `tcc-spec` | **Người ngoài phải đọc được.** Ai muốn tự cài đặt tiêu chuẩn TCC chỉ cần crate này, không phải kéo cả trình duyệt. |
-| `tcc-ui` ⟷ `tcc-render-*` | **Biên giới thay thế.** Hôm nay dựng bằng WebView, mai bằng GPU. Ứng dụng không được biết. |
-| `tcc-shell` | **Điểm lắp ráp.** Chỉ một nơi biết bộ dựng cụ thể là nơi nào. |
+| `tcc-crypto` | **Trust boundary.** It needs an independent audit, so it must carry the fewest dependencies and be readable on its own. |
+| `tcc-spec` | **Outsiders must be able to read it.** Anyone implementing the TCC standard needs this crate and nothing else — not the whole browser. |
+| `tcc-ui` ⟷ `tcc-render-*` | **Replacement boundary.** WebView today, GPU tomorrow. Apps must never be able to tell. |
+| `tcc-net` | **The way out of the machine, made visible.** Only `tcc-shell` may depend on it, so reading `Cargo.toml` proves the app loader cannot open a socket. |
+| `tcc-shell` | **Assembly point.** Exactly one place knows which concrete renderer exists. |
 
-Đặc tả gốc đề xuất **25 crate**. Ở đây có **8**, vì tạo crate rỗng không phải là
-tính mô-đun — nó chỉ là thư mục rỗng. Tách thêm khi có **lý do thật**: một biên
-giới tin cậy mới, hoặc một thứ cần thay thế được.
+The original draft proposed **25 crates**. There are **9**, because creating empty
+crates is not modularity — it is empty directories. Split further only for a
+**real reason**: a new trust boundary, or something that must be replaceable.
 
 ---
 
-## 3. Luật cứng — có máy kiểm
+## 3. Hard rules — machine-enforced
 
-Chạy `tools/kiem-luat-phu-thuoc.sh`, và chạy trong CI.
+Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 
-| # | Luật | Vì sao |
+| # | Rule | Why |
 |---|---|---|
-| 1 | `tcc-ui` không phụ thuộc bộ dựng nào | Mất luật này là mất đường thoát khỏi WebView |
-| 2 | Chỉ `tcc-shell` phụ thuộc `tcc-render-*` | Giữ điểm lắp ráp là một |
-| 3 | `tcc-crypto` là lá | Biên giới tin cậy không được phình |
-| 4 | `tcc-spec` là lá | Người ngoài cài đặt được tiêu chuẩn |
-| 5 | `tcc-runtime` không biết bộ dựng | Chỉ nói chuyện qua `tcc-ui` |
-| 6 | Không lộ DOM/HTML/CSS ra API ứng dụng | Lộ ra là ứng dụng dính chặt WebView |
+| 1 | `tcc-ui` depends on no renderer | Lose this and the escape route from WebView is gone |
+| 2 | Only `tcc-shell` depends on `tcc-render-*` | Keep the assembly point singular |
+| 3 | `tcc-crypto` is a leaf | A trust boundary must not swell |
+| 4 | `tcc-spec` is a leaf | Outsiders can implement the standard |
+| 5 | `tcc-runtime` knows no renderer | It speaks only through `tcc-ui` |
+| 6 | No DOM/HTML/CSS in the app-facing API | Leak it and apps are welded to WebView |
+| 7 | Every conformance vector group is present and runnable | A missing group is a part of the standard nobody can check |
+| 8 | Only `tcc-shell` depends on `tcc-net` | The path off the machine stays visible in the dependency tree |
+| 9 | The demo key never leaves `examples/` | Anyone can sign with it; a real package signed by it is forgeable by everyone |
+| 10 | Every error code in the specification exists in the source | A code that exists only on paper is a promise nobody keeps |
+| 11 | The translation does not drift from the normative text | A skewed translation is worse than none — its readers implement a different standard without knowing |
+| 12 | The specification contains no dead links | Outsiders reading it have no source code to guess from |
 
-> **Luật viết trong chú thích thì sớm muộn cũng bị vi phạm** — thường vào 11 giờ
-> đêm khi ai đó chỉ muốn "cho nó chạy đã". Nên chúng được cưỡng chế bằng máy.
+> **A rule written in a comment gets violated eventually** — usually at 11pm by
+> somebody who just wants it to run. So they are enforced by a machine.
 
 ---
 
-## 4. Đường thoát khỏi WebView
+## 4. The escape route from WebView
 
-Đây là quyết định kiến trúc **quan trọng nhất** của dự án.
+This is the **most important** architectural decision in the project.
 
 ```
-   GIAI ĐOẠN 1                        GIAI ĐOẠN 4
-   (mượn giàn giáo)                   (tự đứng)
+   PHASE 1                            PHASE 4
+   (borrowed scaffolding)             (standing on its own)
 
-   Ứng dụng TCC                       Ứng dụng TCC
+   TCC app                            TCC app
         │                                  │
         ▼                                  ▼
    ┌─────────┐                        ┌─────────┐
-   │ tcc-ui  │ ◄── ứng dụng chỉ ────► │ tcc-ui  │
-   └────┬────┘     biết tầng này      └────┬────┘
+   │ tcc-ui  │ ◄── the app knows ───► │ tcc-ui  │
+   └────┬────┘     only this layer    └────┬────┘
         │                                  │
         ▼                                  ▼
   ┌───────────┐                     ┌────────────┐
-  │ WebView   │                     │ Bộ dựng GPU│
+  │ WebView   │                     │ GPU render │
   │ (WKWebView│                     │  (wgpu)    │
   │  WebView2)│                     └────────────┘
   └───────────┘
-                    ỨNG DỤNG KHÔNG SỬA MỘT DÒNG
+                    APPS CHANGE NOT ONE LINE
 ```
 
-**Cái bẫy phải tránh:** nếu ứng dụng TCC được viết thẳng bằng HTML/CSS/JS chạy
-trong WebView, thì ngày có bộ dựng riêng, **mọi ứng dụng phải viết lại** — và lúc
-đó không ai dám bỏ WebView nữa. Giàn giáo hoá thành nhà.
+**The trap to avoid:** if TCC apps were written directly in HTML/CSS/JS running
+inside a WebView, then on the day a native renderer exists **every app has to be
+rewritten** — and at that point nobody dares drop WebView. The scaffolding becomes
+the building.
 
-Luật 1, 2, 5, 6 tồn tại **chỉ để** giữ cho ô bên phải luôn khả thi.
+Rules 1, 2, 5 and 6 exist **solely** to keep the right-hand box reachable.
 
-Lợi ích phụ: ràng buộc này bắt ta thiết kế `tcc-ui` cho tử tế ngay từ đầu. Nếu nó
-đủ trừu tượng để chạy trên hai bộ dựng khác hẳn nhau, thì nó đã được thiết kế đúng.
+A side benefit: the constraint forces `tcc-ui` to be designed properly from the
+start. If it is abstract enough to run on two genuinely different renderers, it
+was designed correctly.
 
 ---
 
-## 5. Lát cắt mỏng — đường đi của một ứng dụng TCC
+## 5. The thin slice — the path a TCC app travels
 
-Đây là thứ Giai đoạn 1 phải làm chạy được từ đầu tới cuối.
+This is what Phase 1 has to make work end to end.
 
 ```
-  Gói ứng dụng .tccapp
+  .tccapp package
          │
          │  ┌─────────────────────────────────────────┐
-         ├─►│ 1. Kiểm chữ ký          [tcc-crypto]    │
-         │  │    Ed25519 + ML-DSA (LAI)               │
-         │  │    Hỏng → dừng, báo rõ sai ở đâu        │
+         ├─►│ 1. Verify signature      [tcc-crypto]   │
+         │  │    Ed25519 + ML-DSA (HYBRID)            │
+         │  │    Fails → stop, say exactly where      │
          │  └─────────────────────────────────────────┘
          │
          │  ┌─────────────────────────────────────────┐
-         ├─►│ 2. Đọc bản kê khai      [tcc-manifest]  │
-         │  │    ai ký? xin quyền gì?                 │
+         ├─►│ 2. Read the manifest     [tcc-manifest] │
+         │  │    who signed? what is requested?       │
          │  └─────────────────────────────────────────┘
          │
          │  ┌─────────────────────────────────────────┐
-         ├─►│ 3. Dựng tập quyền năng  [tcc-capability]│
-         │  │    KHÔNG cấp sẵn gì. Người dùng duyệt.  │
+         ├─►│ 3. Build capability set [tcc-capability]│
+         │  │    NOTHING pre-granted. The user rules. │
          │  └─────────────────────────────────────────┘
          │
          │  ┌─────────────────────────────────────────┐
-         ├─►│ 4. Chạy                 [tcc-runtime]   │
-         │  │    ứng dụng chỉ gọi được đúng thứ đã cấp│
+         ├─►│ 4. Run                   [tcc-runtime]  │
+         │  │    the app reaches only what was granted│
          │  └─────────────────────────────────────────┘
          │
          │  ┌─────────────────────────────────────────┐
-         └─►│ 5. Vẽ giao diện         [tcc-ui]        │
-            │    → WebView (giai đoạn 1)              │
+         └─►│ 5. Draw the interface    [tcc-ui]       │
+            │    → WebView (phase 1)                  │
             └─────────────────────────────────────────┘
 ```
 
-Chạy được đường này là **đã có trình duyệt** — nó mở được một thứ, và thứ đó là
-thứ Chrome không mở được.
+Getting this path to run **is having a browser** — it opens something, and that
+something is a thing Chrome cannot open.
 
 ---
 
-## 6. Mật mã: LAI, không thuần hậu lượng tử
+## 6. Cryptography: HYBRID, not pure post-quantum
 
 ```
-   CHỮ KÝ                         TRAO ĐỔI KHOÁ
+   SIGNATURES                     KEY EXCHANGE
    ┌────────────┐                 ┌────────────┐
-   │  Ed25519   │ cổ điển         │   X25519   │ cổ điển
+   │  Ed25519   │ classical       │   X25519   │ classical
    │     +      │                 │     +      │
-   │   ML-DSA   │ hậu lượng tử    │   ML-KEM   │ hậu lượng tử
+   │   ML-DSA   │ post-quantum    │   ML-KEM   │ post-quantum
    │ (FIPS 204) │                 │ (FIPS 203) │
    └────────────┘                 └────────────┘
-     An toàn nếu MỘT trong hai còn đứng vững
+     Safe while EITHER one still stands
 ```
 
-**Vì sao lai chứ không thuần hậu lượng tử:** năm 2022, **SIKE** — một ứng viên đã
-vào vòng chung kết NIST — bị phá **trên một nhân CPU trong khoảng một giờ**. Thuật
-toán hậu lượng tử còn quá trẻ để tin một mình.
+**Why hybrid rather than pure post-quantum:** in 2022 **SIKE** — a finalist in the
+NIST competition — was broken **on a single CPU core in about an hour**.
+Post-quantum algorithms are too young to be trusted alone.
 
-**Cái gì gấp, cái gì không:**
+**What is urgent and what is not:**
 
-| | Mức gấp | Vì sao |
+| | Urgency | Why |
 |---|---|---|
-| Trao đổi khoá | **GẤP** | Kẻ tấn công thu lưu lượng hôm nay, giải mã sau. Bí mật hôm nay lộ ở tương lai. |
-| Chữ ký | Không gấp | Không ai giả mạo ngược được chữ ký 2026 vào năm 2040 |
-| Đối xứng (AES-256, SHA-384) | **Không cần đổi** | Grover chỉ làm yếu một nửa số bit — AES-256 còn tương đương 128 bit, vẫn thừa |
+| Key exchange | **URGENT** | An attacker records traffic today and decrypts it later. Today's secrets leak in the future. |
+| Signatures | Not urgent | Nobody forges a 2026 signature retroactively in 2040 |
+| Symmetric (AES-256, SHA-384) | **No change needed** | Grover halves the effective bits — AES-256 still gives 128, still ample |
 
-Đổ công sức thay AES là lãng phí. Chỉ mã hoá **bất đối xứng** mới bị Shor phá.
+Effort spent replacing AES is wasted. Only **asymmetric** cryptography falls to
+Shor.
 
 ---
 
-## 7. Quy ước
+## 7. Conventions
 
-**Định danh trong mã: tiếng Anh. Chú thích và tài liệu: tiếng Việt.**
+**Identifiers in code: English. Comments and internal docs: Vietnamese.**
 
-Vì `spec/` là tiêu chuẩn cho người ngoài đọc và cài đặt, nên tên kiểu dữ liệu,
-tên hàm, tên crate phải là tiếng Anh. Còn đội ngũ đọc mã là người Việt, nên chú
-thích viết tiếng Việt — giống v1.
+Because `spec/` is a standard for outsiders to read and implement, type names,
+function names and crate names must be English. The team maintaining this reads
+Vietnamese, so comments are written in Vietnamese — the same convention as v1.
 
-**Chú thích giải thích VÌ SAO, không giải thích CÁI GÌ.** Mã đã nói nó làm gì rồi.
-Thứ mã không nói được là vì sao chọn cách này, và đã thử cách nào rồi hỏng.
+> **⚠️ The code has drifted from this rule.** `tcc-spec` — the crate an outside
+> implementer actually needs — holds the line: `Manifest`, `CapabilityRequest`,
+> `Scope`, `AppId`. The inner crates (`tcc-shell`, `tcc-render-webview`) have
+> Vietnamese identifiers: `ghi_nho.rs`, `danh_dau.rs`, `ChuBoDung`. This is
+> recorded as a known deviation, not endorsed as practice, and nothing enforces
+> the rule by machine — which is exactly how it drifted.
+
+**Comments explain WHY, not WHAT.** The code already states what it does. What it
+cannot state is why this approach was chosen, and which approach was tried first
+and failed.
