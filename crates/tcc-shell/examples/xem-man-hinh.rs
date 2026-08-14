@@ -1,6 +1,6 @@
 //! Mở màn hình ỨNG DỤNG để nhìn bằng mắt, bỏ qua hộp thoại hỏi quyền.
 //!
-//! Chạy: `cargo run -p tcc-shell --features cua-so --example xem-man-hinh <gói> [giây]`
+//! Chạy: `cargo run -p tcc-shell --features window --example xem-man-hinh <gói> [giây]`
 //!
 //! Không cấp quyền nào — chỉ vẽ. Dùng để soi bố cục, chữ tiếng Việt và ảnh
 //! trong gói mà không phải bấm qua hộp thoại.
@@ -28,9 +28,9 @@ fn main() -> ExitCode {
     let app =
         tcc_runtime::grant_verified(app, noi_dung, |_| Decision::Deny).expect("cấp quyền hỏng");
 
-    match tcc_shell::cua_so::hien_ung_dung(
+    match tcc_shell::window::show_app(
         &app,
-        tcc_shell::NgonNgu::default(),
+        tcc_shell::Language::default(),
         Some(Duration::from_secs(giay)),
     ) {
         Ok(()) => ExitCode::SUCCESS,

@@ -25,14 +25,14 @@
 use tcc_ui::tcc_spec_tree::check_path_public;
 
 /// Tên giao thức. Khớp với `img-src tcc-goi:` trong chính sách nội dung.
-pub const GIAO_THUC: &str = "tcc-goi";
+pub const SCHEME: &str = "tcc-goi";
 
 /// Máy chủ giả trong địa chỉ. Không có ý nghĩa gì ngoài việc làm địa chỉ hợp lệ.
-pub const MAY_CHU: &str = "goi";
+pub const HOST_PART: &str = "goi";
 
 /// Vì sao một yêu cầu bị từ chối.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TuChoi {
+pub enum ServeError {
     /// Địa chỉ không thuộc giao thức này.
     KhongPhaiGiaoThucNay,
     /// Đường dẫn vi phạm ràng buộc của tiêu chuẩn (`..`, tuyệt đối, …).
@@ -43,10 +43,10 @@ pub enum TuChoi {
     KhongCoTrongGoi(String),
 }
 
-impl std::fmt::Display for TuChoi {
+impl std::fmt::Display for ServeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::KhongPhaiGiaoThucNay => write!(f, "không phải giao thức {GIAO_THUC}"),
+            Self::KhongPhaiGiaoThucNay => write!(f, "không phải giao thức {SCHEME}"),
             Self::DuongDanXau(p) => write!(f, "đường dẫn \"{p}\" không hợp lệ"),
             Self::DuoiTepKhongCho(p) => write!(
                 f,
@@ -76,18 +76,18 @@ const KIEU: &[(&str, &str)] = &[
 
 /// Dựng địa chỉ `tcc-goi:` cho một đường dẫn trong gói.
 #[must_use]
-pub fn dia_chi(duong_dan: &str) -> String {
-    format!("{GIAO_THUC}://{MAY_CHU}/{duong_dan}")
+pub fn url_for(duong_dan: &str) -> String {
+    format!("{SCHEME}://{HOST_PART}/{duong_dan}")
 }
 
 /// Tách đường dẫn trong gói ra khỏi địa chỉ, và KIỂM nó.
 ///
 /// # Errors
 /// Không phải giao thức này, hoặc đường dẫn vi phạm ràng buộc của tiêu chuẩn.
-pub fn duong_dan_tu_dia_chi(dia_chi: &str) -> Result<String, TuChoi> {
-    let sau = dia_chi
-        .strip_prefix(&format!("{GIAO_THUC}://"))
-        .ok_or(TuChoi::KhongPhaiGiaoThucNay)?;
+pub fn path_from_url(url_for: &str) -> Result<String, ServeError> {
+    let sau = url_for
+        .strip_prefix(&format!("{SCHEME}://"))
+        .ok_or(ServeError::KhongPhaiGiaoThucNay)?;
     // Bỏ phần máy chủ. Không kiểm nó bằng gì — địa chỉ nào cũng chỉ tới đúng
     // một gói, cái quyết định là phần đường dẫn.
     let p = sau.split_once('/').map_or("", |(_, p)| p);
@@ -100,7 +100,7 @@ pub fn duong_dan_tu_dia_chi(dia_chi: &str) -> Result<String, TuChoi> {
     // thì `check_path` không nhìn thấy nó, mà trình duyệt thì có.
     let p = giai_ma_phan_tram(p);
 
-    check_path_public(&p).map_err(|_| TuChoi::DuongDanXau(p.clone()))?;
+    check_path_public(&p).map_err(|_| ServeError::DuongDanXau(p.clone()))?;
     Ok(p)
 }
 
@@ -128,7 +128,7 @@ fn giai_ma_phan_tram(s: &str) -> String {
 ///
 /// # Errors
 /// Đuôi không nằm trong danh sách trắng.
-pub fn kieu_noi_dung(duong_dan: &str) -> Result<&'static str, TuChoi> {
+pub fn content_type(duong_dan: &str) -> Result<&'static str, ServeError> {
     let duoi = duong_dan
         .rsplit_once('.')
         .map(|(_, d)| d.to_ascii_lowercase())
@@ -136,21 +136,21 @@ pub fn kieu_noi_dung(duong_dan: &str) -> Result<&'static str, TuChoi> {
     KIEU.iter()
         .find(|(d, _)| *d == duoi)
         .map(|(_, k)| *k)
-        .ok_or_else(|| TuChoi::DuoiTepKhongCho(duong_dan.to_owned()))
+        .ok_or_else(|| ServeError::DuoiTepKhongCho(duong_dan.to_owned()))
 }
 
 /// Phục vụ một yêu cầu. `doc_tep` đọc từ cây tệp ĐÃ KÝ.
 ///
 /// # Errors
 /// Bất kỳ luật nào trong ba luật ở đầu tệp bị vi phạm.
-pub fn phuc_vu(
-    dia_chi: &str,
+pub fn serve(
+    url_for: &str,
     doc_tep: &dyn Fn(&str) -> Option<Vec<u8>>,
-) -> Result<(&'static str, Vec<u8>), TuChoi> {
-    let p = duong_dan_tu_dia_chi(dia_chi)?;
+) -> Result<(&'static str, Vec<u8>), ServeError> {
+    let p = path_from_url(url_for)?;
     // Kiểu nội dung TRƯỚC khi đọc: đuôi lạ thì không cần chạm tới tệp.
-    let kieu = kieu_noi_dung(&p)?;
-    let byte = doc_tep(&p).ok_or_else(|| TuChoi::KhongCoTrongGoi(p.clone()))?;
+    let kieu = content_type(&p)?;
+    let byte = doc_tep(&p).ok_or_else(|| ServeError::KhongCoTrongGoi(p.clone()))?;
     Ok((kieu, byte))
 }
 
@@ -172,7 +172,7 @@ mod kiem_thu {
 
     #[test]
     fn phuc_vu_duoc_anh_trong_goi() {
-        let (k, b) = phuc_vu(&dia_chi("anh/logo.png"), &goi_mau).unwrap();
+        let (k, b) = serve(&url_for("anh/logo.png"), &goi_mau).unwrap();
         assert_eq!(k, "image/png");
         assert_eq!(b, b"PNG");
     }
@@ -188,7 +188,10 @@ mod kiem_thu {
             "anh//logo.png",
         ] {
             assert!(
-                matches!(phuc_vu(&dia_chi(p), &goi_mau), Err(TuChoi::DuongDanXau(_))),
+                matches!(
+                    serve(&url_for(p), &goi_mau),
+                    Err(ServeError::DuongDanXau(_))
+                ),
                 "\"{p}\" lọt qua"
             );
         }
@@ -205,9 +208,9 @@ mod kiem_thu {
             "%2E%2E/bi-mat.png",
             "anh%2f%2e%2e%2f%2e%2e%2fx.png",
         ] {
-            let d = format!("{GIAO_THUC}://{MAY_CHU}/{p}");
+            let d = format!("{SCHEME}://{HOST_PART}/{p}");
             assert!(
-                matches!(phuc_vu(&d, &goi_mau), Err(TuChoi::DuongDanXau(_))),
+                matches!(serve(&d, &goi_mau), Err(ServeError::DuongDanXau(_))),
                 "\"{p}\" lọt qua"
             );
         }
@@ -218,11 +221,11 @@ mod kiem_thu {
     #[test]
     fn phan_truy_van_va_neo_bi_cat() {
         for d in [
-            dia_chi("anh/logo.png?v=2"),
-            dia_chi("anh/logo.png#neo"),
-            dia_chi("anh/logo.png?x=../../y"),
+            url_for("anh/logo.png?v=2"),
+            url_for("anh/logo.png#neo"),
+            url_for("anh/logo.png?x=../../y"),
         ] {
-            let (k, b) = phuc_vu(&d, &goi_mau).unwrap_or_else(|e| panic!("{d} → {e}"));
+            let (k, b) = serve(&d, &goi_mau).unwrap_or_else(|e| panic!("{d} → {e}"));
             assert_eq!(k, "image/png");
             assert_eq!(b, b"PNG");
         }
@@ -233,14 +236,14 @@ mod kiem_thu {
     fn chi_phuc_vu_anh() {
         // Tệp CÓ trong gói, nhưng đuôi không nằm trong danh sách trắng.
         assert!(matches!(
-            phuc_vu(&dia_chi("bi-mat.txt"), &goi_mau),
-            Err(TuChoi::DuoiTepKhongCho(_))
+            serve(&url_for("bi-mat.txt"), &goi_mau),
+            Err(ServeError::DuoiTepKhongCho(_))
         ));
         for p in ["a.html", "a.js", "a.json", "a.wasm", "a", "a."] {
             assert!(
                 matches!(
-                    phuc_vu(&dia_chi(p), &goi_mau),
-                    Err(TuChoi::DuoiTepKhongCho(_))
+                    serve(&url_for(p), &goi_mau),
+                    Err(ServeError::DuoiTepKhongCho(_))
                 ),
                 "\"{p}\" lọt qua"
             );
@@ -252,16 +255,16 @@ mod kiem_thu {
     #[test]
     fn svg_khong_duoc_phuc_vu() {
         assert!(matches!(
-            phuc_vu(&dia_chi("anh/logo.svg"), &goi_mau),
-            Err(TuChoi::DuoiTepKhongCho(_))
+            serve(&url_for("anh/logo.svg"), &goi_mau),
+            Err(ServeError::DuoiTepKhongCho(_))
         ));
     }
 
     #[test]
     fn tep_khong_co_trong_goi_thi_tu_choi() {
         assert!(matches!(
-            phuc_vu(&dia_chi("anh/khong-co.png"), &goi_mau),
-            Err(TuChoi::KhongCoTrongGoi(_))
+            serve(&url_for("anh/khong-co.png"), &goi_mau),
+            Err(ServeError::KhongCoTrongGoi(_))
         ));
     }
 
@@ -273,8 +276,8 @@ mod kiem_thu {
             "tcc-goi-gia://goi/x.png",
         ] {
             assert!(matches!(
-                phuc_vu(d, &goi_mau),
-                Err(TuChoi::KhongPhaiGiaoThucNay)
+                serve(d, &goi_mau),
+                Err(ServeError::KhongPhaiGiaoThucNay)
             ));
         }
     }

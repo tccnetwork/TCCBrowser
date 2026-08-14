@@ -20,7 +20,7 @@
 //! gì thì người dùng đọc nấy. Phép thử `khong_hoi_nguoi_dung_khi_chu_ky_hong`
 //! chốt lại điều này.
 
-pub mod goi;
+pub mod package;
 
 use std::path::Path;
 
@@ -50,7 +50,7 @@ pub enum RuntimeError {
 /// `tcc-runtime` KHÔNG tự mở socket. Hai lý do: kiểm thử được mà không đụng mạng
 /// thật, và mọi đường ra khỏi máy đều nhìn thấy được ngay tại chỗ gọi — không có
 /// lối đi ngầm nào chôn trong thư viện.
-pub trait Mang {
+pub trait Network {
     /// # Errors
     /// Tuỳ bản cài đặt.
     fn get(&self, host: &str, path: &str) -> Result<Vec<u8>, String>;
@@ -68,7 +68,7 @@ pub enum ActionError {
     Quyen(#[from] tcc_capability::CapabilityError),
 
     #[error("mạng lỗi: {0}")]
-    Mang(String),
+    Network(String),
 }
 
 /// Một ứng dụng đã nạp xong: chữ ký đã kiểm, quyền năng đã cấp.
@@ -110,7 +110,7 @@ impl LoadedApp {
     /// kiện của cửa sổ, lâu hơn lời gọi này. Cây tệp đã qua kiểm chữ ký nên bản
     /// sao cũng vậy — không có đường nào nhét nội dung chưa ký vào đây.
     #[must_use]
-    pub fn ban_sao_noi_dung(&self) -> FileTree {
+    pub fn copy_content(&self) -> FileTree {
         self.content.clone()
     }
 
@@ -142,7 +142,7 @@ impl LoadedApp {
     /// # Errors
     /// Không có hành động đó, chưa được cấp quyền, máy chủ ngoài phạm vi, quyền
     /// đã bị thu hồi, hoặc mạng lỗi.
-    pub fn thuc_hien(&self, id: &str, mang: &dyn Mang) -> Result<Vec<u8>, ActionError> {
+    pub fn perform(&self, id: &str, mang: &dyn Network) -> Result<Vec<u8>, ActionError> {
         // 1. Hành động phải có trong bản kê khai ĐÃ KÝ. Mã đến từ cú bấm trên
         //    màn hình; không tra ở đây thì trang tự bịa ra hành động được.
         let a = self
@@ -164,7 +164,7 @@ impl LoadedApp {
                 n.allow(host)?;
 
                 // 3. Giờ mới ra ngoài.
-                mang.get(host, path).map_err(ActionError::Mang)
+                mang.get(host, path).map_err(ActionError::Network)
             }
         }
     }
@@ -249,10 +249,10 @@ pub fn verify_from_dir(
     duong_dan: &Path,
     scheme: &dyn SignatureScheme,
 ) -> Result<(VerifiedApp, FileTree), RuntimeError> {
-    let loi = |e: goi::LoiGoi| RuntimeError::Goi(e.to_string());
-    let ke_khai = goi::doc_ke_khai(duong_dan).map_err(loi)?;
-    let chu_ky = goi::doc_chu_ky(duong_dan).map_err(loi)?;
-    let noi_dung = goi::doc_noi_dung(duong_dan).map_err(loi)?;
+    let text = |e: package::PackageError| RuntimeError::Goi(e.to_string());
+    let ke_khai = package::read_manifest(duong_dan).map_err(text)?;
+    let chu_ky = package::read_signature(duong_dan).map_err(text)?;
+    let noi_dung = package::read_content(duong_dan).map_err(text)?;
     let app = verify(&ke_khai, &chu_ky, &noi_dung, scheme)?;
     Ok((app, noi_dung))
 }
@@ -440,7 +440,7 @@ mod kiem_thu {
         }
     }
 
-    impl Mang for MangGia {
+    impl Network for MangGia {
         fn get(&self, host: &str, path: &str) -> Result<Vec<u8>, String> {
             self.da_goi.borrow_mut().push(format!("{host}{path}"));
             Ok(b"[]".to_vec())
@@ -479,7 +479,7 @@ mod kiem_thu {
     fn duoc_cap_quyen_thi_hanh_dong_chay_duoc() {
         let app = nap(goi_co_hanh_vi(XIN_SHOP, HD_SHOP), |_| Decision::Allow).unwrap();
         let m = MangGia::moi();
-        assert_eq!(app.thuc_hien("tai-hang", &m).unwrap(), b"[]");
+        assert_eq!(app.perform("tai-hang", &m).unwrap(), b"[]");
         assert_eq!(m.da_goi.borrow().as_slice(), ["shop.tcc-coin.com/ds"]);
     }
 
@@ -492,7 +492,7 @@ mod kiem_thu {
     fn chua_cap_quyen_thi_khong_goi_ra_ngoai_mot_lan_nao() {
         let app = nap(goi_co_hanh_vi(XIN_SHOP, HD_SHOP), |_| Decision::Deny).unwrap();
         let m = MangGia::moi();
-        let ket = app.thuc_hien("tai-hang", &m);
+        let ket = app.perform("tai-hang", &m);
         assert!(matches!(ket, Err(ActionError::ChuaCapQuyen(_))));
         assert_eq!(
             m.so_lan(),
@@ -506,7 +506,7 @@ mod kiem_thu {
         let app = nap(goi_co_hanh_vi(XIN_SHOP, HD_SHOP), |_| Decision::Allow).unwrap();
         app.revoke_all();
         let m = MangGia::moi();
-        assert!(app.thuc_hien("tai-hang", &m).is_err());
+        assert!(app.perform("tai-hang", &m).is_err());
         assert_eq!(m.so_lan(), 0, "thu hồi rồi mà vẫn gọi ra ngoài");
     }
 
@@ -519,7 +519,7 @@ mod kiem_thu {
         let app = nap(goi_co_hanh_vi(XIN_SHOP, HD_SHOP), |_| Decision::Allow).unwrap();
         let m = MangGia::moi();
         assert!(matches!(
-            app.thuc_hien("hanh-dong-ma", &m),
+            app.perform("hanh-dong-ma", &m),
             Err(ActionError::KhongCo(_))
         ));
         assert_eq!(m.so_lan(), 0);
@@ -542,7 +542,7 @@ mod kiem_thu {
         std::fs::write(thu_muc.join("content/anh/logo.png"), b"PNG").unwrap();
 
         let khoa = HybridEd25519MlDsa::generate();
-        let cay = goi::doc_noi_dung(&thu_muc).unwrap();
+        let cay = package::read_content(&thu_muc).unwrap();
         let ke_khai = format!(
             r#"{{"spec_version":"0.1","id":"com.tcc.dia","name":"Tren dia",
 "version":"1.0.0","publisher":"{}","scheme":"hybrid-ed25519-mldsa65-v1",

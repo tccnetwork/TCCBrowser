@@ -164,7 +164,7 @@ pub fn check_path_public(path: &str) -> Result<(), TreeError> {
 ///
 /// Chặt là có chủ đích. Mỗi luật chặn một đòn cụ thể:
 fn check_path(path: &str) -> Result<(), TreeError> {
-    let loi = |why| {
+    let text = |why| {
         Err(TreeError::BadPath {
             path: path.to_string(),
             why,
@@ -175,34 +175,34 @@ fn check_path(path: &str) -> Result<(), TreeError> {
         return Err(TreeError::EmptyPath(path.to_string()));
     }
     if path.len() > MAX_PATH_LEN {
-        return loi("dài quá 1024 byte");
+        return text("dài quá 1024 byte");
     }
     // Thoát ra ngoài thư mục gói — đòn "zip slip" kinh điển.
     if path.split('/').any(|d| d == "..") {
-        return loi("chứa \"..\" — có thể ghi ra ngoài thư mục gói");
+        return text("chứa \"..\" — có thể ghi ra ngoài thư mục gói");
     }
     if path.starts_with('/') {
-        return loi("là đường dẫn tuyệt đối");
+        return text("là đường dẫn tuyệt đối");
     }
     // Windows: "C:\..." và cả tên ổ đĩa
     if path.contains(':') {
-        return loi("chứa dấu hai chấm — tên ổ đĩa hoặc luồng dữ liệu phụ trên Windows");
+        return text("chứa dấu hai chấm — tên ổ đĩa hoặc luồng dữ liệu phụ trên Windows");
     }
     // Dấu gạch ngược không phải phân cách trong dạng chuẩn tắc. Cho phép nó thì
     // "a\\b" trên Linux là MỘT tệp, trên Windows là HAI cấp — cùng chữ ký, hai kết quả.
     if path.contains('\\') {
-        return loi("chứa dấu gạch ngược — chỉ dùng \"/\" làm phân cách");
+        return text("chứa dấu gạch ngược — chỉ dùng \"/\" làm phân cách");
     }
     if path.contains("//") || path.ends_with('/') {
-        return loi("có đoạn rỗng hoặc kết thúc bằng \"/\"");
+        return text("có đoạn rỗng hoặc kết thúc bằng \"/\"");
     }
     if path.split('/').any(|d| d == ".") {
-        return loi("chứa \".\"");
+        return text("chứa \".\"");
     }
     // NUL và ký tự điều khiển: cắt chuỗi ở tầng hệ điều hành, gây lệch giữa cái
     // ta kiểm và cái hệ thống tệp thật sự tạo ra.
     if path.chars().any(char::is_control) {
-        return loi("chứa ký tự điều khiển");
+        return text("chứa ký tự điều khiển");
     }
     Ok(())
 }

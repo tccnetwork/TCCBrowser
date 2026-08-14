@@ -120,6 +120,7 @@ Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 | 10 | Every error code in the specification exists in the source | A code that exists only on paper is a promise nobody keeps |
 | 11 | The translation does not drift from the normative text | A skewed translation is worse than none — its readers implement a different standard without knowing |
 | 12 | The specification contains no dead links | Outsiders reading it have no source code to guess from |
+| 13 | No public identifier carries a Vietnamese name | The API surface is what a second implementer reads; see §7 |
 
 > **A rule written in a comment gets violated eventually** — usually at 11pm by
 > somebody who just wants it to run. So they are enforced by a machine.
@@ -240,12 +241,19 @@ Because `spec/` is a standard for outsiders to read and implement, type names,
 function names and crate names must be English. The team maintaining this reads
 Vietnamese, so comments are written in Vietnamese — the same convention as v1.
 
-> **⚠️ The code has drifted from this rule.** `tcc-spec` — the crate an outside
-> implementer actually needs — holds the line: `Manifest`, `CapabilityRequest`,
-> `Scope`, `AppId`. The inner crates (`tcc-shell`, `tcc-render-webview`) have
-> Vietnamese identifiers: `ghi_nho.rs`, `danh_dau.rs`, `ChuBoDung`. This is
-> recorded as a known deviation, not endorsed as practice, and nothing enforces
-> the rule by machine — which is exactly how it drifted.
+The boundary is `pub`, and **rule 13 enforces it by machine**. All 216 public
+identifiers are English; module filenames follow.
+
+What deliberately stays Vietnamese: comments, test function names, local
+variables, and the adversarial example binaries. Those are **reasoning**, not
+interface — and `SECURITY.md` cites test names as evidence, so renaming them
+would damage the very thing they document.
+
+> **This rule drifted for months** before rule 13 existed, and rule 13 caught
+> three identifiers a manual sweep had already missed. It was the only convention
+> in this document with no machine watching it, and it was the only one that
+> drifted. That is not a coincidence, and it is the argument for every other rule
+> in §3.
 
 **Comments explain WHY, not WHAT.** The code already states what it does. What it
 cannot state is why this approach was chosen, and which approach was tried first

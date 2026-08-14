@@ -171,24 +171,24 @@ impl TryFrom<UiNode> for Node {
 ///
 /// # Errors
 /// Quá trần kích thước, JSON hỏng, hoặc cây vi phạm một phép kiểm nào đó.
-pub fn doc(byte: &[u8]) -> Result<Node, DocLoi> {
+pub fn decode(byte: &[u8]) -> Result<Node, DecodeError> {
     if byte.len() > MAX_UI_BYTES {
-        return Err(DocLoi::QuaLon(byte.len()));
+        return Err(DecodeError::TooLarge(byte.len()));
     }
-    let tho: UiNode = serde_json::from_slice(byte).map_err(|e| DocLoi::Json(e.to_string()))?;
-    Node::try_from(tho).map_err(|e| DocLoi::Cay(e.to_string()))
+    let tho: UiNode = serde_json::from_slice(byte).map_err(|e| DecodeError::Json(e.to_string()))?;
+    Node::try_from(tho).map_err(|e| DecodeError::Tree(e.to_string()))
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum DocLoi {
+pub enum DecodeError {
     #[error("tệp giao diện {0} byte, vượt trần {MAX_UI_BYTES}")]
-    QuaLon(usize),
+    TooLarge(usize),
 
     #[error("tệp giao diện không phải JSON hợp lệ: {0}")]
     Json(String),
 
     #[error("cây giao diện không hợp lệ: {0}")]
-    Cay(String),
+    Tree(String),
 }
 
 #[cfg(test)]
@@ -214,7 +214,7 @@ mod kiem_thu {
 
     #[test]
     fn doc_duoc_cay_binh_thuong() {
-        let n = doc(MAU.as_bytes()).unwrap();
+        let n = decode(MAU.as_bytes()).unwrap();
         assert_eq!(n.children().len(), 4);
         assert!(matches!(n.kind(), NodeKind::Group { .. }));
         // Trợ năng vẫn dựng được như cây viết tay.
@@ -232,8 +232,8 @@ mod kiem_thu {
     /// quyền thì nó tự trả lời "đồng ý".
     #[test]
     fn cong_tac_thieu_trang_thai_thi_mac_dinh_tat() {
-        let n =
-            doc(r#"{"kind":"toggle","label":"Quyền mạng","action":"q-mang"}"#.as_bytes()).unwrap();
+        let n = decode(r#"{"kind":"toggle","label":"Quyền mạng","action":"q-mang"}"#.as_bytes())
+            .unwrap();
         assert_eq!(
             n.accessibility_tree().role,
             crate::Role::Switch { on: false },
@@ -266,7 +266,7 @@ mod kiem_thu {
             '\u{202e}'
         );
         assert!(
-            matches!(doc(ac.as_bytes()), Err(DocLoi::Cay(_))),
+            matches!(decode(ac.as_bytes()), Err(DecodeError::Tree(_))),
             "ký tự đảo chiều chữ lọt qua đường JSON"
         );
     }
@@ -275,13 +275,13 @@ mod kiem_thu {
     fn anh_tro_ra_mang_tu_json_van_bi_chan() {
         let ac = r#"{"kind":"image","source":"https://theo-doi.example/1.png",
                      "alt":{"kind":"decorative"}}"#;
-        assert!(matches!(doc(ac.as_bytes()), Err(DocLoi::Cay(_))));
+        assert!(matches!(decode(ac.as_bytes()), Err(DecodeError::Tree(_))));
     }
 
     #[test]
     fn ma_hanh_dong_bay_tu_json_van_bi_chan() {
         let ac = r#"{"kind":"button","label":"A","action":"CHO PHEP TAT CA"}"#;
-        assert!(matches!(doc(ac.as_bytes()), Err(DocLoi::Cay(_))));
+        assert!(matches!(decode(ac.as_bytes()), Err(DecodeError::Tree(_))));
     }
 
     #[test]
@@ -292,7 +292,7 @@ mod kiem_thu {
             con.trim_end_matches(',')
         );
         assert!(
-            matches!(doc(ac.as_bytes()), Err(DocLoi::Cay(_))),
+            matches!(decode(ac.as_bytes()), Err(DecodeError::Tree(_))),
             "cây vượt trần số nút lọt qua đường JSON"
         );
     }
@@ -310,7 +310,7 @@ mod kiem_thu {
             "]}".repeat(n)
         );
         assert!(
-            doc(ac.as_bytes()).is_err(),
+            decode(ac.as_bytes()).is_err(),
             "cây lồng {n} tầng lọt qua đường JSON"
         );
     }
@@ -325,7 +325,7 @@ mod kiem_thu {
     fn anh_thieu_mo_ta_thi_bao_loi_chu_khong_mac_dinh() {
         let thieu = r#"{"kind":"image","source":"a.png"}"#;
         assert!(
-            matches!(doc(thieu.as_bytes()), Err(DocLoi::Json(_))),
+            matches!(decode(thieu.as_bytes()), Err(DecodeError::Json(_))),
             "ảnh thiếu mô tả bị nuốt thành trang trí"
         );
     }
@@ -335,13 +335,13 @@ mod kiem_thu {
     #[test]
     fn truong_la_thi_tu_choi() {
         let la = r#"{"kind":"text","content":"x","mau":"do"}"#;
-        assert!(matches!(doc(la.as_bytes()), Err(DocLoi::Json(_))));
+        assert!(matches!(decode(la.as_bytes()), Err(DecodeError::Json(_))));
     }
 
     #[test]
     fn tep_qua_lon_bi_chan_truoc_khi_giai_ma() {
         let to = vec![b' '; MAX_UI_BYTES + 1];
-        assert!(matches!(doc(&to), Err(DocLoi::QuaLon(_))));
+        assert!(matches!(decode(&to), Err(DecodeError::TooLarge(_))));
     }
 
     #[test]
@@ -351,7 +351,10 @@ mod kiem_thu {
             r#"{"kind":"text"}"#,               // thiếu content
             r#"{"kind":"khong-co-loai-nay"}"#,  // loại lạ
         ] {
-            assert!(matches!(doc(x.as_bytes()), Err(DocLoi::Json(_))), "{x}");
+            assert!(
+                matches!(decode(x.as_bytes()), Err(DecodeError::Json(_))),
+                "{x}"
+            );
         }
     }
 }

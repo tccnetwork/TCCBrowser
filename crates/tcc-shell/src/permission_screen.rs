@@ -14,47 +14,47 @@
 //!
 //! # Chữ mô tả phạm vi là chữ ĐỌC TỪ ĐĨA
 //!
-//! Nó chỉ để hiện, không bao giờ để quyết định — xem `ghi_nho::MucQuyen::mo_ta`.
+//! Nó chỉ để hiện, không bao giờ để quyết định — xem `permission_store::MucQuyen::mo_ta`.
 //! Có phép thử chốt rằng `tra()` không đọc nó.
 
 use tcc_ui::{Emphasis, Flow, Gap, Node, Tone, UiError};
 
 use crate::{
-    ghi_nho::MucLietKe,
-    loi::{Khoa, NgonNgu, nhan},
+    permission_store::StoredEntry,
+    text::{Language, TextKey, label},
 };
 
 /// Mã nút đóng màn hình.
-pub const HANH_DONG_DONG: &str = "dong";
+pub const ACTION_CLOSE: &str = "dong";
 
 /// Mã nút quên một ứng dụng.
 ///
-/// Tiền tố `quen-` cộng mã ứng dụng. Mã ứng dụng đã bị `AppId::parse` ép về chữ
+/// Tiền tố `forget-` cộng mã ứng dụng. Mã ứng dụng đã bị `AppId::parse` ép về chữ
 /// thường ASCII, chữ số và dấu chấm — đúng tập ký tự `ActionId` cho phép, nên
 /// ghép vào là ra một mã hành động hợp lệ mà không cần biến đổi gì.
 #[must_use]
-pub fn ma_quen(ma_ung_dung: &str) -> String {
-    format!("quen-{ma_ung_dung}")
+pub fn forget_id(ma_ung_dung: &str) -> String {
+    format!("forget-{ma_ung_dung}")
 }
 
 /// Tách mã ứng dụng ra khỏi mã hành động "quên".
 #[must_use]
-pub fn ung_dung_can_quen(hanh_dong: &str) -> Option<&str> {
-    hanh_dong.strip_prefix("quen-")
+pub fn app_to_forget(hanh_dong: &str) -> Option<&str> {
+    hanh_dong.strip_prefix("forget-")
 }
 
 /// Dựng màn hình quản lý quyền.
 ///
 /// # Errors
 /// Chuỗi không dùng được trên giao diện, hoặc quá nhiều ứng dụng làm cây vượt trần.
-pub fn dung(ds: &[MucLietKe], ngon_ngu: NgonNgu) -> Result<Node, UiError> {
-    let t = |k: Khoa| nhan(k, ngon_ngu);
+pub fn build(ds: &[StoredEntry], ngon_ngu: Language) -> Result<Node, UiError> {
+    let t = |k: TextKey| label(k, ngon_ngu);
 
     let mut man = Node::group(Flow::Column, Gap::Large)
-        .child(Node::text_with(t(Khoa::QuanLyTieuDe), Emphasis::Title)?)?;
+        .child(Node::text_with(t(TextKey::QuanLyTieuDe), Emphasis::Title)?)?;
 
     if ds.is_empty() {
-        man = man.child(Node::text(t(Khoa::QuanLyTrong))?)?;
+        man = man.child(Node::text(t(TextKey::QuanLyTrong))?)?;
     } else {
         for m in ds {
             man = man.child(muc_ung_dung(m, ngon_ngu)?)?;
@@ -62,35 +62,35 @@ pub fn dung(ds: &[MucLietKe], ngon_ngu: NgonNgu) -> Result<Node, UiError> {
         // Giải thích đứng SAU danh sách, TRƯỚC nút đóng: người dùng đọc nó ngay
         // trước lúc quyết định có bấm "Quên" hay không.
         man = man.child(Node::text_with(
-            t(Khoa::QuanLyGiaiThichQuen),
+            t(TextKey::QuanLyGiaiThichQuen),
             Emphasis::Subtle,
         )?)?;
     }
 
     man.child(Node::button(
-        t(Khoa::QuanLyNutDong),
-        HANH_DONG_DONG,
+        t(TextKey::QuanLyNutDong),
+        ACTION_CLOSE,
         Tone::Neutral,
     )?)
 }
 
-fn muc_ung_dung(m: &MucLietKe, ngon_ngu: NgonNgu) -> Result<Node, UiError> {
-    let t = |k: Khoa| nhan(k, ngon_ngu);
+fn muc_ung_dung(m: &StoredEntry, ngon_ngu: Language) -> Result<Node, UiError> {
+    let t = |k: TextKey| label(k, ngon_ngu);
 
     let mut o = Node::group(Flow::Column, Gap::Small)
         .child(Node::text_with(&m.ma_ung_dung, Emphasis::Normal)?)?
         // Vân tay khoá để người dùng đối chiếu nếu họ muốn — và để hai ứng dụng
         // cùng mã nhưng khác người ký không trông giống hệt nhau.
         .child(Node::text_with(
-            format!("{}: {}", t(Khoa::KhoaCu), m.van_tay_khoa),
+            format!("{}: {}", t(TextKey::KhoaCu), m.key_fingerprint),
             Emphasis::Subtle,
         )?)?;
 
     for q in &m.quyen {
         let trang_thai = if q.cho_phep {
-            t(Khoa::QuanLyDaChoPhep)
+            t(TextKey::QuanLyDaChoPhep)
         } else {
-            t(Khoa::QuanLyDaTuChoi)
+            t(TextKey::QuanLyDaTuChoi)
         };
         let dong = if q.mo_ta.trim().is_empty() {
             format!("{} — {trang_thai}", q.ten)
@@ -103,8 +103,8 @@ fn muc_ung_dung(m: &MucLietKe, ngon_ngu: NgonNgu) -> Result<Node, UiError> {
     // Nút "Quên" mang sắc thái MẤT MÁT: nó xoá thứ người dùng đã quyết định, và
     // không có đường hoàn tác.
     o.child(Node::button(
-        t(Khoa::QuanLyNutQuen),
-        &ma_quen(&m.ma_ung_dung),
+        t(TextKey::QuanLyNutQuen),
+        &forget_id(&m.ma_ung_dung),
         Tone::Danger,
     )?)
 }
@@ -117,14 +117,14 @@ fn muc_ung_dung(m: &MucLietKe, ngon_ngu: NgonNgu) -> Result<Node, UiError> {
 )]
 mod kiem_thu {
     use super::*;
-    use crate::ghi_nho::QuyenDaTraLoi;
+    use crate::permission_store::AnsweredPermission;
     use tcc_ui::{AccessNode, NodeKind};
 
-    fn muc(id: &str, cho_phep: bool) -> MucLietKe {
-        MucLietKe {
+    fn muc(id: &str, cho_phep: bool) -> StoredEntry {
+        StoredEntry {
             ma_ung_dung: id.to_owned(),
-            van_tay_khoa: "aaaaaaaaaa…bbbbbbbbbb".to_owned(),
-            quyen: vec![QuyenDaTraLoi {
+            key_fingerprint: "aaaaaaaaaa…bbbbbbbbbb".to_owned(),
+            quyen: vec![AnsweredPermission {
                 ten: "network".to_owned(),
                 mo_ta: "shop.tcc-coin.com".to_owned(),
                 cho_phep,
@@ -149,24 +149,30 @@ mod kiem_thu {
 
     #[test]
     fn hien_du_ma_ung_dung_pham_vi_va_trang_thai() {
-        let s = chu(&dung(&[muc("com.tcc.vi", true)], NgonNgu::En).unwrap());
+        let s = chu(&build(&[muc("com.tcc.vi", true)], Language::En).unwrap());
         assert!(s.contains("com.tcc.vi"), "{s}");
         assert!(s.contains("shop.tcc-coin.com"), "thiếu phạm vi:\n{s}");
-        assert!(s.contains(nhan(Khoa::QuanLyDaChoPhep, NgonNgu::En)), "{s}");
+        assert!(
+            s.contains(label(TextKey::QuanLyDaChoPhep, Language::En)),
+            "{s}"
+        );
     }
 
     /// Đã từ chối cũng phải hiện ra — nếu không, người dùng tưởng ứng dụng chưa
     /// từng hỏi, và không hiểu vì sao nó không chạy.
     #[test]
     fn quyen_da_tu_choi_cung_hien_ra() {
-        let s = chu(&dung(&[muc("com.tcc.a", false)], NgonNgu::En).unwrap());
-        assert!(s.contains(nhan(Khoa::QuanLyDaTuChoi, NgonNgu::En)), "{s}");
+        let s = chu(&build(&[muc("com.tcc.a", false)], Language::En).unwrap());
+        assert!(
+            s.contains(label(TextKey::QuanLyDaTuChoi, Language::En)),
+            "{s}"
+        );
     }
 
     #[test]
     fn khong_co_gi_thi_noi_ro_la_khong_co_gi() {
-        let s = chu(&dung(&[], NgonNgu::En).unwrap());
-        assert!(s.contains(nhan(Khoa::QuanLyTrong, NgonNgu::En)), "{s}");
+        let s = chu(&build(&[], Language::En).unwrap());
+        assert!(s.contains(label(TextKey::QuanLyTrong, Language::En)), "{s}");
     }
 
     /// ⚠️ Nút "Quên" phải mang sắc thái MẤT MÁT.
@@ -175,14 +181,18 @@ mod kiem_thu {
     /// đọc màn hình phải nghe ra điều đó, không chỉ người nhìn thấy màu.
     #[test]
     fn nut_quen_mang_sac_thai_mat_mat() {
-        let cay = dung(&[muc("com.tcc.a", true)], NgonNgu::En).unwrap();
+        let cay = build(&[muc("com.tcc.a", true)], Language::En).unwrap();
         let mut ds = Vec::new();
         gom_nut(&cay, &mut ds);
-        let quen = ds
+        let forget = ds
             .iter()
-            .find(|(a, _)| a.starts_with("quen-"))
+            .find(|(a, _)| a.starts_with("forget-"))
             .expect("có nút quên");
-        assert_eq!(quen.1, Tone::Danger, "nút quên không mang sắc thái mất mát");
+        assert_eq!(
+            forget.1,
+            Tone::Danger,
+            "nút quên không mang sắc thái mất mát"
+        );
     }
 
     fn gom_nut(n: &Node, ra: &mut Vec<(String, Tone)>) {
@@ -198,25 +208,25 @@ mod kiem_thu {
     #[test]
     fn ma_quen_di_ve_nguyen_ven() {
         for id in ["com.tcc.vi", "com.tcc.vi-du.hello", "a.b"] {
-            assert_eq!(ung_dung_can_quen(&ma_quen(id)), Some(id));
+            assert_eq!(app_to_forget(&forget_id(id)), Some(id));
         }
-        assert_eq!(ung_dung_can_quen(HANH_DONG_DONG), None);
-        assert_ne!(ma_quen("dong"), HANH_DONG_DONG);
+        assert_eq!(app_to_forget(ACTION_CLOSE), None);
+        assert_ne!(forget_id("dong"), ACTION_CLOSE);
     }
 
     /// Nhiều ứng dụng thì mỗi ứng dụng một nút quên RIÊNG — dùng chung một nút
     /// là quên nhầm ứng dụng.
     #[test]
     fn moi_ung_dung_mot_nut_quen_rieng() {
-        let cay = dung(
+        let cay = build(
             &[muc("com.tcc.a", true), muc("com.tcc.b", true)],
-            NgonNgu::En,
+            Language::En,
         )
         .unwrap();
         let ds: Vec<&str> = cay.action_ids().iter().map(|a| a.as_str()).collect();
-        assert!(ds.contains(&"quen-com.tcc.a"), "{ds:?}");
-        assert!(ds.contains(&"quen-com.tcc.b"), "{ds:?}");
-        assert!(ds.contains(&HANH_DONG_DONG), "{ds:?}");
+        assert!(ds.contains(&"forget-com.tcc.a"), "{ds:?}");
+        assert!(ds.contains(&"forget-com.tcc.b"), "{ds:?}");
+        assert!(ds.contains(&ACTION_CLOSE), "{ds:?}");
         assert_eq!(ds.len(), 3);
     }
 }

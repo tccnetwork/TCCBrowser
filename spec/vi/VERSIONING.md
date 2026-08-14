@@ -101,7 +101,7 @@ ngay trong văn bản tiêu chuẩn.
 
 Không được im lặng thu hẹp hay bỏ một quyền năng: ứng dụng xin nó thì đã cài,
 đã được cấp, và quyết định quyền đã lưu được khoá theo phạm vi
-([`ghi_nho.rs`](../../crates/tcc-shell/src/ghi_nho.rs)).
+([`permission_store.rs`](../../crates/tcc-shell/src/permission_store.rs)).
 
 Bỏ một quyền năng ở phiên bản N nghĩa là ứng dụng khai nó sẽ không nạp được dưới
 N. Điều đó chấp nhận được — nó nhìn thấy được và nó hỏng về phía an toàn. Thứ

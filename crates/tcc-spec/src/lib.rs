@@ -139,7 +139,7 @@ impl SpecError {
 ///
 /// Đây là một đánh đổi có thể sai với một chữ viết tôi chưa biết. Nếu có, sửa
 /// con số này chứ đừng gỡ phép kiểm.
-pub const MAX_DAU_KET_HOP: usize = 8;
+pub const MAX_COMBINING_MARKS: usize = 8;
 
 /// Chuỗi này hiện ra ở dạng nào — quyết định `\n` có được phép không.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,7 +171,7 @@ pub fn check_display_text(
     value: &str,
     kind: TextKind,
 ) -> Result<(), SpecError> {
-    let loi = |why| Err(SpecError::UnsafeDisplayString { field, why });
+    let text = |why| Err(SpecError::UnsafeDisplayString { field, why });
     let mut lien_tiep = 0usize;
     for c in value.chars() {
         // Đếm dấu kết hợp LIÊN TIẾP. Gặp chữ cái là đếm lại từ đầu — ta chặn
@@ -183,8 +183,8 @@ pub fn check_display_text(
                 | unicode_general_category::GeneralCategory::EnclosingMark
         ) {
             lien_tiep += 1;
-            if lien_tiep > MAX_DAU_KET_HOP {
-                return loi("quá nhiều dấu chồng lên một chữ");
+            if lien_tiep > MAX_COMBINING_MARKS {
+                return text("quá nhiều dấu chồng lên một chữ");
             }
         } else {
             lien_tiep = 0;
@@ -201,22 +201,22 @@ pub fn check_display_text(
         // ra vì tôi chỉ thử `\n` và `\u{0}`. Clippy bắt được (unreachable pattern).
         match c {
             // Xuống dòng và tab: vỡ bố cục hộp thoại một dòng
-            '\n' | '\r' | '\t' => return loi("xuống dòng hoặc tab"),
+            '\n' | '\r' | '\t' => return text("xuống dòng hoặc tab"),
             // Điều khiển C0/C1 còn lại
             '\u{0}'..='\u{1f}' | '\u{7f}'..='\u{9f}' => {
-                return loi("điều khiển");
+                return text("điều khiển");
             }
             // Đảo chiều chữ hai chiều — vũ khí giả mạo tên tệp kinh điển
             '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{200e}' | '\u{200f}' => {
-                return loi("đảo chiều chữ");
+                return text("đảo chiều chữ");
             }
             // Rộng bằng không: hai chuỗi khác nhau trông giống hệt
-            '\u{200b}'..='\u{200d}' | '\u{feff}' | '\u{2060}' => return loi("rộng bằng không"),
+            '\u{200b}'..='\u{200d}' | '\u{feff}' | '\u{2060}' => return text("rộng bằng không"),
             _ => {}
         }
     }
     if value.trim().is_empty() {
-        return loi("rỗng hoặc toàn khoảng trắng");
+        return text("rỗng hoặc toàn khoảng trắng");
     }
     Ok(())
 }
@@ -289,11 +289,11 @@ pub fn check_host(host: &str) -> Result<(), &'static str> {
         return Err("tên máy chủ phải dài 1–253 ký tự");
     }
     // Bỏ đúng MỘT dấu chấm cuối (dạng tên miền tuyệt đối), rồi mới xét từng đoạn.
-    let than = host.strip_suffix('.').unwrap_or(host);
-    if than.is_empty() {
+    let body = host.strip_suffix('.').unwrap_or(host);
+    if body.is_empty() {
         return Err("tên máy chủ chỉ có dấu chấm");
     }
-    for doan in than.split('.') {
+    for doan in body.split('.') {
         if doan.is_empty() {
             return Err("có đoạn rỗng — hai dấu chấm liền nhau hoặc bắt đầu bằng dấu chấm");
         }
@@ -361,27 +361,27 @@ impl AppId {
     /// # Errors
     /// Sai định dạng theo các ràng buộc ghi trong tiêu chuẩn.
     pub fn parse(s: &str) -> Result<Self, SpecError> {
-        let loi = |why| SpecError::BadAppId(s.to_string(), why);
+        let text = |why| SpecError::BadAppId(s.to_string(), why);
 
         if s.is_empty() || s.len() > 128 {
-            return Err(loi("dài 1–128 ký tự"));
+            return Err(text("dài 1–128 ký tự"));
         }
         let doan: Vec<&str> = s.split('.').collect();
         if doan.len() < 2 {
-            return Err(loi("cần ít nhất hai đoạn, ví dụ com.tcc.hello"));
+            return Err(text("cần ít nhất hai đoạn, ví dụ com.tcc.hello"));
         }
         for d in &doan {
             if d.is_empty() {
-                return Err(loi("có đoạn rỗng (hai dấu chấm liền nhau?)"));
+                return Err(text("có đoạn rỗng (hai dấu chấm liền nhau?)"));
             }
             if !d.starts_with(|c: char| c.is_ascii_lowercase()) {
-                return Err(loi("mỗi đoạn phải bắt đầu bằng chữ thường ASCII"));
+                return Err(text("mỗi đoạn phải bắt đầu bằng chữ thường ASCII"));
             }
             if !d
                 .chars()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
             {
-                return Err(loi("chỉ cho phép a-z, 0-9 và dấu gạch ngang"));
+                return Err(text("chỉ cho phép a-z, 0-9 và dấu gạch ngang"));
             }
         }
         Ok(Self(s.to_string()))
@@ -517,7 +517,7 @@ impl CapabilityRequest {
 ///
 /// Chữ ký phủ lên **toàn bộ byte** của `manifest.json`. Một trường mà không luật
 /// nào của tiêu chuẩn nhìn tới là một kênh mang ý nghĩa NGOÀI tiêu chuẩn: cùng
-/// một gói đã ký, bản cài đặt hiểu `x-acme-tu-chay` thì làm một đằng, bản không
+/// một gói đã ký, bản cài đặt hiểu `x-acme-tu-run_loop` thì làm một đằng, bản không
 /// hiểu thì làm một nẻo. Đó đúng là cách thời tiền tố `-webkit-` phá vỡ tính
 /// liên thông của web.
 ///
@@ -1012,7 +1012,7 @@ mod kiem_thu {
     /// bên trên — mà trong hộp thoại hỏi quyền, phần bên trên là CÂU CẢNH BÁO.
     #[test]
     fn chong_dau_qua_nhieu_thi_tu_choi() {
-        for n in [MAX_DAU_KET_HOP + 1, 20, 500] {
+        for n in [MAX_COMBINING_MARKS + 1, 20, 500] {
             let s = format!("Huỷ{}", "\u{301}".repeat(n));
             assert!(
                 check_display_text("x", &s, TextKind::Label).is_err(),

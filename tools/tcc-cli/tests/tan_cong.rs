@@ -18,7 +18,7 @@ use std::{fs, path::Path, process::Command};
 const TCC: &str = env!("CARGO_BIN_EXE_tcc-cli");
 
 /// Điểm vào của một gói mới. **Không phải HTML** — ứng dụng TCC khai báo cây
-/// component, xem `tcc_ui::dang_goi`.
+/// component, xem `tcc_ui::wire`.
 const TEP_GIAO_DIEN: &str = "content/ui.json";
 
 struct SanChoi {
@@ -33,14 +33,20 @@ impl SanChoi {
         fs::create_dir_all(&thu_muc).expect("tạo thư mục tạm");
         let s = Self { thu_muc };
 
-        assert!(s.chay(&["new", "goi", "--id", "com.tcc.thu"]).0, "tcc new");
-        assert!(s.chay(&["key", "--ra", "khoa.hex"]).0, "tcc key");
-        assert!(s.chay(&["sign", "goi", "--khoa", "khoa.hex"]).0, "tcc sign");
+        assert!(
+            s.run_loop(&["new", "goi", "--id", "com.tcc.thu"]).0,
+            "tcc new"
+        );
+        assert!(s.run_loop(&["key", "--ra", "khoa.hex"]).0, "tcc key");
+        assert!(
+            s.run_loop(&["sign", "goi", "--khoa", "khoa.hex"]).0,
+            "tcc sign"
+        );
         s
     }
 
     /// Chạy `tcc` với thư mục làm việc là sân chơi. Trả (thành công, đầu ra).
-    fn chay(&self, args: &[&str]) -> (bool, String) {
+    fn run_loop(&self, args: &[&str]) -> (bool, String) {
         let ra = Command::new(TCC)
             .args(args)
             .current_dir(&self.thu_muc)
@@ -65,7 +71,7 @@ impl Drop for SanChoi {
 #[test]
 fn goi_vua_ky_thi_kiem_dat() {
     let s = SanChoi::moi("lanh");
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(ok, "gói vừa ký phải kiểm đạt:\n{ra}");
     assert!(ra.contains("Chữ ký hợp lệ"), "{ra}");
 }
@@ -78,7 +84,7 @@ fn goi_vua_ky_thi_kiem_dat() {
 #[test]
 fn verify_phai_canh_bao_khong_chung_minh_danh_tinh() {
     let s = SanChoi::moi("canhbao");
-    let (_, ra) = s.chay(&["verify", "goi"]);
+    let (_, ra) = s.run_loop(&["verify", "goi"]);
     assert!(
         ra.contains("KHÔNG chứng minh người ký là ai"),
         "thiếu cảnh báo về danh tính:\n{ra}"
@@ -91,7 +97,7 @@ fn thay_noi_dung_thi_kiem_hong() {
     let s = SanChoi::moi("thayruot");
     fs::write(s.goi().join(TEP_GIAO_DIEN), "mã độc hại").unwrap();
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "đổi nội dung mà vẫn qua:\n{ra}");
     assert!(ra.contains("không khớp bản kê khai"), "{ra}");
 }
@@ -105,7 +111,7 @@ fn them_tep_la_thi_kiem_hong() {
     let s = SanChoi::moi("themtep");
     fs::write(s.goi().join("content/cua-sau.js"), "// cửa sau").unwrap();
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "thêm tệp mà vẫn qua:\n{ra}");
 }
 
@@ -122,7 +128,7 @@ fn sua_ban_ke_khai_xin_them_quyen_thi_kiem_hong() {
     assert_ne!(cu, moi, "phép thử tự hỏng: không tìm thấy chỗ để sửa");
     fs::write(&p, moi).unwrap();
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "xin thêm quyền mà vẫn qua:\n{ra}");
     assert!(ra.contains("chữ ký"), "{ra}");
 }
@@ -136,7 +142,7 @@ fn lien_ket_mem_thi_kiem_hong() {
     let s = SanChoi::moi("lienket");
     std::os::unix::fs::symlink("/etc/passwd", s.goi().join("content/ra-ngoai")).unwrap();
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "liên kết mềm mà vẫn qua:\n{ra}");
     assert!(ra.contains("liên kết mềm"), "{ra}");
 }
@@ -145,7 +151,7 @@ fn lien_ket_mem_thi_kiem_hong() {
 #[test]
 fn khong_ghi_de_tep_khoa() {
     let s = SanChoi::moi("khoa");
-    let (ok, ra) = s.chay(&["key", "--ra", "khoa.hex"]);
+    let (ok, ra) = s.run_loop(&["key", "--ra", "khoa.hex"]);
     assert!(!ok, "ghi đè khoá mà không chặn:\n{ra}");
     assert!(ra.contains("đã tồn tại"), "{ra}");
 }
@@ -155,7 +161,7 @@ fn khong_ghi_de_tep_khoa() {
 #[test]
 fn ma_ung_dung_sai_thi_khong_tao_thu_muc() {
     let s = SanChoi::moi("masai");
-    let (ok, _) = s.chay(&["new", "hong", "--id", "KHONG-HOP-LE"]);
+    let (ok, _) = s.run_loop(&["new", "hong", "--id", "KHONG-HOP-LE"]);
     assert!(!ok);
     assert!(
         !Path::new(&s.thu_muc.join("hong")).exists(),
@@ -169,9 +175,9 @@ fn mat_diem_vao_thi_verify_bao_ro() {
     let s = SanChoi::moi("mmatdiemvao");
     fs::remove_file(s.goi().join(TEP_GIAO_DIEN)).unwrap();
     fs::write(s.goi().join("content/khac.json"), "{}").unwrap();
-    assert!(s.chay(&["sign", "goi", "--khoa", "khoa.hex"]).0);
+    assert!(s.run_loop(&["sign", "goi", "--khoa", "khoa.hex"]).0);
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "thiếu điểm vào mà vẫn qua:\n{ra}");
     assert!(ra.contains("điểm vào"), "{ra}");
 }
@@ -190,9 +196,9 @@ fn cay_giao_dien_hong_thi_verify_bao_ro() {
             "alt":{"kind":"decorative"}}"#,
     )
     .unwrap();
-    assert!(s.chay(&["sign", "goi", "--khoa", "khoa.hex"]).0);
+    assert!(s.run_loop(&["sign", "goi", "--khoa", "khoa.hex"]).0);
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok, "cây giao diện hỏng mà vẫn qua:\n{ra}");
     assert!(ra.contains("trỏ ra ngoài gói"), "{ra}");
 }
@@ -203,7 +209,7 @@ fn thieu_thu_muc_noi_dung_thi_bao_ro() {
     let s = SanChoi::moi("thieu");
     fs::remove_dir_all(s.goi().join("content")).unwrap();
 
-    let (ok, ra) = s.chay(&["verify", "goi"]);
+    let (ok, ra) = s.run_loop(&["verify", "goi"]);
     assert!(!ok);
     assert!(
         ra.contains("content"),

@@ -104,7 +104,7 @@ struct MucQuyen {
 /// Nên dùng đúng lối của `tcc_spec::tree`: **tiền tố độ dài cho mọi trường**.
 /// Không có tiền tố thì `["ab","c"]` và `["a","bc"]` cho cùng một chuỗi byte.
 #[must_use]
-pub fn van_tay_pham_vi(scope: &Scope) -> String {
+pub fn scope_fingerprint(scope: &Scope) -> String {
     let mut b = Vec::new();
     match scope {
         Scope::Network { hosts } => {
@@ -142,14 +142,14 @@ pub fn van_tay_pham_vi(scope: &Scope) -> String {
 /// giá: **"khoá ký lần này có giống lần trước không"**.
 ///
 /// Câu hẹp đó bắt được đúng một tình huống, và là tình huống nguy hiểm nhất:
-/// một gói mang mã ứng dụng quen thuộc nhưng ký bằng khoá lạ. Không cảnh báo
+/// một gói mang mã ứng dụng forget thuộc nhưng ký bằng khoá lạ. Không cảnh báo
 /// thì người dùng chỉ thấy hộp thoại hỏi quyền hiện lại như lần đầu, và không
 /// có cách nào biết ứng dụng đã đổi tay.
 ///
 /// Chữ hiện lên phải là **sự thật quan sát được**, không phải phán quyết:
 /// "trước đây ký bằng khoá khác", chứ không phải "ứng dụng này giả mạo".
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TinhTrangNguoiKy {
+pub enum SignerStatus {
     /// Chưa từng thấy mã ứng dụng này. Bình thường, không cảnh báo gì.
     LanDau,
     /// Đúng khoá đã thấy lần trước.
@@ -167,7 +167,7 @@ pub enum TinhTrangNguoiKy {
 /// cuối: đủ để so bằng mắt, và kẻ gian muốn khớp cả hai đầu thì phải phá băm
 /// chứ không chỉ mò thêm vài byte.
 #[must_use]
-pub fn van_tay_khoa(hex: &str) -> String {
+pub fn key_fingerprint(hex: &str) -> String {
     if hex.len() <= 20 {
         return hex.to_owned();
     }
@@ -176,15 +176,15 @@ pub fn van_tay_khoa(hex: &str) -> String {
 
 /// Một ứng dụng trong danh sách quản lý quyền.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MucLietKe {
+pub struct StoredEntry {
     pub ma_ung_dung: String,
-    pub van_tay_khoa: String,
-    pub quyen: Vec<QuyenDaTraLoi>,
+    pub key_fingerprint: String,
+    pub quyen: Vec<AnsweredPermission>,
 }
 
 /// Một quyền đã có câu trả lời.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QuyenDaTraLoi {
+pub struct AnsweredPermission {
     pub ten: String,
     /// Chữ mô tả phạm vi — **chỉ để hiện**, xem `MucQuyen::mo_ta`.
     pub mo_ta: String,
@@ -193,16 +193,16 @@ pub struct QuyenDaTraLoi {
 
 /// Kho quyền đã nhớ.
 #[derive(Debug)]
-pub struct GhiNho {
+pub struct PermissionStore {
     duong_dan: PathBuf,
     kho: Kho,
 }
 
-impl GhiNho {
+impl PermissionStore {
     /// Mở kho. Tệp thiếu hoặc hỏng thì bắt đầu từ kho RỖNG — tức là hỏi lại mọi
     /// thứ. Không có nhánh nào ngả về "cho phép".
     #[must_use]
-    pub fn mo(duong_dan: &Path) -> Self {
+    pub fn open(duong_dan: &Path) -> Self {
         let kho = std::fs::read(duong_dan)
             .ok()
             .and_then(|b| serde_json::from_slice::<Kho>(&b).ok())
@@ -219,15 +219,15 @@ impl GhiNho {
 
     /// So khoá ký lần này với lần trước.
     ///
-    /// Phải gọi TRƯỚC [`GhiNho::nho`] — `nho` ghi đè khoá mới lên, và sau đó
+    /// Phải gọi TRƯỚC [`PermissionStore::nho`] — `nho` ghi đè khoá mới lên, và sau đó
     /// không còn gì để so nữa.
     #[must_use]
-    pub fn tinh_trang_nguoi_ky(&self, m: &Manifest) -> TinhTrangNguoiKy {
+    pub fn signer_status(&self, m: &Manifest) -> SignerStatus {
         match self.kho.ung_dung.get(m.id.as_str()) {
-            None => TinhTrangNguoiKy::LanDau,
-            Some(muc) if muc.publisher == m.publisher => TinhTrangNguoiKy::KhopKhoaCu,
-            Some(muc) => TinhTrangNguoiKy::DoiKhoa {
-                van_tay_cu: van_tay_khoa(&muc.publisher),
+            None => SignerStatus::LanDau,
+            Some(muc) if muc.publisher == m.publisher => SignerStatus::KhopKhoaCu,
+            Some(muc) => SignerStatus::DoiKhoa {
+                van_tay_cu: key_fingerprint(&muc.publisher),
             },
         }
     }
@@ -238,7 +238,7 @@ impl GhiNho {
     /// kết quả của mọi trường hợp không rõ ràng: chưa từng hỏi, khoá người ký
     /// đổi, hoặc phạm vi đổi.
     #[must_use]
-    pub fn tra(&self, m: &Manifest, xin: &CapabilityRequest) -> Option<Decision> {
+    pub fn lookup(&self, m: &Manifest, xin: &CapabilityRequest) -> Option<Decision> {
         let muc = self.kho.ung_dung.get(m.id.as_str())?;
         // Khoá người ký đổi → coi như ứng dụng khác, không thừa hưởng gì.
         if muc.publisher != m.publisher {
@@ -246,7 +246,7 @@ impl GhiNho {
         }
         let q = muc.quyen.get(&xin.name)?;
         // Phạm vi đổi → câu trả lời cũ không áp cho phạm vi mới.
-        if q.van_tay != van_tay_pham_vi(&xin.scope) {
+        if q.van_tay != scope_fingerprint(&xin.scope) {
             return None;
         }
         Some(if q.cho_phep {
@@ -273,7 +273,7 @@ impl GhiNho {
         }
     }
 
-    pub fn nho(&mut self, m: &Manifest, xin: &CapabilityRequest, qd: Decision) {
+    pub fn remember(&mut self, m: &Manifest, xin: &CapabilityRequest, qd: Decision) {
         let muc = self
             .kho
             .ung_dung
@@ -291,7 +291,7 @@ impl GhiNho {
         muc.quyen.insert(
             xin.name.clone(),
             MucQuyen {
-                van_tay: van_tay_pham_vi(&xin.scope),
+                van_tay: scope_fingerprint(&xin.scope),
                 cho_phep: qd == Decision::Allow,
                 mo_ta: Self::mo_ta_pham_vi(&xin.scope),
             },
@@ -303,17 +303,17 @@ impl GhiNho {
     /// Sắp theo mã ứng dụng để thứ tự ổn định giữa các lần mở — danh sách nhảy
     /// chỗ mỗi lần mở là cách chắc chắn khiến người dùng bấm nhầm.
     #[must_use]
-    pub fn liet_ke(&self) -> Vec<MucLietKe> {
+    pub fn list_all(&self) -> Vec<StoredEntry> {
         self.kho
             .ung_dung
             .iter()
-            .map(|(id, muc)| MucLietKe {
+            .map(|(id, muc)| StoredEntry {
                 ma_ung_dung: id.clone(),
-                van_tay_khoa: van_tay_khoa(&muc.publisher),
+                key_fingerprint: key_fingerprint(&muc.publisher),
                 quyen: muc
                     .quyen
                     .iter()
-                    .map(|(ten, q)| QuyenDaTraLoi {
+                    .map(|(ten, q)| AnsweredPermission {
                         ten: ten.clone(),
                         mo_ta: q.mo_ta.clone(),
                         cho_phep: q.cho_phep,
@@ -324,7 +324,7 @@ impl GhiNho {
     }
 
     /// Quên mọi thứ đã nhớ về một ứng dụng.
-    pub fn quen(&mut self, id: &str) {
+    pub fn forget(&mut self, id: &str) {
         self.kho.ung_dung.remove(id);
     }
 
@@ -335,7 +335,7 @@ impl GhiNho {
     ///
     /// # Errors
     /// Lỗi ghi đĩa.
-    pub fn ghi(&self) -> std::io::Result<()> {
+    pub fn save(&self) -> std::io::Result<()> {
         let tam = self.duong_dan.with_extension("tam");
         let b = serde_json::to_vec_pretty(&self.kho)?;
         std::fs::write(&tam, &b)?;
@@ -385,15 +385,15 @@ mod kiem_thu {
         let that = ke_khai("com.tcc.vi", "aa", &["shop.tcc-coin.com"]);
         let gia = ke_khai("com.tcc.vi", "cc", &["shop.tcc-coin.com"]);
 
-        let mut g = GhiNho::mo(&p);
-        assert_eq!(g.tinh_trang_nguoi_ky(&that), TinhTrangNguoiKy::LanDau);
+        let mut g = PermissionStore::open(&p);
+        assert_eq!(g.signer_status(&that), SignerStatus::LanDau);
 
-        g.nho(&that, &that.capabilities[0], Decision::Allow);
-        assert_eq!(g.tinh_trang_nguoi_ky(&that), TinhTrangNguoiKy::KhopKhoaCu);
+        g.remember(&that, &that.capabilities[0], Decision::Allow);
+        assert_eq!(g.signer_status(&that), SignerStatus::KhopKhoaCu);
 
         // ⚠️ Trường hợp đáng giá nhất: cùng mã ứng dụng, khác khoá ký.
-        match g.tinh_trang_nguoi_ky(&gia) {
-            TinhTrangNguoiKy::DoiKhoa { van_tay_cu } => {
+        match g.signer_status(&gia) {
+            SignerStatus::DoiKhoa { van_tay_cu } => {
                 assert!(
                     van_tay_cu.contains('…'),
                     "vân tay phải rút gọn: {van_tay_cu}"
@@ -409,7 +409,7 @@ mod kiem_thu {
     #[test]
     fn van_tay_khoa_lay_ca_hai_dau() {
         let k = format!("{}{}", "a".repeat(10), "b".repeat(3990));
-        let v = van_tay_khoa(&k);
+        let v = key_fingerprint(&k);
         assert!(v.starts_with("aaaaaaaaaa"), "{v}");
         assert!(v.ends_with("bbbbbbbbbb"), "{v}");
         assert!(v.len() < 30, "vân tay dài quá, không ai đọc: {v}");
@@ -421,18 +421,18 @@ mod kiem_thu {
         let _ = std::fs::remove_file(&p);
         let m = ke_khai("com.tcc.a", "aa", &["shop.tcc-coin.com"]);
 
-        let mut g = GhiNho::mo(&p);
+        let mut g = PermissionStore::open(&p);
         assert_eq!(
-            g.tra(&m, &m.capabilities[0]),
+            g.lookup(&m, &m.capabilities[0]),
             None,
             "chưa hỏi mà đã có câu trả lời"
         );
-        g.nho(&m, &m.capabilities[0], Decision::Allow);
-        g.ghi().unwrap();
+        g.remember(&m, &m.capabilities[0], Decision::Allow);
+        g.save().unwrap();
 
         // Mở lại từ đĩa — đây mới là điều cần chứng minh.
-        let g2 = GhiNho::mo(&p);
-        assert_eq!(g2.tra(&m, &m.capabilities[0]), Some(Decision::Allow));
+        let g2 = PermissionStore::open(&p);
+        assert_eq!(g2.lookup(&m, &m.capabilities[0]), Some(Decision::Allow));
         let _ = std::fs::remove_file(&p);
     }
 
@@ -451,12 +451,12 @@ mod kiem_thu {
             &["shop.tcc-coin.com", "thu-thap.example"],
         );
 
-        let mut g = GhiNho::mo(&p);
-        g.nho(&cu, &cu.capabilities[0], Decision::Allow);
+        let mut g = PermissionStore::open(&p);
+        g.remember(&cu, &cu.capabilities[0], Decision::Allow);
 
-        assert_eq!(g.tra(&cu, &cu.capabilities[0]), Some(Decision::Allow));
+        assert_eq!(g.lookup(&cu, &cu.capabilities[0]), Some(Decision::Allow));
         assert_eq!(
-            g.tra(&moi, &moi.capabilities[0]),
+            g.lookup(&moi, &moi.capabilities[0]),
             None,
             "phạm vi nới rộng mà vẫn dùng câu trả lời cũ — người dùng chưa bao giờ \
              đồng ý với máy chủ thứ hai"
@@ -472,10 +472,10 @@ mod kiem_thu {
         let that = ke_khai("com.tcc.vi", "aa", &["shop.tcc-coin.com"]);
         let gia = ke_khai("com.tcc.vi", "cc", &["shop.tcc-coin.com"]);
 
-        let mut g = GhiNho::mo(&p);
-        g.nho(&that, &that.capabilities[0], Decision::Allow);
+        let mut g = PermissionStore::open(&p);
+        g.remember(&that, &that.capabilities[0], Decision::Allow);
         assert_eq!(
-            g.tra(&gia, &gia.capabilities[0]),
+            g.lookup(&gia, &gia.capabilities[0]),
             None,
             "gói ký bằng khoá khác lại thừa hưởng quyền của gói thật"
         );
@@ -508,9 +508,9 @@ mod kiem_thu {
         ))
         .unwrap();
 
-        let mut g = GhiNho::mo(&p);
-        g.nho(&that, &that.capabilities[0], Decision::Allow);
-        g.nho(&khac, &khac.capabilities[0], Decision::Allow);
+        let mut g = PermissionStore::open(&p);
+        g.remember(&that, &that.capabilities[0], Decision::Allow);
+        g.remember(&khac, &khac.capabilities[0], Decision::Allow);
 
         // Quyền mạng của người ký CŨ phải đã biến mất, không rơi sang người ký mới.
         let mang_duoi_khoa_moi = CapabilityRequest {
@@ -519,12 +519,12 @@ mod kiem_thu {
             reason: "x".to_owned(),
         };
         assert_eq!(
-            g.tra(&khac, &mang_duoi_khoa_moi),
+            g.lookup(&khac, &mang_duoi_khoa_moi),
             None,
             "quyền của người ký cũ rơi vào tay người ký mới"
         );
         // Và người ký cũ quay lại cũng không còn gì.
-        assert_eq!(g.tra(&that, &that.capabilities[0]), None);
+        assert_eq!(g.lookup(&that, &that.capabilities[0]), None);
         let _ = std::fs::remove_file(&p);
     }
 
@@ -533,11 +533,11 @@ mod kiem_thu {
         let p = tam("tuchoi");
         let _ = std::fs::remove_file(&p);
         let m = ke_khai("com.tcc.a", "aa", &["shop.tcc-coin.com"]);
-        let mut g = GhiNho::mo(&p);
-        g.nho(&m, &m.capabilities[0], Decision::Deny);
-        g.ghi().unwrap();
+        let mut g = PermissionStore::open(&p);
+        g.remember(&m, &m.capabilities[0], Decision::Deny);
+        g.save().unwrap();
         assert_eq!(
-            GhiNho::mo(&p).tra(&m, &m.capabilities[0]),
+            PermissionStore::open(&p).lookup(&m, &m.capabilities[0]),
             Some(Decision::Deny)
         );
         let _ = std::fs::remove_file(&p);
@@ -554,9 +554,9 @@ mod kiem_thu {
         let _ = std::fs::remove_file(&p);
         let m = ke_khai("com.tcc.a", "aa", &["shop.tcc-coin.com"]);
 
-        let mut g = GhiNho::mo(&p);
-        g.nho(&m, &m.capabilities[0], Decision::Allow);
-        g.ghi().unwrap();
+        let mut g = PermissionStore::open(&p);
+        g.remember(&m, &m.capabilities[0], Decision::Allow);
+        g.save().unwrap();
 
         // Sửa MÔ TẢ trên đĩa thành một phạm vi hoàn toàn khác, giữ nguyên vân tay.
         let tho = std::fs::read_to_string(&p).unwrap();
@@ -564,11 +564,11 @@ mod kiem_thu {
         assert_ne!(tho, doi, "phép thử tự hỏng: không tìm thấy mô tả để sửa");
         std::fs::write(&p, &doi).unwrap();
 
-        let g2 = GhiNho::mo(&p);
+        let g2 = PermissionStore::open(&p);
         // Quyết định vẫn y nguyên: nó chỉ đọc vân tay.
-        assert_eq!(g2.tra(&m, &m.capabilities[0]), Some(Decision::Allow));
+        assert_eq!(g2.lookup(&m, &m.capabilities[0]), Some(Decision::Allow));
         // Và mô tả đúng là đã bị sửa — tức phép thử thật sự chạm tới nó.
-        assert_eq!(g2.liet_ke()[0].quyen[0].mo_ta, "ke-gian.example");
+        assert_eq!(g2.list_all()[0].quyen[0].mo_ta, "ke-gian.example");
         let _ = std::fs::remove_file(&p);
     }
 
@@ -576,12 +576,12 @@ mod kiem_thu {
     fn liet_ke_du_va_sap_on_dinh() {
         let p = tam("lietke");
         let _ = std::fs::remove_file(&p);
-        let mut g = GhiNho::mo(&p);
+        let mut g = PermissionStore::open(&p);
         for id in ["com.tcc.z", "com.tcc.a", "com.tcc.m"] {
             let m = ke_khai(id, "aa", &["shop.tcc-coin.com"]);
-            g.nho(&m, &m.capabilities[0], Decision::Allow);
+            g.remember(&m, &m.capabilities[0], Decision::Allow);
         }
-        let ds = g.liet_ke();
+        let ds = g.list_all();
         let ma: Vec<&str> = ds.iter().map(|x| x.ma_ung_dung.as_str()).collect();
         assert_eq!(
             ma,
@@ -589,19 +589,19 @@ mod kiem_thu {
             "danh sách nhảy chỗ giữa các lần mở là cách chắc chắn khiến người dùng bấm nhầm"
         );
         assert_eq!(ds[0].quyen[0].mo_ta, "shop.tcc-coin.com");
-        assert!(ds[0].van_tay_khoa.contains('…'));
+        assert!(ds[0].key_fingerprint.contains('…'));
         let _ = std::fs::remove_file(&p);
     }
 
     #[test]
     fn quen_thi_hoi_lai() {
-        let p = tam("quen");
+        let p = tam("forget");
         let _ = std::fs::remove_file(&p);
         let m = ke_khai("com.tcc.a", "aa", &["shop.tcc-coin.com"]);
-        let mut g = GhiNho::mo(&p);
-        g.nho(&m, &m.capabilities[0], Decision::Allow);
-        g.quen("com.tcc.a");
-        assert_eq!(g.tra(&m, &m.capabilities[0]), None);
+        let mut g = PermissionStore::open(&p);
+        g.remember(&m, &m.capabilities[0], Decision::Allow);
+        g.forget("com.tcc.a");
+        assert_eq!(g.lookup(&m, &m.capabilities[0]), None);
         let _ = std::fs::remove_file(&p);
     }
 
@@ -617,7 +617,7 @@ mod kiem_thu {
             let p = tam(ten);
             std::fs::write(&p, noi).unwrap();
             assert_eq!(
-                GhiNho::mo(&p).tra(&m, &m.capabilities[0]),
+                PermissionStore::open(&p).lookup(&m, &m.capabilities[0]),
                 None,
                 "tệp {ten} lại cho ra một câu trả lời"
             );
@@ -625,7 +625,7 @@ mod kiem_thu {
         }
         // Tệp không tồn tại.
         assert_eq!(
-            GhiNho::mo(Path::new("/khong/co/that.json")).tra(&m, &m.capabilities[0]),
+            PermissionStore::open(Path::new("/khong/co/that.json")).lookup(&m, &m.capabilities[0]),
             None
         );
     }
@@ -640,7 +640,7 @@ mod kiem_thu {
         let b = Scope::Network {
             hosts: vec!["a.tcc-coin.com".into(), "B.TCC-COIN.COM".into()],
         };
-        assert_eq!(van_tay_pham_vi(&a), van_tay_pham_vi(&b));
+        assert_eq!(scope_fingerprint(&a), scope_fingerprint(&b));
     }
 
     /// Không có tiền tố độ dài thì `["ab","c"]` và `["a","bc"]` cho cùng chuỗi
@@ -653,18 +653,18 @@ mod kiem_thu {
         let b = Scope::Network {
             hosts: vec!["a".into(), "bc".into()],
         };
-        assert_ne!(van_tay_pham_vi(&a), van_tay_pham_vi(&b));
+        assert_ne!(scope_fingerprint(&a), scope_fingerprint(&b));
     }
 
     #[test]
     fn moi_loai_pham_vi_cho_van_tay_khac_nhau() {
         let ds = [
-            van_tay_pham_vi(&Scope::Network { hosts: vec![] }),
-            van_tay_pham_vi(&Scope::Storage { quota_bytes: 0 }),
-            van_tay_pham_vi(&Scope::Wallet {
+            scope_fingerprint(&Scope::Network { hosts: vec![] }),
+            scope_fingerprint(&Scope::Storage { quota_bytes: 0 }),
+            scope_fingerprint(&Scope::Wallet {
                 may_request_signature: false,
             }),
-            van_tay_pham_vi(&Scope::Wallet {
+            scope_fingerprint(&Scope::Wallet {
                 may_request_signature: true,
             }),
         ];

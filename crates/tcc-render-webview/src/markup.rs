@@ -31,15 +31,15 @@ use tcc_ui::{Alt, Emphasis, Flow, Gap, Node, NodeKind, Tone};
 /// Gộp hai vai trò vào một chuỗi luôn khoá chặt nó lại như vậy. Nay dấu hiệu
 /// máy là thuộc tính này (không bao giờ đổi, không bao giờ hiện ra), còn chữ
 /// cho người thì tự do dịch.
-pub const DAU_MAT_MAT: &str = "mat-mat";
+pub const MARKER_DESTRUCTIVE: &str = "mat-mat";
 
 /// Chữ mà BỘ DỰNG cần, do tầng trên cấp cho.
 ///
 /// Bộ dựng không biết ngôn ngữ và không nên biết — bảng dịch nằm ở `tcc-shell`.
-/// Nó chỉ nhận chữ đã dịch sẵn, đúng lối đã dùng với `trait Mang` và trình phục
+/// Nó chỉ nhận chữ đã dịch sẵn, đúng lối đã dùng với `trait Network` và trình phục
 /// vụ tệp: thứ gì phụ thuộc ngữ cảnh thì tiêm từ ngoài vào.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChuBoDung {
+pub struct RendererText {
     /// Câu mô tả hành động mất mát, đọc lên cho trình đọc màn hình.
     pub cau_mat_mat: String,
     /// Chuỗi thay cho tên vai trò "nút".
@@ -49,7 +49,7 @@ pub struct ChuBoDung {
     pub vai_tro_mat_mat: String,
 }
 
-impl Default for ChuBoDung {
+impl Default for RendererText {
     /// Mặc định TIẾNG ANH — đúng mặc định của cả giao diện.
     fn default() -> Self {
         Self {
@@ -64,7 +64,7 @@ impl Default for ChuBoDung {
 /// Thoát cả `'` và `"` vì cùng một hàm dùng cho cả nội dung lẫn giá trị thuộc
 /// tính. Một hàm cho cả hai chỗ thì không có chỗ nào bị quên.
 #[must_use]
-pub fn thoat(s: &str) -> String {
+pub fn escape_html(s: &str) -> String {
     let mut ra = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
@@ -116,22 +116,22 @@ const fn ten_sac_thai(t: Tone) -> &'static str {
 /// Mỗi nút sinh ra ĐÚNG MỘT thẻ, không thẻ bọc thừa. Đó là điều kiện để bộ quét
 /// trợ năng dựng lại được cây một-đối-một.
 #[must_use]
-pub fn than(tree: &Node) -> String {
-    than_voi_chu(tree, &ChuBoDung::default())
+pub fn body(tree: &Node) -> String {
+    body_with_text(tree, &RendererText::default())
 }
 
-/// Như [`than`] nhưng dùng chữ do tầng trên cấp.
+/// Như [`body`] nhưng dùng chữ do tầng trên cấp.
 #[must_use]
-pub fn than_voi_chu(tree: &Node, chu: &ChuBoDung) -> String {
+pub fn body_with_text(tree: &Node, chu: &RendererText) -> String {
     let mut ra = String::new();
     ve(tree, chu, &mut ra);
     ra
 }
 
-fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
+fn ve(n: &Node, chu: &RendererText, ra: &mut String) {
     match n.kind() {
         NodeKind::Text { content, emphasis } => {
-            let c = thoat(content);
+            let c = escape_html(content);
             let _ = write!(
                 ra,
                 "<p role=\"paragraph\" aria-label=\"{c}\" data-nhan=\"{}\">{c}</p>",
@@ -143,7 +143,7 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
             action,
             tone,
         } => {
-            let l = thoat(label);
+            let l = escape_html(label);
             // Mã hành động đã bị `ActionId::parse` ép về ASCII hẹp nên không có
             // gì để thoát — nhưng vẫn thoát, vì phòng thủ không nên phụ thuộc
             // vào một bất biến ở crate khác có thể bị nới ra sau này.
@@ -154,9 +154,9 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
             let mo_ta = if *tone == Tone::Danger {
                 format!(
                     " title=\"{}\" aria-roledescription=\"{}\" aria-description=\"{}\"",
-                    thoat(&chu.cau_mat_mat),
-                    thoat(&chu.vai_tro_mat_mat),
-                    thoat(&chu.cau_mat_mat)
+                    escape_html(&chu.cau_mat_mat),
+                    escape_html(&chu.vai_tro_mat_mat),
+                    escape_html(&chu.cau_mat_mat)
                 )
             } else {
                 String::new()
@@ -165,7 +165,7 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
                 ra,
                 "<button role=\"button\" aria-label=\"{l}\"{mo_ta} \
                  data-hanh-dong=\"{}\" data-sac-thai=\"{}\">{l}</button>",
-                thoat(action.as_str()),
+                escape_html(action.as_str()),
                 ten_sac_thai(*tone)
             );
         }
@@ -181,7 +181,7 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
             // ⚠️ Nhãn phải HIỆN RA, cùng lý do với công tắc: `aria-label` chỉ để
             // trình đọc màn hình nghe. Người dùng sáng mắt thấy một ô trống thì
             // không biết ô đó để nhập gì.
-            let l = thoat(label);
+            let l = escape_html(label);
             // ⚠️ KHÔNG đặt `role="textbox"`.
             //
             // ARIA ĐÈ LÊN ngữ nghĩa gốc, và ở đây đè xuống thành tệ hơn: thẻ nhập
@@ -195,7 +195,7 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
             let _ = write!(
                 ra,
                 "<label>{l}<input type=\"{kieu}\" aria-label=\"{l}\" value=\"{}\"></label>",
-                thoat(value)
+                escape_html(value)
             );
         }
         NodeKind::Toggle { label, on, action } => {
@@ -211,12 +211,12 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
             //
             // 211 phép thử không bắt được: cây trợ năng CÓ nhãn nên phép kiểm
             // định trợ năng qua. Chỉ khi chụp được cửa sổ mới lộ ra.
-            let l = thoat(label);
+            let l = escape_html(label);
             let _ = write!(
                 ra,
                 "<label><input type=\"checkbox\" role=\"switch\" aria-checked=\"{on}\" \
                  aria-label=\"{l}\" data-hanh-dong=\"{}\"{}>{l}</label>",
-                thoat(action.as_str()),
+                escape_html(action.as_str()),
                 if *on { " checked" } else { "" }
             );
         }
@@ -225,9 +225,9 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
                 let _ = write!(
                     ra,
                     "<img src=\"{}\" role=\"img\" alt=\"{}\" aria-label=\"{}\">",
-                    thoat(&crate::phuc_vu_goi::dia_chi(source)),
-                    thoat(t),
-                    thoat(t)
+                    escape_html(&crate::package_server::url_for(source)),
+                    escape_html(t),
+                    escape_html(t)
                 );
             }
             // Ảnh trang trí: `alt` rỗng CỘNG `role=presentation`. Chỉ một trong
@@ -241,7 +241,7 @@ fn ve(n: &Node, chu: &ChuBoDung, ra: &mut String) {
                 let _ = write!(
                     ra,
                     "<img src=\"{}\" alt=\"\" role=\"presentation\">",
-                    thoat(&crate::phuc_vu_goi::dia_chi(source))
+                    escape_html(&crate::package_server::url_for(source))
                 );
             }
         },
@@ -293,17 +293,17 @@ img{max-width:100%;align-self:start}\
 
 /// Tài liệu đầy đủ, kèm chính sách nội dung.
 ///
-/// Chính sách này là TẦNG PHÒNG THỦ THỨ HAI: kể cả khi [`thoat`] có lỗ, kịch bản
+/// Chính sách này là TẦNG PHÒNG THỦ THỨ HAI: kể cả khi [`escape_html`] có lỗ, kịch bản
 /// vẫn không chạy vì không nguồn nào được phép. `default-src 'none'` chặn hết,
 /// rồi mở đúng hai thứ cần: chữ nội tuyến và ảnh từ giao thức của gói.
 #[must_use]
-pub fn tai_lieu(tree: &Node) -> String {
-    tai_lieu_voi_chu(tree, &ChuBoDung::default())
+pub fn document(tree: &Node) -> String {
+    document_with_text(tree, &RendererText::default())
 }
 
-/// Như [`tai_lieu`] nhưng dùng chữ do tầng trên cấp.
+/// Như [`document`] nhưng dùng chữ do tầng trên cấp.
 #[must_use]
-pub fn tai_lieu_voi_chu(tree: &Node, chu: &ChuBoDung) -> String {
+pub fn document_with_text(tree: &Node, chu: &RendererText) -> String {
     format!(
         "<!doctype html><meta charset=\"utf-8\">\
          <meta http-equiv=\"Content-Security-Policy\" content=\"\
@@ -312,7 +312,7 @@ pub fn tai_lieu_voi_chu(tree: &Node, chu: &ChuBoDung) -> String {
          form-action 'none'; base-uri 'none'\">\
          <style>{BANG_KIEU}</style>\
          <body>{}</body>",
-        than_voi_chu(tree, chu)
+        body_with_text(tree, chu)
     )
 }
 
@@ -332,7 +332,7 @@ mod kiem_thu {
     #[test]
     fn chu_cua_ung_dung_khong_thoat_ra_duoc_tai_lieu() {
         const NHAN_AC: &str = "\" onclick=\"doi_vi()";
-        let doc = tai_lieu(
+        let doc = document(
             &Node::group(Flow::Column, Gap::None)
                 .child(Node::text("<script>doi_vi()</script>").unwrap())
                 .unwrap()
@@ -353,9 +353,8 @@ mod kiem_thu {
         //
         // Bằng chứng đúng là ĐỌC NGƯỢC: nếu nhãn phá được ra khỏi giá trị thuộc
         // tính thì bộ quét sẽ đọc ra một cây khác, hoặc một nhãn cụt.
-        let a =
-            crate::quet_tro_nang::quet(&than(&Node::button(NHAN_AC, "ok", Tone::Neutral).unwrap()))
-                .expect("nhãn ác làm vỡ đánh dấu");
+        let a = crate::a11y_scan::scan(&body(&Node::button(NHAN_AC, "ok", Tone::Neutral).unwrap()))
+            .expect("nhãn ác làm vỡ đánh dấu");
         assert_eq!(
             a.label.as_deref(),
             Some(NHAN_AC),
@@ -377,7 +376,7 @@ mod kiem_thu {
             .unwrap()
             .child(Node::image("a.png", Alt::Text(doc_ac.into())).unwrap())
             .unwrap();
-        let ra = than(&cay);
+        let ra = body(&cay);
         assert!(
             !ra.contains("<b>"),
             "một loại nút nào đó chưa thoát ký tự:\n{ra}"
@@ -386,7 +385,7 @@ mod kiem_thu {
 
     #[test]
     fn chinh_sach_noi_dung_chan_kich_ban() {
-        let doc = tai_lieu(&Node::text("xin chào").unwrap());
+        let doc = document(&Node::text("xin chào").unwrap());
         assert!(doc.contains("default-src 'none'"));
         assert!(doc.contains("script-src 'none'"));
         // Ảnh chỉ từ giao thức của gói — không phải từ mạng.
@@ -396,10 +395,10 @@ mod kiem_thu {
 
     #[test]
     fn o_bi_mat_ra_the_nhap_kieu_mat_khau_that() {
-        let ra = than(&Node::field("Mật khẩu", "abc", true).unwrap());
+        let ra = body(&Node::field("Mật khẩu", "abc", true).unwrap());
         assert!(ra.contains("type=\"password\""), "{ra}");
 
-        let thuong = than(&Node::field("Tên", "abc", false).unwrap());
+        let thuong = body(&Node::field("Tên", "abc", false).unwrap());
         assert!(thuong.contains("type=\"text\""), "{thuong}");
     }
 
@@ -409,7 +408,7 @@ mod kiem_thu {
     /// Ở hộp thoại hỏi quyền, đó chính là nút quyết định.
     #[test]
     fn nhan_cong_tac_hien_ra_cho_nguoi_nhin_thay() {
-        let ra = than(&Node::toggle("Kết nối tới các máy chủ này", false, "q-mang").unwrap());
+        let ra = body(&Node::toggle("Kết nối tới các máy chủ này", false, "q-mang").unwrap());
         // Chữ phải nằm NGOÀI thuộc tính, tức là trong phần nội dung của thẻ.
         assert!(
             ra.contains(">Kết nối tới các máy chủ này</label>"),
@@ -420,7 +419,7 @@ mod kiem_thu {
     /// ⚠️ Nhãn ô nhập cũng phải HIỆN RA, không chỉ nằm trong `aria-label`.
     #[test]
     fn nhan_o_nhap_hien_ra_cho_nguoi_nhin_thay() {
-        let ra = than(&Node::field("Gõ thử tiếng Việt", "", false).unwrap());
+        let ra = body(&Node::field("Gõ thử tiếng Việt", "", false).unwrap());
         assert!(
             ra.contains("<label>Gõ thử tiếng Việt<input"),
             "nhãn ô nhập không hiện ra:\n{ra}"
@@ -434,7 +433,7 @@ mod kiem_thu {
     /// lý quyền, nơi nút "Quên ứng dụng này" chiếm trọn bề ngang.
     #[test]
     fn nut_khong_gian_kin_be_ngang() {
-        let doc = tai_lieu(&Node::button("Quên", "quen", Tone::Danger).unwrap());
+        let doc = document(&Node::button("Quên", "forget", Tone::Danger).unwrap());
         assert!(
             doc.contains("button{align-self:start"),
             "nút sẽ giãn kín bề ngang trong hộp xếp dọc"
@@ -447,7 +446,7 @@ mod kiem_thu {
     /// chỉ là chú thích trong mã. Lỗi này chỉ lộ ra khi chụp được cửa sổ.
     #[test]
     fn sac_thai_mat_mat_duoc_ve_khac_di() {
-        let doc = tai_lieu(&Node::button("Xoá", "xoa", Tone::Danger).unwrap());
+        let doc = document(&Node::button("Xoá", "xoa", Tone::Danger).unwrap());
         assert!(
             doc.contains("[data-sac-thai=mat-mat]"),
             "bảng kiểu không có luật nào cho sắc thái mất mát"
@@ -468,8 +467,8 @@ mod kiem_thu {
     /// `aria-roledescription` (→ AXRoleDescription).
     #[test]
     fn nut_mat_mat_mang_cau_canh_bao() {
-        let chu = ChuBoDung::default();
-        let ra = than(&Node::button("Xoá ví", "xoa", Tone::Danger).unwrap());
+        let chu = RendererText::default();
+        let ra = body(&Node::button("Xoá ví", "xoa", Tone::Danger).unwrap());
         assert!(ra.contains(&chu.cau_mat_mat), "{ra}");
         assert!(
             ra.contains("title="),
@@ -480,7 +479,7 @@ mod kiem_thu {
             "thiếu aria-roledescription:\n{ra}"
         );
 
-        let thuong = than(&Node::button("Xem", "xem", Tone::Neutral).unwrap());
+        let thuong = body(&Node::button("Xem", "xem", Tone::Neutral).unwrap());
         assert!(!thuong.contains(&chu.cau_mat_mat), "{thuong}");
     }
 
@@ -492,23 +491,23 @@ mod kiem_thu {
     #[test]
     fn doi_chu_sang_ngon_ngu_khac_khong_lam_mat_dau_hieu_may() {
         let nut = Node::button("Delete", "xoa", Tone::Danger).unwrap();
-        let anh = ChuBoDung::default();
-        let viet = ChuBoDung {
+        let anh = RendererText::default();
+        let viet = RendererText {
             cau_mat_mat: "Hành động này không hoàn tác được.".to_owned(),
             vai_tro_mat_mat: "nút — hành động này không hoàn tác được".to_owned(),
         };
 
         for chu in [&anh, &viet] {
-            let ra = than_voi_chu(&nut, chu);
+            let ra = body_with_text(&nut, chu);
             // Chữ cho người ĐỔI theo ngôn ngữ…
             assert!(ra.contains(&chu.cau_mat_mat), "{ra}");
             // …còn dấu hiệu máy thì KHÔNG BAO GIỜ đổi.
             assert!(
-                ra.contains(&format!("data-sac-thai=\"{DAU_MAT_MAT}\"")),
+                ra.contains(&format!("data-sac-thai=\"{MARKER_DESTRUCTIVE}\"")),
                 "mất dấu hiệu máy:\n{ra}"
             );
             // Và bộ quét vẫn nhận ra, dù chữ khác hẳn.
-            let a = crate::quet_tro_nang::quet(&ra).expect("quét ngược hỏng");
+            let a = crate::a11y_scan::scan(&ra).expect("quét ngược hỏng");
             assert_eq!(a.role, tcc_ui::Role::Button { destructive: true });
         }
     }
@@ -516,7 +515,7 @@ mod kiem_thu {
     /// Mặc định của bộ dựng là TIẾNG ANH — đúng mặc định của cả giao diện.
     #[test]
     fn mac_dinh_bo_dung_la_tieng_anh() {
-        let c = ChuBoDung::default();
+        let c = RendererText::default();
         assert!(
             c.cau_mat_mat.is_ascii(),
             "mặc định phải là tiếng Anh: {c:?}"
@@ -529,20 +528,20 @@ mod kiem_thu {
 
     #[test]
     fn anh_tro_qua_giao_thuc_cua_goi() {
-        let ra = than(&Node::image("anh/logo.png", Alt::Text("Biểu trưng".into())).unwrap());
+        let ra = body(&Node::image("anh/logo.png", Alt::Text("Biểu trưng".into())).unwrap());
         assert!(
             ra.contains("src=\"tcc-goi://goi/anh/logo.png\""),
             "ảnh vẫn dùng đường dẫn trần, sẽ không phân giải được:\n{ra}"
         );
         // Và phải khớp chính sách nội dung.
-        let doc = tai_lieu(&Node::image("a.png", Alt::Decorative).unwrap());
+        let doc = document(&Node::image("a.png", Alt::Decorative).unwrap());
         assert!(doc.contains("img-src tcc-goi:"));
         assert!(doc.contains("src=\"tcc-goi://"));
     }
 
     #[test]
     fn anh_trang_tri_co_ca_alt_rong_lan_vai_tro_trang_tri() {
-        let ra = than(&Node::image("anh/vien.png", Alt::Decorative).unwrap());
+        let ra = body(&Node::image("anh/vien.png", Alt::Decorative).unwrap());
         assert!(ra.contains("alt=\"\""), "{ra}");
         assert!(ra.contains("role=\"presentation\""), "{ra}");
     }
@@ -568,7 +567,7 @@ mod kiem_thu {
             .child(Node::image("b.png", Alt::Decorative).unwrap())
             .unwrap();
 
-        let ra = than(&cay);
+        let ra = body(&cay);
         // ⚠️ BẤT BIẾN CŨ SAI, đã sửa.
         //
         // Bản đầu đòi "mỗi nút mang đúng một thuộc tính `role`". Nó khiến tôi
@@ -600,7 +599,7 @@ mod kiem_thu {
             .unwrap()
             .child(Node::text("b").unwrap())
             .unwrap();
-        let ra = than(&cay);
+        let ra = body(&cay);
         assert_eq!(ra.matches("<p ").count(), 2);
         assert_eq!(ra.matches("<div ").count(), 1);
     }

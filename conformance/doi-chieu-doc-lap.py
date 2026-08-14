@@ -39,9 +39,9 @@ GOC = pathlib.Path(__file__).resolve().parent
 
 def buoc_mot(thu_muc: pathlib.Path) -> bool:
     """Bản Python có thật sự đúng FIPS 204 không — hỏi NIST."""
-    hoi = json.loads((thu_muc / "acvp-prompt.json").read_text())
+    ask_dialog = json.loads((thu_muc / "acvp-prompt.json").read_text())
     dap = json.loads((thu_muc / "acvp-ket.json").read_text())
-    g = next(x for x in hoi["testGroups"] if x.get("parameterSet") == "ML-DSA-65")
+    g = next(x for x in ask_dialog["testGroups"] if x.get("parameterSet") == "ML-DSA-65")
     gk = next(x for x in dap["testGroups"] if x["tgId"] == g["tgId"])
     ket = {t["tcId"]: t for t in gk["tests"]}
 

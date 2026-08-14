@@ -140,6 +140,28 @@ else
 fi
 
 echo
+echo "--- Luật 13: định danh CÔNG KHAI không được mang tên tiếng Việt ---"
+# ARCHITECTURE §7 nói định danh viết tiếng Anh, chú thích viết tiếng Việt. Luật
+# đó đã TRÔI suốt nhiều tháng — vì nó là luật duy nhất không có máy canh. Đây là
+# máy canh.
+#
+# Ranh giới cố ý đặt ở `pub`: đó là bề mặt người viết bản cài đặt thứ hai đọc.
+# Tên hàm kiểm thử, biến cục bộ và tên ví dụ đối kháng vẫn tiếng Việt — chúng là
+# LẬP LUẬN, không phải giao diện, và SECURITY.md trích dẫn tên phép thử làm bằng
+# chứng nên đổi tên là làm hỏng đúng thứ nó ghi lại.
+GOC_VIET='(chu|cau|vai|dau|mat|sac|thai|tra|luu|xoa|them|ky|bo|dung|mo|tao|vong|thoat|hoi|quyet|dinh|choi|cho|phep|bat|tat|khoa|nho|hanh|man|hinh|khoi|tan|cong|bang|kieu|thu|ghi|danh|phuc|cua|hop|quet|goi|kiem|bam|nut|loi|mang|nap|gui|tep|duong|noi|ten|nguoi|lieu|tro|nang|lietke|quen|van|tay|tinh|trang)'
+vi_pham=$(grep -rhoE 'pub (struct|enum|fn|const|trait|type|mod) [A-Za-z_][A-Za-z0-9_]*' \
+            crates/*/src/*.rs apps/*/src/*.rs tools/*/src/*.rs 2>/dev/null \
+          | awk '{print $3}' | sort -u \
+          | grep -iE "^${GOC_VIET}(_|$)|_${GOC_VIET}(_|$)" || true)
+if [ -n "$vi_pham" ]; then
+  bao "định danh public mang tên tiếng Việt:"
+  printf '%s\n' "$vi_pham" | sed 's/^/      /' | head -12
+else
+  dat "$(grep -rhoE 'pub (struct|enum|fn|const|trait|type|mod) [A-Za-z_][A-Za-z0-9_]*' crates/*/src/*.rs apps/*/src/*.rs tools/*/src/*.rs 2>/dev/null | wc -l | tr -d ' ') định danh public đều là tiếng Anh"
+fi
+
+echo
 echo "--- Luật 12: đặc tả KHÔNG được có liên kết chết ---"
 # Đặc tả là thứ người ngoài đọc để tự cài đặt. Một liên kết chết ở đó nghĩa là
 # một luật trỏ tới hư không — và người đọc không có mã nguồn để đoán bù vào.

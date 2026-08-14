@@ -1,6 +1,6 @@
 //! Kiểm khói ĐỐI KHÁNG, đi qua WebKit thật.
 //!
-//! Chạy: `cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong`
+//! Chạy: `cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong`
 //!
 //! # Vì sao là `examples/` chứ không phải `tests/`
 //!
@@ -21,7 +21,7 @@
 
 use std::{process::ExitCode, time::Duration};
 
-use tcc_shell::{NgonNgu, cua_so};
+use tcc_shell::{Language, window};
 use tcc_spec::Manifest;
 
 /// Bản kê khai với mọi trường hiện ra màn hình đều nhồi mã tấn công.
@@ -79,7 +79,7 @@ fn tai_lieu_doc() -> String {
 
 fn chi_csp() -> ExitCode {
     println!("Chỉ kiểm CHÍNH SÁCH NỘI DUNG — giả định hai tầng trên đã thủng.");
-    let bao = match cua_so::kiem_tai_lieu_tho(&tai_lieu_doc(), Duration::from_secs(20)) {
+    let bao = match window::check_raw_document(&tai_lieu_doc(), Duration::from_secs(20)) {
         Ok(b) => b,
         Err(e) => {
             eprintln!("✗ WebKit không báo về: {e}");
@@ -110,7 +110,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let cay = match tcc_shell::hop_thoai_quyen::dung(&m, NgonNgu::En) {
+    let cay = match tcc_shell::permission_dialog::build(&m, Language::En) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("✗ không dựng được hộp thoại: {e}");
@@ -119,7 +119,7 @@ fn main() -> ExitCode {
     };
     let mong_doi = cay.node_count();
 
-    let bao = match cua_so::kiem_khoi(&m, NgonNgu::En, Duration::from_secs(20)) {
+    let bao = match window::check_escaping(&m, Language::En, Duration::from_secs(20)) {
         Ok(b) => b,
         Err(e) => {
             eprintln!("✗ WebKit không báo về: {e}");

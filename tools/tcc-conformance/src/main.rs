@@ -390,7 +390,7 @@ fn chay_ui(chi_tiet: bool) -> Ket {
         let cho_ma = t["code"].as_str();
         let byte = serde_json::to_vec(&t["cay"]).expect("cây không tuần tự hoá được");
 
-        match (cho_dat, tcc_ui::dang_goi::doc(&byte)) {
+        match (cho_dat, tcc_ui::wire::decode(&byte)) {
             (true, Ok(_)) => k.ghi(ten, true, "", chi_tiet),
             (true, Err(e)) => k.ghi(
                 ten,
@@ -402,11 +402,11 @@ fn chay_ui(chi_tiet: bool) -> Ket {
             (false, Err(e)) => {
                 // Lỗi giải mã JSON không có mã của tiêu chuẩn — vector ghi "json".
                 let ma = match &e {
-                    tcc_ui::dang_goi::DocLoi::Json(_) => "json".to_owned(),
-                    tcc_ui::dang_goi::DocLoi::QuaLon(_) => "ui-too-large".to_owned(),
-                    tcc_ui::dang_goi::DocLoi::Cay(s) => s.clone(),
+                    tcc_ui::wire::DecodeError::Json(_) => "json".to_owned(),
+                    tcc_ui::wire::DecodeError::TooLarge(_) => "ui-too-large".to_owned(),
+                    tcc_ui::wire::DecodeError::Tree(s) => s.clone(),
                 };
-                // `DocLoi::Cay` gói thông báo chứ không gói mã, nên so bằng cách
+                // `DecodeError::Tree` gói thông báo chứ không gói mã, nên so bằng cách
                 // dựng lại cây và lấy mã trực tiếp.
                 let ma = if ma.starts_with("cây giao diện") || cho_ma != Some("json") {
                     ma_cay(&byte).unwrap_or(ma)
@@ -428,7 +428,7 @@ fn chay_ui(chi_tiet: bool) -> Ket {
 
 /// Lấy mã lỗi của tiêu chuẩn cho một cây giao diện hỏng.
 fn ma_cay(byte: &[u8]) -> Option<String> {
-    let tho: tcc_ui::dang_goi::UiNode = serde_json::from_slice(byte).ok()?;
+    let tho: tcc_ui::wire::UiNode = serde_json::from_slice(byte).ok()?;
     match tcc_ui::Node::try_from(tho) {
         Ok(_) => None,
         Err(e) => Some(e.ma().to_owned()),

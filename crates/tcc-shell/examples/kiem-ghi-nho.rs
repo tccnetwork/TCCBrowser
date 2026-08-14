@@ -13,7 +13,7 @@ use std::{path::PathBuf, process::ExitCode};
 
 use tcc_capability::Decision;
 use tcc_crypto::HybridEd25519MlDsa;
-use tcc_shell::ghi_nho::GhiNho;
+use tcc_shell::permission_store::PermissionStore;
 
 fn main() -> ExitCode {
     let Some(goi) = std::env::args().nth(1).map(PathBuf::from) else {
@@ -40,22 +40,25 @@ fn main() -> ExitCode {
     let mut hong = 0;
 
     // ---- Lần đầu: chưa có câu trả lời ----
-    let mut g = GhiNho::mo(&kho);
-    println!("  lần đầu           → {:?} (phải là None)", g.tra(&m, xin));
-    if g.tra(&m, xin).is_some() {
+    let mut g = PermissionStore::open(&kho);
+    println!(
+        "  lần đầu           → {:?} (phải là None)",
+        g.lookup(&m, xin)
+    );
+    if g.lookup(&m, xin).is_some() {
         eprintln!("✗ HỎNG: chưa hỏi mà đã có câu trả lời");
         hong += 1;
     }
 
     // ---- Nhớ, ghi ra đĩa, mở lại ----
-    g.nho(&m, xin, Decision::Allow);
-    g.ghi().expect("ghi kho hỏng");
-    let g2 = GhiNho::mo(&kho);
+    g.remember(&m, xin, Decision::Allow);
+    g.save().expect("ghi kho hỏng");
+    let g2 = PermissionStore::open(&kho);
     println!(
         "  mở lại từ đĩa     → {:?} (phải là Allow)",
-        g2.tra(&m, xin)
+        g2.lookup(&m, xin)
     );
-    if g2.tra(&m, xin) != Some(Decision::Allow) {
+    if g2.lookup(&m, xin) != Some(Decision::Allow) {
         eprintln!("✗ HỎNG: nhớ rồi mà mở lại không thấy");
         hong += 1;
     }
@@ -65,7 +68,7 @@ fn main() -> ExitCode {
     if let tcc_spec::Scope::Network { hosts } = &mut moi.capabilities[0].scope {
         hosts.push("thu-thap.example".to_owned());
         println!("  (giả lập bản mới xin thêm thu-thap.example)");
-        let ket = g2.tra(&moi, &moi.capabilities[0]);
+        let ket = g2.lookup(&moi, &moi.capabilities[0]);
         println!("  sau khi nới rộng  → {ket:?} (phải là None)");
         if ket.is_some() {
             eprintln!(
@@ -79,7 +82,7 @@ fn main() -> ExitCode {
     // ---- ⚠️ Khoá người ký đổi ----
     let mut gia = m.clone();
     gia.publisher = "ff".repeat(1992);
-    let ket = g2.tra(&gia, &gia.capabilities[0]);
+    let ket = g2.lookup(&gia, &gia.capabilities[0]);
     println!("  đổi khoá người ký → {ket:?} (phải là None)");
     if ket.is_some() {
         eprintln!("✗ HỎNG NẶNG: gói ký bằng khoá khác thừa hưởng quyền của gói thật");
@@ -88,7 +91,7 @@ fn main() -> ExitCode {
 
     // ---- Tệp bị sửa hỏng ----
     std::fs::write(&kho, "{ hỏng").expect("ghi hỏng");
-    let ket = GhiNho::mo(&kho).tra(&m, xin);
+    let ket = PermissionStore::open(&kho).lookup(&m, xin);
     println!("  tệp bị sửa hỏng   → {ket:?} (phải là None)");
     if ket.is_some() {
         eprintln!("✗ HỎNG: tệp hỏng mà vẫn cho ra câu trả lời");

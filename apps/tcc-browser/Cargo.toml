@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 # Mở cửa sổ thật. Không bật mặc định để `cargo test` không phải kéo wry+tao.
-cua-so = ["tcc-shell/cua-so", "tcc-shell/mang"]
+window = ["tcc-shell/window", "tcc-shell/network"]
 
 [dependencies]
 tcc-shell = { workspace = true }

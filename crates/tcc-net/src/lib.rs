@@ -1,4 +1,4 @@
-//! Đường ra ngoài của trình duyệt — cài đặt `tcc_runtime::Mang`.
+//! Đường ra ngoài của trình duyệt — cài đặt `tcc_runtime::Network`.
 //!
 //! # Vì sao là một crate RIÊNG
 //!
@@ -36,7 +36,7 @@
 
 use std::time::Duration;
 
-use tcc_runtime::Mang;
+use tcc_runtime::Network;
 use thiserror::Error;
 
 /// Trần kích thước một lần trả về.
@@ -46,10 +46,10 @@ use thiserror::Error;
 pub const MAX_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Thời gian chờ toàn cục cho một lần gọi.
-pub const CHO_TOI_DA: Duration = Duration::from_secs(20);
+pub const MAX_WAIT: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum LoiMang {
+pub enum NetError {
     #[error(
         "máy chủ trả {0} — chuyển hướng KHÔNG được đi theo, vì đích đến có thể là \
          một máy chủ chưa bao giờ được cấp quyền"
@@ -63,7 +63,7 @@ pub enum LoiMang {
     DuongDanXau,
 
     #[error("trả về quá {MAX_BYTES} byte")]
-    QuaLon,
+    TooLarge,
 
     #[error("gọi thất bại: {0}")]
     Goi(String),
@@ -76,16 +76,16 @@ pub enum LoiMang {
 ///
 /// # Errors
 /// 3xx (chuyển hướng) hoặc bất kỳ mã nào ngoài 2xx.
-pub fn xet_trang_thai(ma: u16) -> Result<(), LoiMang> {
+pub fn check_status(ma: u16) -> Result<(), NetError> {
     // Nhánh 3xx phải đứng TRƯỚC nhánh "ngoài 2xx": thông báo riêng cho chuyển
     // hướng là thứ giúp người viết ứng dụng hiểu vì sao bị chặn.
     if (300..400).contains(&ma) {
-        return Err(LoiMang::ChuyenHuong(ma));
+        return Err(NetError::ChuyenHuong(ma));
     }
     if (200..300).contains(&ma) {
         return Ok(());
     }
-    Err(LoiMang::TrangThaiXau(ma))
+    Err(NetError::TrangThaiXau(ma))
 }
 
 /// Dựng địa chỉ. **Hàm thuần.**
@@ -96,37 +96,37 @@ pub fn xet_trang_thai(ma: u16) -> Result<(), LoiMang> {
 ///
 /// # Errors
 /// Đường dẫn không bắt đầu bằng `/`, hoặc chứa ký tự điều khiển.
-pub fn dung_dia_chi(host: &str, path: &str) -> Result<String, LoiMang> {
+pub fn build_url(host: &str, path: &str) -> Result<String, NetError> {
     if !path.starts_with('/') {
-        return Err(LoiMang::DuongDanXau);
+        return Err(NetError::DuongDanXau);
     }
     // Ký tự điều khiển trong đường dẫn là đòn tách yêu cầu kinh điển: `\r\n`
     // chèn thêm một tiêu đề, hoặc cả một yêu cầu thứ hai.
     if path.chars().any(|c| c.is_control() || c == ' ') {
-        return Err(LoiMang::DuongDanXau);
+        return Err(NetError::DuongDanXau);
     }
     Ok(format!("https://{host}{path}"))
 }
 
 /// Máy khách HTTP của trình duyệt.
 #[derive(Debug)]
-pub struct MangHttp {
+pub struct HttpNetwork {
     agent: ureq::Agent,
 }
 
-impl Default for MangHttp {
+impl Default for HttpNetwork {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MangHttp {
+impl HttpNetwork {
     #[must_use]
     pub fn new() -> Self {
         let cau_hinh = ureq::Agent::config_builder()
-            // LỚP 1 chống chuyển hướng. Lớp 2 là `xet_trang_thai`.
+            // LỚP 1 chống chuyển hướng. Lớp 2 là `check_status`.
             .max_redirects(0)
-            .timeout_global(Some(CHO_TOI_DA))
+            .timeout_global(Some(MAX_WAIT))
             .build();
         Self {
             agent: cau_hinh.into(),
@@ -134,17 +134,17 @@ impl MangHttp {
     }
 }
 
-impl Mang for MangHttp {
+impl Network for HttpNetwork {
     fn get(&self, host: &str, path: &str) -> Result<Vec<u8>, String> {
-        let dia_chi = dung_dia_chi(host, path).map_err(|e| e.to_string())?;
+        let url_for = build_url(host, path).map_err(|e| e.to_string())?;
 
         let mut dap = self
             .agent
-            .get(&dia_chi)
+            .get(&url_for)
             .call()
-            .map_err(|e| LoiMang::Goi(e.to_string()).to_string())?;
+            .map_err(|e| NetError::Goi(e.to_string()).to_string())?;
 
-        xet_trang_thai(dap.status().as_u16()).map_err(|e| e.to_string())?;
+        check_status(dap.status().as_u16()).map_err(|e| e.to_string())?;
 
         // Đọc CÓ TRẦN, không đọc hết rồi mới đo: đọc hết một luồng vô tận thì
         // không bao giờ tới được chỗ đo.
@@ -152,7 +152,7 @@ impl Mang for MangHttp {
             .with_config()
             .limit(MAX_BYTES)
             .read_to_vec()
-            .map_err(|_| LoiMang::QuaLon.to_string())
+            .map_err(|_| NetError::TooLarge.to_string())
     }
 }
 
@@ -173,8 +173,8 @@ mod kiem_thu {
     fn moi_chuyen_huong_deu_bi_tu_choi() {
         for ma in [300, 301, 302, 303, 307, 308, 399] {
             assert_eq!(
-                xet_trang_thai(ma),
-                Err(LoiMang::ChuyenHuong(ma)),
+                check_status(ma),
+                Err(NetError::ChuyenHuong(ma)),
                 "mã {ma} không bị chặn"
             );
         }
@@ -183,16 +183,16 @@ mod kiem_thu {
     #[test]
     fn chi_2xx_moi_dat() {
         for ma in [200, 201, 204, 299] {
-            assert!(xet_trang_thai(ma).is_ok(), "mã {ma} bị chặn oan");
+            assert!(check_status(ma).is_ok(), "mã {ma} bị chặn oan");
         }
         for ma in [100, 199, 400, 403, 404, 500, 503] {
-            assert_eq!(xet_trang_thai(ma), Err(LoiMang::TrangThaiXau(ma)));
+            assert_eq!(check_status(ma), Err(NetError::TrangThaiXau(ma)));
         }
     }
 
     #[test]
     fn dia_chi_luon_la_https() {
-        let d = dung_dia_chi("shop.tcc-coin.com", "/san-pham").unwrap();
+        let d = build_url("shop.tcc-coin.com", "/san-pham").unwrap();
         assert_eq!(d, "https://shop.tcc-coin.com/san-pham");
         assert!(d.starts_with("https://"));
     }
@@ -210,8 +210,8 @@ mod kiem_thu {
             "",
         ] {
             assert_eq!(
-                dung_dia_chi("shop.tcc-coin.com", p),
-                Err(LoiMang::DuongDanXau),
+                build_url("shop.tcc-coin.com", p),
+                Err(NetError::DuongDanXau),
                 "đường dẫn {p:?} lọt qua"
             );
         }
@@ -221,7 +221,7 @@ mod kiem_thu {
     fn duong_dan_thuong_van_qua() {
         for p in ["/", "/a/b/c", "/tim?q=ao+dai", "/a%20b", "/#neo"] {
             assert!(
-                dung_dia_chi("shop.tcc-coin.com", p).is_ok(),
+                build_url("shop.tcc-coin.com", p).is_ok(),
                 "đường dẫn {p:?} bị chặn oan"
             );
         }

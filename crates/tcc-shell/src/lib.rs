@@ -11,21 +11,21 @@
 //! Tầng 3 là thứ khiến cả chiến lược khả thi: không có nó, ta bị buộc phải đuổi
 //! theo Chromium mãi mãi.
 
-pub mod ghi_nho;
-pub mod hop_thoai_quyen;
-pub mod loi;
-pub mod man_hinh_quyen;
+pub mod permission_dialog;
+pub mod permission_screen;
+pub mod permission_store;
+pub mod text;
 
-pub use loi::NgonNgu;
 pub use tcc_ui::AccessNode;
+pub use text::Language;
 
-#[cfg(feature = "cua-so")]
-pub mod cua_so;
+#[cfg(feature = "window")]
+pub mod window;
 
 /// Đường ra ngoài thật. Chỉ có khi bật cờ `mang`.
 ///
 /// Tách cờ riêng để dựng được một bản trình duyệt **không có mạng** — hữu ích
 /// khi soi bảo mật: chạy bản đó thì chắc chắn không có gói tin nào rời máy, dù
 /// mã có lỗi gì.
-#[cfg(feature = "mang")]
-pub use tcc_net::MangHttp;
+#[cfg(feature = "network")]
+pub use tcc_net::HttpNetwork;

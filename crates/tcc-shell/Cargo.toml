@@ -8,9 +8,9 @@ license.workspace = true
 [features]
 # Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
 # tcc-render-webview trực tiếp.
-cua-so = ["tcc-render-webview/cua-so"]
+window = ["tcc-render-webview/window"]
 # Đường ra ngoài thật. Tách cờ riêng để dựng được bản KHÔNG có mạng.
-mang = ["dep:tcc-net"]
+network = ["dep:tcc-net"]
 
 [dependencies]
 tcc-spec = { workspace = true }
@@ -36,15 +36,15 @@ tcc-runtime = { workspace = true }
 
 [[example]]
 name = "kiem-khoi-tan-cong"
-required-features = ["cua-so"]
+required-features = ["window"]
 
 [[example]]
 name = "kiem-bam-nut"
-required-features = ["cua-so"]
+required-features = ["window"]
 
 [[example]]
 name = "kiem-man-hinh-ung-dung"
-required-features = ["cua-so"]
+required-features = ["window"]
 
 [[example]]
 name = "kiem-hanh-vi"
@@ -54,7 +54,7 @@ name = "kiem-ghi-nho"
 
 [[example]]
 name = "xem-man-hinh"
-required-features = ["cua-so"]
+required-features = ["window"]
 
 [lints]
 workspace = true

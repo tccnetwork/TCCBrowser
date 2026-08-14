@@ -42,7 +42,7 @@
 //! # Ok::<(), tcc_ui::UiError>(())
 //! ```
 
-pub mod dang_goi;
+pub mod wire;
 
 use serde::{Deserialize, Serialize};
 use tcc_spec::{SpecError, TextKind, check_display_text, tree::TreeError, tree::check_path_public};

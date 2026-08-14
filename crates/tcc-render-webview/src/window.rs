@@ -1,4 +1,4 @@
-//! Cửa sổ thật. Chỉ biên dịch khi bật cờ tính năng `cua-so`.
+//! Cửa sổ thật. Chỉ biên dịch khi bật cờ tính năng `window`.
 //!
 //! # Vì sao để sau cờ tính năng
 //!
@@ -9,7 +9,7 @@
 //!
 //! ```text
 //!   cargo test                  → chỉ tcc-ui + dịch đánh dấu + quét trợ năng
-//!   cargo run --features cua-so → thêm cửa sổ thật
+//!   cargo run --features window → thêm cửa sổ thật
 //! ```
 //!
 //! # Ranh giới bảo mật của tệp này
@@ -32,7 +32,7 @@ use tao::{
 };
 use wry::WebViewBuilder;
 
-use crate::phuc_vu_goi;
+use crate::package_server;
 
 /// Mở một cửa sổ và nạp tài liệu đã dựng.
 ///
@@ -45,14 +45,14 @@ use crate::phuc_vu_goi;
 ///
 /// # Panics
 /// Không.
-pub fn mo(
-    tai_lieu: &str,
+pub fn open(
+    document: &str,
     tieu_de: &str,
     doc_tep: impl Fn(&str) -> Option<Vec<u8>> + 'static,
     tu_dong_dong: Option<Duration>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let vong = EventLoopBuilder::new().build();
-    let cua_so = WindowBuilder::new()
+    let window = WindowBuilder::new()
         .with_title(tieu_de)
         .with_inner_size(tao::dpi::LogicalSize::new(900.0, 640.0))
         .build(&vong)?;
@@ -60,11 +60,11 @@ pub fn mo(
     // `with_html` chứ không phải `with_url`: tài liệu không có nguồn gốc thật,
     // nên không chia sẻ kho lưu trữ hay quyền với bất kỳ trang nào.
     let _webview = WebViewBuilder::new()
-        .with_html(tai_lieu)
-        .with_custom_protocol(phuc_vu_goi::GIAO_THUC.to_owned(), move |_id, yc| {
-            phuc_vu(&doc_tep, &yc)
+        .with_html(document)
+        .with_custom_protocol(package_server::SCHEME.to_owned(), move |_id, yc| {
+            serve(&doc_tep, &yc)
         })
-        .build(&cua_so)?;
+        .build(&window)?;
 
     let han = tu_dong_dong.map(|d| Instant::now() + d);
     // ⚠️ Cần cờ này. Vòng lặp chạy lại cho MỖI sự kiện, và dòng đặt `ControlFlow`
@@ -81,7 +81,7 @@ pub fn mo(
         }
         *dieu_khien = han.map_or(ControlFlow::Wait, ControlFlow::WaitUntil);
 
-        let mut thoat = |vi_sao: &str| {
+        let mut escape_html = |vi_sao: &str| {
             println!("[bộ dựng] đóng cửa sổ: {vi_sao}");
             dang_thoat = true;
             *dieu_khien = ControlFlow::Exit;
@@ -92,10 +92,10 @@ pub fn mo(
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => thoat("người dùng bấm đóng"),
+            } => escape_html("người dùng bấm đóng"),
             _ => {
                 if han.is_some_and(|h| Instant::now() >= h) {
-                    thoat("hết hẹn giờ");
+                    escape_html("hết hẹn giờ");
                 }
             }
         }
@@ -104,7 +104,7 @@ pub fn mo(
 
 /// Báo cáo mà CHÍNH WebKit gửi ngược ra sau khi dựng xong tài liệu.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BaoCaoKhoi {
+pub struct EscapeReport {
     /// Số phần tử mang vai trò trợ năng mà bộ dựng thật sự nhìn thấy.
     pub so_nut: usize,
     /// Danh sách vai trò, theo đúng thứ tự tài liệu.
@@ -158,9 +158,9 @@ document.addEventListener('DOMContentLoaded', function () {
 ///
 /// # Errors
 /// Không dựng được cửa sổ, hoặc WebKit không báo về trong thời gian chờ.
-pub fn kiem_khoi(tai_lieu: &str, cho_toi_da: Duration) -> Result<BaoCaoKhoi, String> {
+pub fn check_escaping(document: &str, cho_toi_da: Duration) -> Result<EscapeReport, String> {
     let vong = EventLoopBuilder::new().build();
-    let cua_so = WindowBuilder::new()
+    let window = WindowBuilder::new()
         .with_visible(false)
         .build(&vong)
         .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
@@ -169,14 +169,14 @@ pub fn kiem_khoi(tai_lieu: &str, cho_toi_da: Duration) -> Result<BaoCaoKhoi, Str
     let hop_ipc = Arc::clone(&hop);
 
     let _webview = WebViewBuilder::new()
-        .with_html(tai_lieu)
+        .with_html(document)
         .with_initialization_script(KICH_BAN_DO)
         .with_ipc_handler(move |yeu_cau| {
             if let Ok(mut o) = hop_ipc.lock() {
                 *o = Some(yeu_cau.body().clone());
             }
         })
-        .build(&cua_so)
+        .build(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     // `run_return` chứ KHÔNG phải `run`: `run` gọi thẳng `exit()` và không bao
@@ -201,7 +201,7 @@ pub fn kiem_khoi(tai_lieu: &str, cho_toi_da: Duration) -> Result<BaoCaoKhoi, Str
 
     let v: serde_json::Value =
         serde_json::from_str(&tho).map_err(|e| format!("báo cáo không đọc được: {e}"))?;
-    Ok(BaoCaoKhoi {
+    Ok(EscapeReport {
         so_nut: usize::try_from(v["so_nut"].as_u64().unwrap_or(0)).unwrap_or(usize::MAX),
         vai_tro: v["vai_tro"]
             .as_array()
@@ -255,7 +255,7 @@ document.addEventListener('click', function (e) {
 
 /// Người dùng đã chốt cái gì.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TraLoi {
+pub struct DialogAnswer {
     /// Nút đã bấm.
     pub hanh_dong: String,
     /// Mã của các công tắc đang BẬT lúc bấm. Công tắc không có ở đây là tắt.
@@ -274,26 +274,26 @@ pub struct TraLoi {
 ///
 /// # Errors
 /// Không dựng được cửa sổ hoặc WebView.
-pub fn hoi(
-    tai_lieu: &str,
+pub fn ask_dialog(
+    document: &str,
     tieu_de: &str,
     hanh_dong_hop_le: &[String],
-) -> Result<Option<TraLoi>, String> {
+) -> Result<Option<DialogAnswer>, String> {
     let mut vong = EventLoopBuilder::new().build();
-    let cua_so = WindowBuilder::new()
+    let window = WindowBuilder::new()
         .with_title(tieu_de)
         .with_inner_size(tao::dpi::LogicalSize::new(560.0, 640.0))
         .build(&vong)
         .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
 
-    let hop: Arc<Mutex<Option<TraLoi>>> = Arc::new(Mutex::new(None));
+    let hop: Arc<Mutex<Option<DialogAnswer>>> = Arc::new(Mutex::new(None));
     let hop_ipc = Arc::clone(&hop);
     // DANH SÁCH TRẮNG: chỉ nhận mã thật sự có trên màn hình — áp cho CẢ nút bấm
     // lẫn công tắc. Một thông điệp mang mã lạ bị vứt lặng lẽ.
     let hop_le: Vec<String> = hanh_dong_hop_le.to_vec();
 
     let _webview = WebViewBuilder::new()
-        .with_html(tai_lieu)
+        .with_html(document)
         .with_initialization_script(KICH_BAN_NOI_SU_KIEN)
         .with_ipc_handler(move |yeu_cau| {
             let Some(t) = doc_tra_loi(yeu_cau.body(), &hop_le) else {
@@ -309,7 +309,7 @@ pub fn hoi(
                 *o = Some(t);
             }
         })
-        .build(&cua_so)
+        .build(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut dang_thoat = false;
@@ -339,7 +339,7 @@ pub fn hoi(
 
 /// Cách gửi hành động trong phép kiểm.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum KieuGui {
+pub enum MessageKind {
     /// Bấm THẬT lên phần tử — đi qua kịch bản nối sự kiện.
     Bam,
     /// Bật một CÔNG TẮC trước, rồi mới bấm nút xác nhận.
@@ -368,7 +368,7 @@ pub enum KieuGui {
 
 /// Cửa sổ có nên đóng lại sau khi xử lý xong một cú bấm không.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TiepTuc {
+pub enum ControlFlowNext {
     /// Giữ cửa sổ, chờ cú bấm tiếp theo.
     Giu,
     /// Đóng cửa sổ.
@@ -377,40 +377,40 @@ pub enum TiepTuc {
 
 /// Hiện tài liệu và xử lý NHIỀU cú bấm cho tới khi đóng.
 ///
-/// Khác [`hoi`] ở chỗ [`hoi`] trả về sau cú bấm đầu tiên — đúng cho hộp thoại
+/// Khác [`ask_dialog`] ở chỗ [`ask_dialog`] trả về sau cú bấm đầu tiên — đúng cho hộp thoại
 /// hỏi quyền, vì ở đó cú bấm đầu tiên LÀ quyết định. Màn hình ứng dụng thì
 /// ngược lại: người dùng bấm nhiều lần.
 ///
 /// Một vòng lặp sự kiện duy nhất, vì trên macOS một tiến trình chỉ dựng được
-/// một vòng. Gọi [`hoi`] nhiều lần liên tiếp là sai ngay từ thiết kế.
+/// một vòng. Gọi [`ask_dialog`] nhiều lần liên tiếp là sai ngay từ thiết kế.
 ///
 /// # Errors
 /// Không dựng được cửa sổ hoặc WebView.
-pub fn chay(
-    tai_lieu: &str,
+pub fn run_loop(
+    document: &str,
     tieu_de: &str,
     hanh_dong_hop_le: &[String],
     doc_tep: impl Fn(&str) -> Option<Vec<u8>> + 'static,
-    mut xu_ly: impl FnMut(&TraLoi) -> TiepTuc,
+    mut xu_ly: impl FnMut(&DialogAnswer) -> ControlFlowNext,
 ) -> Result<(), String> {
     let mut vong = EventLoopBuilder::new().build();
-    let cua_so = WindowBuilder::new()
+    let window = WindowBuilder::new()
         .with_title(tieu_de)
         .with_inner_size(tao::dpi::LogicalSize::new(760.0, 620.0))
         .build(&vong)
         .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
 
-    // HÀNG ĐỢI, không phải một ô nhớ. `hoi` giữ đúng một quyết định rồi thôi;
+    // HÀNG ĐỢI, không phải một ô nhớ. `ask_dialog` giữ đúng một quyết định rồi thôi;
     // ở đây bấm nhanh hai lần thì cú thứ hai không được phép mất.
-    let hang: Arc<Mutex<Vec<TraLoi>>> = Arc::new(Mutex::new(Vec::new()));
+    let hang: Arc<Mutex<Vec<DialogAnswer>>> = Arc::new(Mutex::new(Vec::new()));
     let hang_ipc = Arc::clone(&hang);
     let hop_le: Vec<String> = hanh_dong_hop_le.to_vec();
 
     let _webview = WebViewBuilder::new()
-        .with_html(tai_lieu)
+        .with_html(document)
         .with_initialization_script(KICH_BAN_NOI_SU_KIEN)
-        .with_custom_protocol(phuc_vu_goi::GIAO_THUC.to_owned(), move |_id, yc| {
-            phuc_vu(&doc_tep, &yc)
+        .with_custom_protocol(package_server::SCHEME.to_owned(), move |_id, yc| {
+            serve(&doc_tep, &yc)
         })
         .with_ipc_handler(move |yeu_cau| {
             if let Some(t) = doc_tra_loi(yeu_cau.body(), &hop_le)
@@ -419,7 +419,7 @@ pub fn chay(
                 q.push(t);
             }
         })
-        .build(&cua_so)
+        .build(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut dang_thoat = false;
@@ -444,12 +444,12 @@ pub fn chay(
 
         // Rút hết hàng đợi rồi mới xử lý: giữ khoá trong lúc gọi `xu_ly` là mời
         // gọi kẹt khoá, vì `xu_ly` có thể chạy lâu (gọi mạng chẳng hạn).
-        let cho_xu_ly: Vec<TraLoi> = hang
+        let cho_xu_ly: Vec<DialogAnswer> = hang
             .lock()
             .map(|mut q| std::mem::take(&mut *q))
             .unwrap_or_default();
         for t in &cho_xu_ly {
-            if xu_ly(t) == TiepTuc::Dong {
+            if xu_ly(t) == ControlFlowNext::Dong {
                 dang_thoat = true;
                 *dieu_khien = ControlFlow::Exit;
                 return;
@@ -465,8 +465,8 @@ pub fn chay(
 /// hình, hoặc **bất kỳ công tắc nào** không có trên màn hình. Không lọc bớt cho
 /// qua — một công tắc ma lọt vào danh sách bật nghĩa là quyền được cấp mà người
 /// dùng chưa hề bật.
-fn doc_tra_loi(than: &str, hop_le: &[String]) -> Option<TraLoi> {
-    let v: serde_json::Value = serde_json::from_str(than).ok()?;
+fn doc_tra_loi(body: &str, hop_le: &[String]) -> Option<DialogAnswer> {
+    let v: serde_json::Value = serde_json::from_str(body).ok()?;
     let hanh_dong = v["a"].as_str()?.to_owned();
     if !hop_le.contains(&hanh_dong) {
         return None;
@@ -481,7 +481,7 @@ fn doc_tra_loi(than: &str, hop_le: &[String]) -> Option<TraLoi> {
         }
         bat.push(s);
     }
-    Some(TraLoi { hanh_dong, bat })
+    Some(DialogAnswer { hanh_dong, bat })
 }
 
 /// Kiểm mắt xích CÚ BẤM: tự bấm hộ một nút rồi xem nhận về mã nào.
@@ -499,20 +499,20 @@ fn doc_tra_loi(than: &str, hop_le: &[String]) -> Option<TraLoi> {
 ///
 /// # Errors
 /// Không dựng được cửa sổ, hoặc không nhận về gì trong thời gian chờ.
-pub fn kiem_bam(
-    tai_lieu: &str,
+pub fn simulate_click(
+    document: &str,
     hanh_dong_hop_le: &[String],
     can_bam: &str,
-    kieu: KieuGui,
+    kieu: MessageKind,
     cho_toi_da: Duration,
-) -> Result<Option<TraLoi>, String> {
+) -> Result<Option<DialogAnswer>, String> {
     let mut vong = EventLoopBuilder::new().build();
-    let cua_so = WindowBuilder::new()
+    let window = WindowBuilder::new()
         .with_visible(false)
         .build(&vong)
         .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
 
-    let hop: Arc<Mutex<Option<TraLoi>>> = Arc::new(Mutex::new(None));
+    let hop: Arc<Mutex<Option<DialogAnswer>>> = Arc::new(Mutex::new(None));
     let hop_ipc = Arc::clone(&hop);
     let hop_le: Vec<String> = hanh_dong_hop_le.to_vec();
 
@@ -520,14 +520,14 @@ pub fn kiem_bam(
     // thẳng thì ta chỉ kiểm được IPC còn kịch bản nối sự kiện thì không — mà
     // kịch bản nối sự kiện mới đúng là thứ dễ hỏng.
     let tu_bam = match kieu {
-        KieuGui::CongTacMa { cong_tac } => format!(
+        MessageKind::CongTacMa { cong_tac } => format!(
             "document.addEventListener('DOMContentLoaded', function () {{
                window.ipc.postMessage(JSON.stringify({{
                  a: {can_bam:?}, bat: [{cong_tac:?}]
                }}));
              }});"
         ),
-        KieuGui::BatRoiBam { cong_tac } => format!(
+        MessageKind::BatRoiBam { cong_tac } => format!(
             "document.addEventListener('DOMContentLoaded', function () {{
                var ct = document.querySelector('[data-hanh-dong={cong_tac:?}]');
                if (!ct) {{ window.ipc.postMessage('KHONG-TIM-THAY-NUT'); return; }}
@@ -537,7 +537,7 @@ pub fn kiem_bam(
                nut.click();
              }});"
         ),
-        KieuGui::Bam => format!(
+        MessageKind::Bam => format!(
             "document.addEventListener('DOMContentLoaded', function () {{
                var n = document.querySelector('[data-hanh-dong={can_bam:?}]');
                if (n) {{ n.click(); }}
@@ -549,7 +549,7 @@ pub fn kiem_bam(
         // Gửi thẳng một thông điệp ĐÚNG ĐỊNH DẠNG nhưng mang mã bịa. Sai định
         // dạng thì nó bị vứt vì lý do khác, và phép thử không chứng minh được
         // danh sách trắng có làm việc hay không.
-        KieuGui::GuiThang => format!(
+        MessageKind::GuiThang => format!(
             "document.addEventListener('DOMContentLoaded', function () {{
                window.ipc.postMessage(JSON.stringify({{ a: {can_bam:?}, bat: [] }}));
              }});"
@@ -557,27 +557,27 @@ pub fn kiem_bam(
     };
 
     let _webview = WebViewBuilder::new()
-        .with_html(tai_lieu)
+        .with_html(document)
         .with_initialization_script(KICH_BAN_NOI_SU_KIEN)
         .with_initialization_script(&tu_bam)
         .with_ipc_handler(move |yeu_cau| {
-            let than = yeu_cau.body();
-            // Dùng ĐÚNG hàm lọc của `hoi`. Viết một hàm lọc riêng cho phép thử
+            let body = yeu_cau.body();
+            // Dùng ĐÚNG hàm lọc của `ask_dialog`. Viết một hàm lọc riêng cho phép thử
             // là để hai bên trôi dạt khỏi nhau, và lúc đó phép thử xanh trong
             // khi đường thật đã hỏng.
-            let t = if than == "KHONG-TIM-THAY-NUT" {
-                Some(TraLoi {
-                    hanh_dong: than.clone(),
+            let t = if body == "KHONG-TIM-THAY-NUT" {
+                Some(DialogAnswer {
+                    hanh_dong: body.clone(),
                     bat: Vec::new(),
                 })
             } else {
-                doc_tra_loi(than, &hop_le)
+                doc_tra_loi(body, &hop_le)
             };
             // Không có nhánh `else`: mã lạ bị vứt LẶNG LẼ, cố ý.
             // QUYẾT ĐỊNH ĐẦU TIÊN THẮNG. Thông điệp sau không ghi đè được.
             //
             // Ghi đè thì một trang gửi liên tiếp hai thông điệp sẽ khiến cái sau
-            // che mất cái trước — và với `hoi` thì cái trước mới là quyết định
+            // che mất cái trước — và với `ask_dialog` thì cái trước mới là quyết định
             // thật của người dùng. Nó cũng che luôn lỗi: một đột biến làm công
             // tắc tự gửi tin đã lọt qua phép thử đúng vì lý do này.
             if let Some(t) = t
@@ -587,7 +587,7 @@ pub fn kiem_bam(
                 *o = Some(t);
             }
         })
-        .build(&cua_so)
+        .build(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let han = Instant::now() + cho_toi_da;
@@ -606,12 +606,12 @@ pub fn kiem_bam(
 /// Từ chối thì trả **404 rỗng**, không trả thông báo lỗi: thông báo chi tiết là
 /// nói cho trang biết cái gì có và cái gì không có trong gói, mà trang thì có
 /// thể đang bị chiếm quyền.
-fn phuc_vu(
+fn serve(
     doc_tep: &dyn Fn(&str) -> Option<Vec<u8>>,
     yc: &wry::http::Request<Vec<u8>>,
 ) -> wry::http::Response<std::borrow::Cow<'static, [u8]>> {
     use std::borrow::Cow;
-    match phuc_vu_goi::phuc_vu(&yc.uri().to_string(), doc_tep) {
+    match package_server::serve(&yc.uri().to_string(), doc_tep) {
         Ok((kieu, byte)) => wry::http::Response::builder()
             .status(200)
             .header("Content-Type", kieu)

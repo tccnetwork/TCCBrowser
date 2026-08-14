@@ -49,7 +49,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_mat_mat_mang_cau_canh_bao` |
 | B34 | Package files are served over a **custom protocol**, paths through `check_path` | `duong_dan_di_ra_ngoai_goi_bi_chan` |
 | B35 | **Images only**, by an extension ALLOWLIST — **no SVG** | `chi_phuc_vu_anh`, `svg_khong_duoc_phuc_vu` |
-| B36 | The permission dialog **serves no app file at all** | `mo(..., \|_\| None, ...)` |
+| B36 | The permission dialog **serves no app file at all** | `open(..., \|_\| None, ...)` |
 | B37 | Decisions **never read the description** stored on disk | `quyet_dinh_khong_doc_phan_mo_ta` |
 | B38 | A destructive button **does not stretch the full width** | `nut_khong_gian_kin_be_ngang` |
 | B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_chu_sang_ngon_ngu_khac_khong_lam_mat_dau_hieu_may` |
@@ -97,8 +97,8 @@ separate:
 | Human text | injected down from `tcc-shell`, freely translatable |
 
 The renderer **does not know the language and should not** — the translation
-table lives in `tcc-shell`, and `loi::chu_bo_dung()` is the only door text comes
-through. The same approach as `trait Mang` and the file server: anything
+table lives in `tcc-shell`, and `text::renderer_text()` is the only door text comes
+through. The same approach as `trait Network` and the file server: anything
 context-dependent is injected from outside.
 
 The renderer defaults to **English**, matching the interface default. Measured on
@@ -282,7 +282,7 @@ returns 301 and is refused exactly as designed.
 
 So that reading `Cargo.toml` is enough to see the app loader cannot open a socket:
 `tcc-runtime` does not depend on `tcc-net`, it only calls through an injected
-`trait Mang`. Rule 8 in CI pins this.
+`trait Network`. Rule 8 in CI pins this.
 
 The `mang` feature flag is separate, so a **network-free** build of the browser is
 possible — useful during a security review: run that build and no packet can
@@ -318,7 +318,7 @@ the permission after the call and the packet has already arrived — and for a
 tracking server, arrival is the entire point; the response is irrelevant. The
 mutation "call first, check second" is caught by exactly this test.
 
-The network path is **injected from outside** (`trait Mang`): `tcc-runtime` opens
+The network path is **injected from outside** (`trait Network`): `tcc-runtime` opens
 no socket, so it is testable without touching a real network, and every path off
 the machine is visible right at the call site — no hidden route buried in a
 library.
@@ -413,14 +413,14 @@ to the test** — layers 1 and 2 stop everything first. A defensive layer that h
 never been exercised is a layer nobody knows exists. Run:
 
 ```sh
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # full pipeline
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # layer 3 only
+cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong          # full pipeline
+cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp  # layer 3 only
 ```
 
 **B8 deserves its own note.** `published_accessibility()` is trivially easy to
 implement dishonestly: return `tree.accessibility_tree()` and it always passes.
 The real renderer does NOT do that — it rebuilds the tree from **the very markup
-about to be loaded into WebView** (`quet_tro_nang.rs`), so the two trees arrive by
+about to be loaded into WebView** (`a11y_scan.rs`), so the two trees arrive by
 different routes. The scanner also checks that visible text matches the announced
 label: a button reading "Cancel" that announces "Confirm" is the exact deception
 the accessibility layer exists to prevent.
@@ -448,7 +448,7 @@ attacker do".
 | L7 | Character classification branches in the wrong order | `\r` fell into the wrong range; the later branch was never reached | Specific branches before wide ranges |
 | L8 | **App id not validated when decoding JSON** | Ship `id: "com.TCC.hello"` — two identities that look identical | `AppId::parse` inside `validate_shape` |
 | L9 | **Hostname shape not validated** | `shop.tcc-coin.com:8080@evil.example` — userinfo spoofing | `check_host` |
-| L10 | **Unlimited combining marks on one character** | 500 acute accents draw a vertical streak over the warning | `MAX_DAU_KET_HOP` |
+| L10 | **Unlimited combining marks on one character** | 500 acute accents draw a vertical streak over the warning | `MAX_COMBINING_MARKS` |
 
 **L10 — stacked marks hiding the warning (2026-08-13).**
 
@@ -549,7 +549,7 @@ registry, or trust-on-first-use with key pinning. **That layer does not exist in
 > signature has been checked. The correct sentence is "valid signature".
 
 This rule now has **an enforcing test**:
-`loi::kiem_thu::khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh` scans the whole
+`text::kiem_thu::khong_chuoi_nao_noi_da_xac_minh_nha_phat_hanh` scans the whole
 translation table for six forbidden phrases in both languages. Anyone adding a
 violating string is stopped immediately, even without having read this file. The
 permission dialog also always shows "Unknown publisher / Không rõ nhà phát hành"
@@ -761,11 +761,11 @@ cargo run -p tcc-conformance -- --chi-tiet
 
 ```bash
 cargo test --workspace                              # 234 tests
-cargo test --workspace --features tcc-shell/cua-so  # 237 — three more that need a window
+cargo test --workspace --features tcc-shell/window  # 237 — three more that need a window
 cargo run -p tcc-conformance                        # 104 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 12 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 13 architecture rules
 ```
 
 All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in
@@ -775,14 +775,14 @@ None of the above touches WebKit. The parts that go through the real renderer mu
 be run separately, on a machine with a screen:
 
 ```bash
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong          # full pipeline
-cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp  # CSP alone
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut cho-phep       # click → Allow
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut tu-choi        # click → Deny
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut bat            # toggle on → Allow
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ma             # phantom action discarded
-cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ct-ma          # phantom toggle discarded
-cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung <pkg>  # app screen
+cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong          # full pipeline
+cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp  # CSP alone
+cargo run -p tcc-shell --features window --example kiem-bam-nut cho-phep       # click → Allow
+cargo run -p tcc-shell --features window --example kiem-bam-nut tu-choi        # click → Deny
+cargo run -p tcc-shell --features window --example kiem-bam-nut bat            # toggle on → Allow
+cargo run -p tcc-shell --features window --example kiem-bam-nut ma             # phantom action discarded
+cargo run -p tcc-shell --features window --example kiem-bam-nut ct-ma          # phantom toggle discarded
+cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung <pkg>  # app screen
 cargo run -p tcc-shell --example kiem-hanh-vi <pkg>                              # three-way capability gate
 cargo run -p tcc-shell --example kiem-ghi-nho <pkg>                              # permission store on real disk
 ```

@@ -1,6 +1,6 @@
 //! Kiểm CẢ CHUỖI: gói đã ký → cấp/không cấp quyền → bấm nút → hành vi.
 //!
-//! Chạy: `cargo run -p tcc-shell --features cua-so --example kiem-hanh-vi <gói>`
+//! Chạy: `cargo run -p tcc-shell --features window --example kiem-hanh-vi <gói>`
 //!
 //! Cố ý KHÔNG mở cửa sổ. Cửa sổ đã có `kiem-bam-nut` kiểm; ở đây chỉ hỏi một
 //! câu: **quyền năng có thật sự chặn đường ra ngoài không**.
@@ -19,14 +19,14 @@ use std::{cell::RefCell, path::PathBuf, process::ExitCode};
 
 use tcc_capability::Decision;
 use tcc_crypto::HybridEd25519MlDsa;
-use tcc_runtime::Mang;
+use tcc_runtime::Network;
 
 /// Mạng giả, đếm số lần bị gọi.
 struct MangGia {
     da_goi: RefCell<Vec<String>>,
 }
 
-impl Mang for MangGia {
+impl Network for MangGia {
     fn get(&self, host: &str, path: &str) -> Result<Vec<u8>, String> {
         self.da_goi.borrow_mut().push(format!("{host}{path}"));
         Ok(b"[]".to_vec())
@@ -68,7 +68,7 @@ fn main() -> ExitCode {
         da_goi: RefCell::new(Vec::new()),
     };
     for id in &ds {
-        let ket = app.thuc_hien(id, &m);
+        let ket = app.perform(id, &m);
         println!("  [từ chối] {id} → {}", tom_tat(&ket));
         if ket.is_ok() {
             eprintln!("✗ HỎNG: chạy được hành vi dù người dùng đã từ chối");
@@ -95,7 +95,7 @@ fn main() -> ExitCode {
         da_goi: RefCell::new(Vec::new()),
     };
     for id in &ds {
-        let ket = app.thuc_hien(id, &m);
+        let ket = app.perform(id, &m);
         println!("  [cho phép] {id} → {}", tom_tat(&ket));
         if ket.is_err() {
             eprintln!("✗ HỎNG: đã cấp quyền mà hành vi vẫn không chạy");
@@ -111,7 +111,7 @@ fn main() -> ExitCode {
         da_goi: RefCell::new(Vec::new()),
     };
     for id in &ds {
-        if app.thuc_hien(id, &m2).is_ok() {
+        if app.perform(id, &m2).is_ok() {
             eprintln!("✗ HỎNG: thu hồi rồi mà hành vi vẫn chạy");
             hong += 1;
         }

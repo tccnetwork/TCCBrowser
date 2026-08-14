@@ -9,7 +9,7 @@
 
 // Đọc gói từ đĩa nằm ở thư viện, không ở đây — `tcc-shell` dùng chung đúng mã
 // đó, nên `tcc verify` và trình duyệt không thể hiểu khác nhau.
-use tcc_runtime::goi;
+use tcc_runtime::package;
 
 use std::{
     fs,
@@ -25,7 +25,7 @@ use tcc_spec::{AppId, SPEC_VERSION};
 /// Tên tệp điểm vào mặc định.
 ///
 /// `.json` chứ không `.html`: ứng dụng TCC khai BÁO có gì trên màn hình, bộ dựng
-/// quyết định vẽ ra sao. Xem `tcc_ui::dang_goi`.
+/// quyết định vẽ ra sao. Xem `tcc_ui::wire`.
 const TEP_GIAO_DIEN: &str = "ui.json";
 
 #[derive(Parser)]
@@ -93,7 +93,7 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
             duong_dan.display()
         ));
     }
-    let noi_dung = duong_dan.join(goi::THU_MUC_NOI_DUNG);
+    let noi_dung = duong_dan.join(package::CONTENT_DIR);
     fs::create_dir_all(&noi_dung).map_err(|e| e.to_string())?;
 
     // Điểm vào là CÂY KHAI BÁO, không phải thẻ đánh dấu.
@@ -134,7 +134,7 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
         app_id.as_str(),
         HybridEd25519MlDsa.name()
     );
-    fs::write(duong_dan.join(goi::TEP_KE_KHAI), ke_khai).map_err(|e| e.to_string())?;
+    fs::write(duong_dan.join(package::MANIFEST_FILE), ke_khai).map_err(|e| e.to_string())?;
 
     println!("✓ Đã tạo {}", duong_dan.display());
     println!();
@@ -186,12 +186,12 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
     let bi_mat =
         hex::decode(hex_khoa.trim()).map_err(|e| format!("tệp khoá không phải hex: {e}"))?;
 
-    let cay = goi::doc_noi_dung(duong_dan).map_err(|e| e.to_string())?;
+    let cay = package::read_content(duong_dan).map_err(|e| e.to_string())?;
     let bam = content_hash_hex(&cay.canonical_bytes());
 
     // Đọc bản kê khai, điền publisher + content_hash, ghi lại, RỒI mới ký lên
     // đúng byte vừa ghi. Thứ tự này quan trọng: ký trước rồi sửa tệp là chữ ký chết.
-    let goc = goi::doc_ke_khai(duong_dan).map_err(|e| e.to_string())?;
+    let goc = package::read_manifest(duong_dan).map_err(|e| e.to_string())?;
     let mut ke_khai: serde_json::Value =
         serde_json::from_slice(&goc).map_err(|e| format!("manifest.json hỏng: {e}"))?;
 
@@ -203,12 +203,16 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
     ke_khai["publisher"] = serde_json::Value::String(hex::encode(&khoa_cong));
     ke_khai["content_hash"] = serde_json::Value::String(bam.clone());
     let moi = serde_json::to_vec_pretty(&ke_khai).map_err(|e| e.to_string())?;
-    fs::write(duong_dan.join(goi::TEP_KE_KHAI), &moi).map_err(|e| e.to_string())?;
+    fs::write(duong_dan.join(package::MANIFEST_FILE), &moi).map_err(|e| e.to_string())?;
 
     let chu_ky = HybridEd25519MlDsa
         .sign(&bi_mat, &moi)
         .map_err(|e| format!("ký thất bại: {e}"))?;
-    fs::write(duong_dan.join(goi::TEP_CHU_KY), hex::encode(&chu_ky)).map_err(|e| e.to_string())?;
+    fs::write(
+        duong_dan.join(package::SIGNATURE_FILE),
+        hex::encode(&chu_ky),
+    )
+    .map_err(|e| e.to_string())?;
 
     println!("✓ Đã ký {}", duong_dan.display());
     println!("  {} tệp nội dung", cay.len());
@@ -217,9 +221,9 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
 }
 
 fn lenh_verify(duong_dan: &Path) -> Result<(), String> {
-    let ke_khai = goi::doc_ke_khai(duong_dan).map_err(|e| e.to_string())?;
-    let chu_ky = goi::doc_chu_ky(duong_dan).map_err(|e| e.to_string())?;
-    let cay = goi::doc_noi_dung(duong_dan).map_err(|e| e.to_string())?;
+    let ke_khai = package::read_manifest(duong_dan).map_err(|e| e.to_string())?;
+    let chu_ky = package::read_signature(duong_dan).map_err(|e| e.to_string())?;
+    let cay = package::read_content(duong_dan).map_err(|e| e.to_string())?;
 
     let app =
         verify_package(&ke_khai, &chu_ky, &cay, &HybridEd25519MlDsa).map_err(|e| e.to_string())?;
@@ -232,7 +236,7 @@ fn lenh_verify(duong_dan: &Path) -> Result<(), String> {
     // Chữ ký hợp lệ mà cây giao diện hỏng thì gói vẫn không chạy được. Bắt ở
     // đây, lúc người viết ứng dụng còn ngồi trước máy — chứ không phải lúc
     // người dùng cuối mở gói ra và thấy một cửa sổ trống.
-    let cay_giao_dien = tcc_ui::dang_goi::doc(
+    let cay_giao_dien = tcc_ui::wire::decode(
         cay.get(&m.entry)
             .ok_or_else(|| format!("điểm vào \"{}\" không có trong gói", m.entry))?,
     )

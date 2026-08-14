@@ -4,14 +4,14 @@
 //!
 //! ```text
 //!   cargo run -p tcc-browser                     → in cây hộp thoại ra chữ
-//!   cargo run -p tcc-browser --features cua-so   → mở cửa sổ thật
+//!   cargo run -p tcc-browser --features window   → mở cửa sổ thật
 //! ```
 
 use std::process::ExitCode;
 
-// `hop_thoai_quyen` chỉ dùng ở nhánh không có cửa sổ — nhập trong nhánh đó để
+// `permission_dialog` chỉ dùng ở nhánh không có cửa sổ — nhập trong nhánh đó để
 // bản có cửa sổ không dính cảnh báo nhập thừa.
-use tcc_shell::NgonNgu;
+use tcc_shell::Language;
 use tcc_spec::Manifest;
 
 /// Bản kê khai mẫu để xem thử hộp thoại hỏi quyền.
@@ -44,9 +44,9 @@ const KE_KHAI_MAU: &str = r#"{
 fn main() -> ExitCode {
     let doi = std::env::args().skip(1).collect::<Vec<_>>();
     let ngon_ngu = if doi.iter().any(|a| a == "vi") {
-        NgonNgu::Vi
+        Language::Vi
     } else {
-        NgonNgu::En
+        Language::En
     };
 
     // `quyen <thư-mục-gói>` — mở màn hình quản lý quyền đã cấp.
@@ -75,7 +75,7 @@ fn main() -> ExitCode {
         }
     };
 
-    match chay(&m, ngon_ngu) {
+    match run_loop(&m, ngon_ngu) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("✗ {e}");
@@ -84,9 +84,9 @@ fn main() -> ExitCode {
     }
 }
 
-#[cfg(feature = "cua-so")]
-fn quan_ly(goi: &std::path::Path, ngon_ngu: NgonNgu) -> ExitCode {
-    match tcc_shell::cua_so::quan_ly_quyen(&goi.join(".tcc-quyen.json"), ngon_ngu) {
+#[cfg(feature = "window")]
+fn quan_ly(goi: &std::path::Path, ngon_ngu: Language) -> ExitCode {
+    match tcc_shell::window::manage_permissions(&goi.join(".tcc-quyen.json"), ngon_ngu) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("✗ {e}");
@@ -95,21 +95,21 @@ fn quan_ly(goi: &std::path::Path, ngon_ngu: NgonNgu) -> ExitCode {
     }
 }
 
-#[cfg(not(feature = "cua-so"))]
-fn quan_ly(_g: &std::path::Path, _n: NgonNgu) -> ExitCode {
-    eprintln!("✗ màn hình quản lý quyền cần bản dựng có cửa sổ: --features cua-so");
+#[cfg(not(feature = "window"))]
+fn quan_ly(_g: &std::path::Path, _n: Language) -> ExitCode {
+    eprintln!("✗ màn hình quản lý quyền cần bản dựng có cửa sổ: --features window");
     ExitCode::FAILURE
 }
 
-#[cfg(feature = "cua-so")]
-fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: NgonNgu) -> ExitCode {
+#[cfg(feature = "window")]
+fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     // Kho quyền đã cấp, cạnh gói. `TCC_QUEN_HET=1` để bỏ qua và hỏi lại từ đầu.
     let kho = if std::env::var("TCC_QUEN_HET").is_ok() {
         None
     } else {
         Some(duong_dan.join(".tcc-quyen.json"))
     };
-    match tcc_shell::cua_so::mo_goi(duong_dan, ngon_ngu, kho.as_deref()) {
+    match tcc_shell::window::open_package(duong_dan, ngon_ngu, kho.as_deref()) {
         Ok(app) => {
             let m = app.manifest();
             println!("✓ Đã nạp \"{}\" ({})", m.name, m.id.as_str());
@@ -135,14 +135,14 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: NgonNgu) -> ExitCode {
     }
 }
 
-#[cfg(not(feature = "cua-so"))]
-fn mo_goi_that(_d: &std::path::Path, _n: NgonNgu) -> ExitCode {
-    eprintln!("✗ mở gói cần bản dựng có cửa sổ: --features cua-so");
+#[cfg(not(feature = "window"))]
+fn mo_goi_that(_d: &std::path::Path, _n: Language) -> ExitCode {
+    eprintln!("✗ mở gói cần bản dựng có cửa sổ: --features window");
     ExitCode::FAILURE
 }
 
-#[cfg(feature = "cua-so")]
-fn chay(m: &Manifest, ngon_ngu: NgonNgu) -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(feature = "window")]
+fn run_loop(m: &Manifest, ngon_ngu: Language) -> Result<(), Box<dyn std::error::Error>> {
     use std::time::Duration;
 
     // `TCC_TU_DONG_DONG=3` để kiểm khói tự động — không có nó thì cửa sổ chờ
@@ -156,7 +156,7 @@ fn chay(m: &Manifest, ngon_ngu: NgonNgu) -> Result<(), Box<dyn std::error::Error
     // WebKit thật rồi bảo WebKit kể lại nó nhìn thấy gì. Đây là cách kiểm được
     // trên máy không có quyền chụp màn hình.
     if std::env::var("TCC_KIEM_KHOI").is_ok() {
-        let bao = tcc_shell::cua_so::kiem_khoi(m, ngon_ngu, Duration::from_secs(15))?;
+        let bao = tcc_shell::window::check_escaping(m, ngon_ngu, Duration::from_secs(15))?;
         println!("WebKit báo về:");
         println!("  số nút mang vai trò : {}", bao.so_nut);
         println!("  vai trò            : {}", bao.vai_tro.join(", "));
@@ -164,16 +164,16 @@ fn chay(m: &Manifest, ngon_ngu: NgonNgu) -> Result<(), Box<dyn std::error::Error
         return Ok(());
     }
 
-    tcc_shell::cua_so::hien_hop_thoai_quyen(m, ngon_ngu, tu_dong_dong)
+    tcc_shell::window::show_permission_dialog(m, ngon_ngu, tu_dong_dong)
 }
 
 /// Bản không có cửa sổ: in cây hộp thoại ra chữ.
 ///
 /// Không phải đồ chơi — đây là cách xem hộp thoại hỏi quyền trên máy chủ không
 /// màn hình, và là cách so sánh hai bản dịch cạnh nhau.
-#[cfg(not(feature = "cua-so"))]
-fn chay(m: &Manifest, ngon_ngu: NgonNgu) -> Result<(), Box<dyn std::error::Error>> {
-    let cay = tcc_shell::hop_thoai_quyen::dung(m, ngon_ngu)?;
+#[cfg(not(feature = "window"))]
+fn run_loop(m: &Manifest, ngon_ngu: Language) -> Result<(), Box<dyn std::error::Error>> {
+    let cay = tcc_shell::permission_dialog::build(m, ngon_ngu)?;
     println!(
         "Hộp thoại hỏi quyền — {} nút, sâu {} tầng",
         cay.node_count(),
@@ -182,11 +182,11 @@ fn chay(m: &Manifest, ngon_ngu: NgonNgu) -> Result<(), Box<dyn std::error::Error
     println!();
     in_cay(&cay.accessibility_tree(), 0);
     println!();
-    println!("(dựng bằng `--features cua-so` để mở cửa sổ thật)");
+    println!("(dựng bằng `--features window` để mở cửa sổ thật)");
     Ok(())
 }
 
-#[cfg(not(feature = "cua-so"))]
+#[cfg(not(feature = "window"))]
 fn in_cay(a: &tcc_shell::AccessNode, tang: usize) {
     let lui = "  ".repeat(tang);
     match &a.label {

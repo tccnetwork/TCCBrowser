@@ -1,6 +1,6 @@
 //! Kiểm màn hình ỨNG DỤNG dựng từ cây khai báo, qua WebKit thật.
 //!
-//! Chạy: `cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung <thư-mục-gói>`
+//! Chạy: `cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung <thư-mục-gói>`
 //!
 //! Cố ý KHÔNG đi qua luồng hỏi quyền — luồng đó đã có `kiem-bam-nut` kiểm riêng.
 //! Ở đây chỉ hỏi một câu: cây khai báo trong gói có lên màn hình đúng không.
@@ -13,7 +13,7 @@
 use std::{path::PathBuf, process::ExitCode, time::Duration};
 
 use tcc_crypto::HybridEd25519MlDsa;
-use tcc_render_webview::{WebViewRenderer, cua_so};
+use tcc_render_webview::{WebViewRenderer, window};
 use tcc_ui::Renderer as _;
 
 fn main() -> ExitCode {
@@ -35,7 +35,7 @@ fn main() -> ExitCode {
         .get(&app.manifest().entry)
         .expect("verify đã kiểm điểm vào tồn tại");
 
-    let cay = match tcc_ui::dang_goi::doc(byte) {
+    let cay = match tcc_ui::wire::decode(byte) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("✗ cây giao diện hỏng: {e}");
@@ -50,7 +50,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    let bao = match cua_so::kiem_khoi(bd.tai_lieu(), Duration::from_secs(20)) {
+    let bao = match window::check_escaping(bd.document(), Duration::from_secs(20)) {
         Ok(b) => b,
         Err(e) => {
             eprintln!("✗ WebKit không báo về: {e}");

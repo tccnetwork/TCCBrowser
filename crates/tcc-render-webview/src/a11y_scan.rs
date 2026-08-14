@@ -12,17 +12,17 @@
 //!
 //! # Giới hạn đã biết
 //!
-//! Bộ quét này CHỈ đọc được đánh dấu do `danh_dau.rs` sinh ra: tập thẻ đóng,
+//! Bộ quét này CHỈ đọc được đánh dấu do `markup.rs` sinh ra: tập thẻ đóng,
 //! luôn cân đối, và mọi chuỗi của ứng dụng đã thoát ký tự. Nó KHÔNG phải trình
 //! phân tích tài liệu web đa dụng và đừng dùng cho việc đó. Cụ thể nó dựa vào
 //! việc `>` trong dữ liệu người dùng đã thành `&gt;` — có phép thử chốt.
 
 use tcc_ui::{AccessNode, Role};
 
-use crate::danh_dau::DAU_MAT_MAT;
+use crate::markup::MARKER_DESTRUCTIVE;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum QuetLoi {
+pub enum ScanError {
     /// Thẻ mở mà không có thẻ đóng, hoặc ngược lại.
     TheLech(String),
     /// Thẻ không nằm trong tập thẻ tiêu chuẩn TCC.
@@ -38,7 +38,7 @@ pub enum QuetLoi {
     Cut,
 }
 
-impl std::fmt::Display for QuetLoi {
+impl std::fmt::Display for ScanError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::TheLech(t) => write!(f, "thẻ <{t}> không cân đối"),
@@ -54,9 +54,9 @@ impl std::fmt::Display for QuetLoi {
     }
 }
 
-impl std::error::Error for QuetLoi {}
+impl std::error::Error for ScanError {}
 
-/// Giải mã ngược các thực thể mà `danh_dau::thoat` đã tạo ra.
+/// Giải mã ngược các thực thể mà `markup::escape_html` đã tạo ra.
 fn giai_ma(s: &str) -> String {
     const BANG: &[(&str, char)] = &[
         ("&amp;", '&'),
@@ -100,8 +100,8 @@ impl The {
 /// Tách phần trong `<…>` thành tên thẻ và danh sách thuộc tính.
 fn doc_the(ben_trong: &str) -> The {
     let dong = ben_trong.starts_with('/');
-    let than = ben_trong.trim_start_matches('/').trim_end_matches('/');
-    let mut it = than.trim().splitn(2, char::is_whitespace);
+    let body = ben_trong.trim_start_matches('/').trim_end_matches('/');
+    let mut it = body.trim().splitn(2, char::is_whitespace);
     let ten = it.next().unwrap_or("").to_ascii_lowercase();
     let phan_con = it.next().unwrap_or("");
 
@@ -110,7 +110,7 @@ fn doc_the(ben_trong: &str) -> The {
     while let Some(vt_bang) = con_lai.find('=') {
         let ten_tt = con_lai[..vt_bang].trim().to_ascii_lowercase();
         let sau = &con_lai[vt_bang + 1..];
-        // Giá trị luôn nằm trong nháy kép: `danh_dau` không sinh dạng nào khác.
+        // Giá trị luôn nằm trong nháy kép: `markup` không sinh dạng nào khác.
         let Some(mo) = sau.find('"') else { break };
         let Some(dai) = sau[mo + 1..].find('"') else {
             break;
@@ -145,12 +145,12 @@ fn la_the_boc(ten: &str) -> bool {
 ///
 /// # Errors
 /// Thẻ lệch, thẻ lạ, thiếu nhãn, hoặc nhãn khác nội dung hiện ra.
-pub fn quet(danh_dau: &str) -> Result<AccessNode, QuetLoi> {
+pub fn scan(markup: &str) -> Result<AccessNode, ScanError> {
     // Mỗi phần tử: (nút đang dựng, tên thẻ, chữ gom được bên trong)
     // Phần tử: (nút đang dựng, tên thẻ, chữ gom được, có phải thẻ bọc không)
     let mut ngan_xep: Vec<(AccessNode, String, String, bool)> = Vec::new();
     let mut xong: Vec<AccessNode> = Vec::new();
-    let mut con_lai = danh_dau;
+    let mut con_lai = markup;
 
     while let Some(vt) = con_lai.find('<') {
         // Chữ nằm giữa hai thẻ thuộc về nút đang mở.
@@ -160,17 +160,17 @@ pub fn quet(danh_dau: &str) -> Result<AccessNode, QuetLoi> {
         }
         let sau = &con_lai[vt + 1..];
         let Some(het) = sau.find('>') else {
-            return Err(QuetLoi::Cut);
+            return Err(ScanError::Cut);
         };
         let the = doc_the(&sau[..het]);
         con_lai = &sau[het + 1..];
 
         if the.dong {
             let Some((nut, ten_mo, gom, boc)) = ngan_xep.pop() else {
-                return Err(QuetLoi::TheLech(the.ten));
+                return Err(ScanError::TheLech(the.ten));
             };
             if ten_mo != the.ten {
-                return Err(QuetLoi::TheLech(the.ten));
+                return Err(ScanError::TheLech(the.ten));
             }
             if boc {
                 // Thẻ bọc: chữ của nó phải khớp nhãn của phần tử bên trong. Đây
@@ -210,14 +210,14 @@ pub fn quet(danh_dau: &str) -> Result<AccessNode, QuetLoi> {
     }
 
     if !ngan_xep.is_empty() {
-        return Err(QuetLoi::TheLech(
+        return Err(ScanError::TheLech(
             ngan_xep.pop().map_or_else(String::new, |(_, t, _, _)| t),
         ));
     }
     if xong.len() == 1 {
-        xong.pop().ok_or(QuetLoi::KhongDungMotGoc(0))
+        xong.pop().ok_or(ScanError::KhongDungMotGoc(0))
     } else {
-        Err(QuetLoi::KhongDungMotGoc(xong.len()))
+        Err(ScanError::KhongDungMotGoc(xong.len()))
     }
 }
 
@@ -238,7 +238,7 @@ fn dat_vao(
 /// Lệch nhau là dạng lừa dối tệ nhất trong giao diện: một nút hiện chữ "Huỷ"
 /// nhưng đọc lên là "Xác nhận" thì người dùng trình đọc màn hình bấm nhầm mà
 /// không có cách nào biết. Chỉ kiểm với thẻ có chữ bên trong.
-fn kiem_nhan_khop_noi_dung(ten: &str, nut: &AccessNode, gom: &str) -> Result<(), QuetLoi> {
+fn kiem_nhan_khop_noi_dung(ten: &str, nut: &AccessNode, gom: &str) -> Result<(), ScanError> {
     if !matches!(ten, "p" | "button" | "label") {
         return Ok(());
     }
@@ -247,24 +247,24 @@ fn kiem_nhan_khop_noi_dung(ten: &str, nut: &AccessNode, gom: &str) -> Result<(),
     if noi_dung == nhan {
         Ok(())
     } else {
-        Err(QuetLoi::NhanLechNoiDung {
+        Err(ScanError::NhanLechNoiDung {
             nhan: nhan.to_owned(),
             noi_dung: noi_dung.to_owned(),
         })
     }
 }
 
-fn dung_nut(the: &The) -> Result<AccessNode, QuetLoi> {
+fn dung_nut(the: &The) -> Result<AccessNode, ScanError> {
     let nhan = the.lay("aria-label").map(str::to_owned);
-    let can_nhan = |n: Option<String>| n.ok_or_else(|| QuetLoi::ThieuNhan(the.ten.clone()));
+    let can_nhan = |n: Option<String>| n.ok_or_else(|| ScanError::ThieuNhan(the.ten.clone()));
 
     let (role, label) = match the.ten.as_str() {
         "p" => (Role::Text, Some(can_nhan(nhan)?)),
         "button" => (
             Role::Button {
                 // Nhận theo DẤU HIỆU MÁY, không theo chữ. So chữ thì câu cảnh
-                // báo không dịch được — xem `DAU_MAT_MAT`.
-                destructive: the.lay("data-sac-thai") == Some(DAU_MAT_MAT),
+                // báo không dịch được — xem `MARKER_DESTRUCTIVE`.
+                destructive: the.lay("data-sac-thai") == Some(MARKER_DESTRUCTIVE),
             },
             Some(can_nhan(nhan)?),
         ),
@@ -287,7 +287,7 @@ fn dung_nut(the: &The) -> Result<AccessNode, QuetLoi> {
         // hình đi qua, nên ở đây `None` là hợp lệ chứ không phải thiếu sót.
         "img" => (Role::Image, nhan),
         "div" => (Role::Group, nhan),
-        khac => return Err(QuetLoi::TheLa(khac.to_owned())),
+        khac => return Err(ScanError::TheLa(khac.to_owned())),
     };
 
     Ok(AccessNode {
@@ -303,14 +303,14 @@ mod kiem_thu {
     use super::*;
 
     // ⚠️ Đánh dấu trong các phép thử dưới đây VIẾT TAY, cố ý không gọi
-    // `danh_dau::than`. Nếu bộ quét lấy đầu vào từ chính bộ sinh thì hai bên
+    // `markup::body`. Nếu bộ quét lấy đầu vào từ chính bộ sinh thì hai bên
     // cùng sai theo một kiểu mà không ai bắt được — đó là điều phải tránh.
 
     #[test]
     fn quet_duoc_cay_long_nhau() {
         let m = "<div role=\"group\"><p aria-label=\"xin chào\">xin chào</p>\
                  <button aria-label=\"Gửi\">Gửi</button></div>";
-        let a = quet(m).unwrap();
+        let a = scan(m).unwrap();
         assert_eq!(a.role, Role::Group);
         assert_eq!(a.children.len(), 2);
         assert_eq!(a.children[0].role, Role::Text);
@@ -319,19 +319,21 @@ mod kiem_thu {
 
     #[test]
     fn nut_mat_mat_doc_ra_dung() {
-        let m = format!("<button aria-label=\"Xoá\" data-sac-thai=\"{DAU_MAT_MAT}\">Xoá</button>");
-        assert_eq!(quet(&m).unwrap().role, Role::Button { destructive: true });
+        let m = format!(
+            "<button aria-label=\"Xoá\" data-sac-thai=\"{MARKER_DESTRUCTIVE}\">Xoá</button>"
+        );
+        assert_eq!(scan(&m).unwrap().role, Role::Button { destructive: true });
     }
 
     #[test]
     fn cong_tac_doc_ra_dung_ca_hai_trang_thai() {
         let bat = "<input type=\"checkbox\" role=\"switch\" aria-checked=\"true\" \
                    aria-label=\"Quyền mạng\">";
-        assert_eq!(quet(bat).unwrap().role, Role::Switch { on: true });
+        assert_eq!(scan(bat).unwrap().role, Role::Switch { on: true });
 
         let tat = "<input type=\"checkbox\" role=\"switch\" aria-checked=\"false\" \
                    aria-label=\"Quyền mạng\">";
-        assert_eq!(quet(tat).unwrap().role, Role::Switch { on: false });
+        assert_eq!(scan(tat).unwrap().role, Role::Switch { on: false });
     }
 
     /// Công tắc và ô nhập cùng là thẻ `input` — đọc nhầm nhau là trình đọc màn
@@ -340,27 +342,27 @@ mod kiem_thu {
     fn cong_tac_khong_bi_doc_nham_thanh_o_nhap() {
         let ct = "<input type=\"checkbox\" role=\"switch\" aria-checked=\"false\" \
                   aria-label=\"X\">";
-        assert!(matches!(quet(ct).unwrap().role, Role::Switch { .. }));
+        assert!(matches!(scan(ct).unwrap().role, Role::Switch { .. }));
 
         let on = "<input type=\"text\" role=\"textbox\" aria-label=\"X\" value=\"\">";
-        assert!(matches!(quet(on).unwrap().role, Role::TextInput { .. }));
+        assert!(matches!(scan(on).unwrap().role, Role::TextInput { .. }));
     }
 
     #[test]
     fn o_nhap_bi_mat_doc_ra_dung() {
         let m = "<input type=\"password\" aria-label=\"Mật khẩu\" value=\"x\">";
-        assert_eq!(quet(m).unwrap().role, Role::TextInput { secret: true });
+        assert_eq!(scan(m).unwrap().role, Role::TextInput { secret: true });
 
         let m2 = "<input type=\"text\" aria-label=\"Tên\" value=\"\">";
-        assert_eq!(quet(m2).unwrap().role, Role::TextInput { secret: false });
+        assert_eq!(scan(m2).unwrap().role, Role::TextInput { secret: false });
     }
 
     #[test]
     fn anh_trang_tri_khong_nhan_anh_thuong_co_nhan() {
-        let tt = quet("<img src=\"a.png\" alt=\"\" role=\"presentation\">").unwrap();
+        let tt = scan("<img src=\"a.png\" alt=\"\" role=\"presentation\">").unwrap();
         assert_eq!(tt.label, None);
 
-        let co = quet("<img src=\"a.png\" alt=\"Biểu đồ\" aria-label=\"Biểu đồ\">").unwrap();
+        let co = scan("<img src=\"a.png\" alt=\"Biểu đồ\" aria-label=\"Biểu đồ\">").unwrap();
         assert_eq!(co.label.as_deref(), Some("Biểu đồ"));
     }
 
@@ -368,40 +370,40 @@ mod kiem_thu {
     #[test]
     fn nhan_khac_chu_hien_ra_thi_bao_loi() {
         let m = "<button aria-label=\"Xác nhận\">Huỷ</button>";
-        assert!(matches!(quet(m), Err(QuetLoi::NhanLechNoiDung { .. })));
+        assert!(matches!(scan(m), Err(ScanError::NhanLechNoiDung { .. })));
     }
 
     #[test]
     fn thieu_nhan_thi_bao_loi() {
         assert!(matches!(
-            quet("<p>không nhãn</p>"),
-            Err(QuetLoi::ThieuNhan(_))
+            scan("<p>không nhãn</p>"),
+            Err(ScanError::ThieuNhan(_))
         ));
     }
 
     #[test]
     fn the_lech_hoac_la_thi_bao_loi() {
         assert!(matches!(
-            quet("<div role=\"group\">"),
-            Err(QuetLoi::TheLech(_))
+            scan("<div role=\"group\">"),
+            Err(ScanError::TheLech(_))
         ));
-        assert!(matches!(quet("</div>"), Err(QuetLoi::TheLech(_))));
+        assert!(matches!(scan("</div>"), Err(ScanError::TheLech(_))));
         assert!(matches!(
-            quet("<script>xấu()</script>"),
-            Err(QuetLoi::TheLa(_))
+            scan("<script>xấu()</script>"),
+            Err(ScanError::TheLa(_))
         ));
     }
 
     #[test]
     fn hai_goc_hoac_khong_goc_deu_bao_loi() {
         let hai = "<p aria-label=\"a\">a</p><p aria-label=\"b\">b</p>";
-        assert!(matches!(quet(hai), Err(QuetLoi::KhongDungMotGoc(2))));
-        assert!(matches!(quet(""), Err(QuetLoi::KhongDungMotGoc(0))));
+        assert!(matches!(scan(hai), Err(ScanError::KhongDungMotGoc(2))));
+        assert!(matches!(scan(""), Err(ScanError::KhongDungMotGoc(0))));
     }
 
     #[test]
     fn danh_dau_cut_thi_bao_loi() {
-        assert!(matches!(quet("<p aria-label=\"a\""), Err(QuetLoi::Cut)));
+        assert!(matches!(scan("<p aria-label=\"a\""), Err(ScanError::Cut)));
     }
 
     // ---- Giải mã thực thể ----

@@ -15,7 +15,7 @@ jobs:
 
       # Architecture rules run FIRST — if they fail there is no point compiling,
       # because code that runs is still code with the wrong architecture.
-      - name: Architecture rules (12 rules)
+      - name: Architecture rules (13 rules)
         run: tools/kiem-luat-phu-thuoc.sh
 
       - name: Formatting
@@ -58,18 +58,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: App-supplied text cannot escape into the document
-        run: cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong
+        run: cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
       - name: Content policy blocks script (layer 3 tested ALONE)
-        run: cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp
+        run: cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
       - name: Click through to decision
         run: |
-          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut cho-phep
-          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut tu-choi
-          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut bat
-          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ma
-          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ct-ma
+          cargo run -p tcc-shell --features window --example kiem-bam-nut cho-phep
+          cargo run -p tcc-shell --features window --example kiem-bam-nut tu-choi
+          cargo run -p tcc-shell --features window --example kiem-bam-nut bat
+          cargo run -p tcc-shell --features window --example kiem-bam-nut ma
+          cargo run -p tcc-shell --features window --example kiem-bam-nut ct-ma
       - name: App screen through real WebKit
-        run: cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung examples/hello-tcc
+        run: cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
       - name: Three-way capability gate
         run: cargo run -p tcc-shell --example kiem-hanh-vi examples/hello-tcc
       - name: Permission store on disk

@@ -102,7 +102,7 @@ argues the case in the specification text itself.
 
 A capability may not be silently narrowed or removed: an app that requested it is
 already installed, already granted, and its stored permission decisions are keyed
-by scope ([`ghi_nho.rs`](../crates/tcc-shell/src/ghi_nho.rs)).
+by scope ([`permission_store.rs`](../crates/tcc-shell/src/permission_store.rs)).
 
 Removing a capability in version N means: apps declaring it fail to load under N.
 That is acceptable — it is visible and it fails closed. What is **NOT** permitted

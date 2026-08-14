@@ -37,38 +37,38 @@
 //! ```text
 //!   Node (tcc-ui)
 //!      │
-//!      ├─ danh_dau::tai_lieu ────► chuỗi đánh dấu ──► WebView
+//!      ├─ markup::document ────► chuỗi đánh dấu ──► WebView
 //!      │                                  │
 //!      └─ (KHÔNG dùng lại cây gốc)        ▼
-//!                            quet_tro_nang::quet ──► AccessNode
+//!                            a11y_scan::scan ──► AccessNode
 //! ```
 //!
 //! Hai mũi tên đi bằng hai đường KHÁC NHAU. Đó là điều kiện để
 //! `tcc_ui::check_accessibility_parity` là một phép kiểm thật chứ không phải
 //! con dấu cao su.
 
-pub mod danh_dau;
-pub mod phuc_vu_goi;
-pub mod quet_tro_nang;
+pub mod a11y_scan;
+pub mod markup;
+pub mod package_server;
 
-#[cfg(feature = "cua-so")]
-pub mod cua_so;
+#[cfg(feature = "window")]
+pub mod window;
 
 use tcc_ui::{AccessNode, Node, Renderer};
 
-use quet_tro_nang::QuetLoi;
+use a11y_scan::ScanError;
 
 /// Bộ dựng WebView.
 ///
 /// Ở giai đoạn này nó dừng ở chỗ SINH RA tài liệu và tự kiểm lại tài liệu đó.
-/// Phần mở cửa sổ thật nằm sau cờ tính năng `cua-so` (xem `cua_so.rs`), để
+/// Phần mở cửa sổ thật nằm sau cờ tính năng `window` (xem `window.rs`), để
 /// `cargo test` chạy được trên máy không có màn hình và không kéo 71 crate vào
 /// mọi lần dựng.
 #[derive(Debug, Default)]
 pub struct WebViewRenderer {
-    chu: danh_dau::ChuBoDung,
-    tai_lieu: String,
-    than: String,
+    chu: markup::RendererText,
+    document: String,
+    body: String,
     cong_bo: Option<AccessNode>,
 }
 
@@ -81,29 +81,29 @@ impl WebViewRenderer {
     /// Dùng chữ do tầng trên cấp thay cho mặc định tiếng Anh.
     ///
     /// Bộ dựng không biết ngôn ngữ; bảng dịch nằm ở `tcc-shell`. Đây là cùng
-    /// lối với `trait Mang` và trình phục vụ tệp: thứ gì phụ thuộc ngữ cảnh thì
+    /// lối với `trait Network` và trình phục vụ tệp: thứ gì phụ thuộc ngữ cảnh thì
     /// tiêm từ ngoài vào.
     #[must_use]
-    pub fn voi_chu(mut self, chu: danh_dau::ChuBoDung) -> Self {
+    pub fn with_text(mut self, chu: markup::RendererText) -> Self {
         self.chu = chu;
         self
     }
 
     /// Tài liệu đầy đủ của lần vẽ gần nhất — thứ sẽ nạp vào WebView.
     #[must_use]
-    pub fn tai_lieu(&self) -> &str {
-        &self.tai_lieu
+    pub fn document(&self) -> &str {
+        &self.document
     }
 
     /// Riêng phần thân, không kèm chính sách nội dung.
     #[must_use]
-    pub fn than(&self) -> &str {
-        &self.than
+    pub fn body(&self) -> &str {
+        &self.body
     }
 }
 
 impl Renderer for WebViewRenderer {
-    type Error = QuetLoi;
+    type Error = ScanError;
 
     /// Vẽ, rồi TỰ ĐỌC LẠI cái vừa vẽ.
     ///
@@ -114,12 +114,12 @@ impl Renderer for WebViewRenderer {
     /// # Errors
     /// Đánh dấu sinh ra không đọc ngược được, hoặc nhãn lệch nội dung.
     fn render(&mut self, tree: &Node) -> Result<(), Self::Error> {
-        let than = danh_dau::than_voi_chu(tree, &self.chu);
+        let body = markup::body_with_text(tree, &self.chu);
         // Quét TRƯỚC khi nhận vào trạng thái: hỏng thì bộ dựng giữ nguyên lần
         // vẽ trước, không rơi vào trạng thái nửa vời.
-        let cong_bo = quet_tro_nang::quet(&than)?;
-        self.tai_lieu = danh_dau::tai_lieu_voi_chu(tree, &self.chu);
-        self.than = than;
+        let cong_bo = a11y_scan::scan(&body)?;
+        self.document = markup::document_with_text(tree, &self.chu);
+        self.body = body;
         self.cong_bo = Some(cong_bo);
         Ok(())
     }
@@ -180,7 +180,7 @@ mod kiem_thu {
         check_accessibility_parity(&mut bd, &cay).expect("chữ hiểm làm lệch hai cây");
 
         // Và tài liệu vẫn không chứa thẻ kịch bản thật.
-        assert!(!bd.tai_lieu().contains("<script>"));
+        assert!(!bd.document().contains("<script>"));
     }
 
     #[test]
@@ -196,14 +196,14 @@ mod kiem_thu {
     fn ve_hong_thi_khong_de_lai_trang_thai_nua_voi() {
         let mut bd = WebViewRenderer::new();
         bd.render(&man_hinh_vi()).unwrap();
-        let truoc = bd.tai_lieu().to_owned();
+        let truoc = bd.document().to_owned();
         let cong_bo_truoc = bd.published_accessibility();
 
         // Ép một lỗi bằng cách chọc thẳng vào bộ quét: cây hợp lệ thì không tạo
         // ra được đánh dấu hỏng, nên ta kiểm nhánh lỗi ở tầng dưới…
-        assert!(quet_tro_nang::quet("<p>thiếu nhãn</p>").is_err());
+        assert!(a11y_scan::scan("<p>thiếu nhãn</p>").is_err());
         // …và xác nhận bộ dựng vẫn giữ nguyên lần vẽ đạt trước đó.
-        assert_eq!(bd.tai_lieu(), truoc);
+        assert_eq!(bd.document(), truoc);
         assert_eq!(bd.published_accessibility(), cong_bo_truoc);
     }
 
