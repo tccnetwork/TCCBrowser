@@ -2572,6 +2572,7 @@ dependencies = [
  "tcc-runtime",
  "tcc-spec",
  "tcc-ui",
+ "unicode-general-category",
 ]
 
 [[package]]

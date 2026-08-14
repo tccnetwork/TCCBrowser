@@ -787,6 +787,21 @@ cargo run -p tcc-shell --example kiem-hanh-vi <pkg>                             
 cargo run -p tcc-shell --example kiem-ghi-nho <pkg>                              # permission store on real disk
 ```
 
+One check needs **a person at the keyboard** and therefore cannot be in CI —
+the input method belongs to the operating system, and every way of simulating it
+injects a finished string, skipping the composition session that is the thing
+being measured:
+
+```bash
+cargo run -p tcc-shell --features window --example kiem-go-tieng-viet -- <pkg>
+```
+
+It asks WebKit what the field actually holds and prints the codepoints, the
+number of standalone combining marks, the deepest mark stack on one character,
+and the caret position. Looking at the screen is not enough: a precomposed `ỡ`
+and `o` plus two marks render identically while consuming completely different
+amounts of the `MAX_COMBINING_MARKS` budget.
+
 These load hostile manifests into real WebKit and then ask WebKit what it sees.
 They are **not** part of `cargo test` because on macOS the event loop must run on
 the main thread while Rust's test harness runs on worker threads. Do not skip them

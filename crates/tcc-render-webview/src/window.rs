@@ -216,6 +216,118 @@ pub fn check_escaping(document: &str, cho_toi_da: Duration) -> Result<EscapeRepo
     })
 }
 
+/// Thứ WebKit THẬT SỰ nhận được vào một ô nhập.
+///
+/// Cổng ra Giai đoạn 1 đòi "gõ tiếng Việt có dấu, dấu chồng đúng, con trỏ đúng
+/// chỗ". Ba vế đó không kiểm được bằng mắt: nhìn thấy `ỡ` không phân biệt được
+/// nó là MỘT mã điểm dựng sẵn hay `o` cộng hai dấu rời, mà bộ gõ khác nhau cho
+/// ra khác nhau — và phép kiểm trần dấu chồng (`MAX_COMBINING_MARKS`) đếm theo
+/// mã điểm, nên khác biệt đó quyết định người dùng gõ được hay bị chặn.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextInputProbe {
+    /// Nguyên văn chuỗi trong ô nhập.
+    pub value: String,
+    /// Vị trí con trỏ do WebKit báo, tính bằng đơn vị mã UTF-16 của trang.
+    pub caret_utf16: usize,
+    /// Ô nhập còn đang trong phiên ghép của bộ gõ hay đã chốt.
+    pub composing: bool,
+}
+
+/// Mở màn hình ứng dụng THẬT rồi hỏi lại WebKit ô nhập chứa gì.
+///
+/// Cửa sổ mở **nhìn thấy được** — khác mọi phép kiểm khác trong tệp này — vì
+/// đây là phép kiểm duy nhất cần một con người gõ phím. Máy không thay được:
+/// bộ gõ là của hệ điều hành, không phải của ta.
+///
+/// # Errors
+/// Không dựng được cửa sổ, hoặc hết giờ mà WebKit không báo về.
+pub fn probe_text_input(
+    document: &str,
+    doc_tep: impl Fn(&str) -> Option<Vec<u8>> + 'static,
+    cho_toi_da: Duration,
+) -> Result<TextInputProbe, String> {
+    let vong = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_title("TCC — kiểm bộ gõ tiếng Việt")
+        .build(&vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+
+    let hop: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let hop_ipc = Arc::clone(&hop);
+
+    let _webview = WebViewBuilder::new()
+        .with_html(document)
+        // Đi qua ĐÚNG trình phục vụ của đường chạy thật, không có bản rút gọn
+        // cho phép kiểm: nếu ảnh trong gói hiện được ở đây mà không hiện ở kia
+        // thì phép kiểm đang đo một thứ khác.
+        .with_custom_protocol(package_server::SCHEME.to_owned(), move |_id, yc| {
+            serve(&doc_tep, &yc)
+        })
+        .with_initialization_script(KICH_BAN_DO_BO_GO)
+        .with_ipc_handler(move |yeu_cau| {
+            if let Ok(mut o) = hop_ipc.lock() {
+                // KHÔNG dùng `o.is_none()` như bộ nhận quyết định: ở đây ta muốn
+                // trạng thái CUỐI CÙNG người dùng gõ ra, không phải cái đầu tiên.
+                *o = Some(yeu_cau.body().clone());
+            }
+        })
+        .build(&window)
+        .map_err(|e| format!("không dựng được WebView: {e}"))?;
+
+    let mut vong = vong;
+    let han = Instant::now() + cho_toi_da;
+    let mut dang_thoat = false;
+    vong.run_return(|su_kien, _, dieu_khien| {
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
+        if matches!(
+            su_kien,
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            }
+        ) {
+            dang_thoat = true;
+        }
+        if dang_thoat || Instant::now() >= han {
+            *dieu_khien = ControlFlow::Exit;
+        }
+    });
+
+    let tho = hop
+        .lock()
+        .map_err(|_| "khoá hỏng".to_owned())?
+        .clone()
+        .ok_or_else(|| "chưa gõ gì vào ô nhập nào".to_owned())?;
+    let v: serde_json::Value =
+        serde_json::from_str(&tho).map_err(|e| format!("báo cáo không đọc được: {e}"))?;
+    Ok(TextInputProbe {
+        value: v["value"].as_str().unwrap_or_default().to_owned(),
+        caret_utf16: usize::try_from(v["caret"].as_u64().unwrap_or(0)).unwrap_or(usize::MAX),
+        composing: v["composing"].as_bool().unwrap_or(false),
+    })
+}
+
+/// Kịch bản CHẨN ĐOÁN bộ gõ — chỉ dùng cho `probe_text_input`.
+///
+/// Nó KHÔNG nằm trong đường chạy thật: màn hình ứng dụng bình thường không đọc
+/// ngược nội dung ô nhập về host. Đọc ngược là một đường dữ liệu mới, và đường
+/// đó chỉ được mở trong một phép kiểm có người ngồi trước máy.
+const KICH_BAN_DO_BO_GO: &str = r"
+(function () {
+  var dang_ghep = false;
+  function bao(el) {
+    window.ipc.postMessage(JSON.stringify({
+      value: el.value, caret: el.selectionStart, composing: dang_ghep
+    }));
+  }
+  document.addEventListener('compositionstart', function (e) { dang_ghep = true; });
+  document.addEventListener('compositionend', function (e) { dang_ghep = false; bao(e.target); });
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.value !== undefined) { bao(e.target); }
+  });
+})();
+";
+
 /// Kịch bản nối sự kiện, do BỘ DỰNG tiêm vào.
 ///
 /// ⚠️ LUẬT: **bộ dựng nối sự kiện, ứng dụng KHÔNG BAO GIỜ.**

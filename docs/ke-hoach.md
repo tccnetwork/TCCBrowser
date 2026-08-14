@@ -56,15 +56,39 @@ Không phải đặc tả trước. Không phải bộ dựng hình trước.
 
 ### Cổng ra — Giai đoạn 1 xong khi
 
-- [ ] `cargo check --workspace` sạch trên macOS **và** Linux
-- [ ] `tools/kiem-luat-phu-thuoc.sh` — 0 vi phạm
-- [ ] `tcc sign` rồi `tcc verify` chạy đúng; **sửa một byte trong gói là kiểm thất bại**
-- [ ] Ứng dụng chưa được cấp quyền **không gọi được** thứ nó không xin
-- [ ] Ứng dụng mẫu hiện trên màn hình
-- [ ] **VoiceOver đọc được ứng dụng mẫu** ← không phải việc làm sau
+Trạng thái ngày 14/08/2026. Mỗi mục ghi **bằng chứng chạy được**, không ghi
+cảm nhận — cổng nào chỉ dựa vào trí nhớ thì coi như chưa đóng.
+
+- [x] `cargo check --workspace` sạch trên macOS **và** Linux
+      → CI GitHub Actions, cả `macos-latest` lẫn `ubuntu-latest`
+- [x] `tools/kiem-luat-phu-thuoc.sh` — 0 vi phạm
+      → 13 luật, chạy TRƯỚC bước biên dịch trong CI
+- [x] `tcc sign` rồi `tcc verify` chạy đúng; **sửa một byte trong gói là kiểm thất bại**
+      → đo 14/08: ký `exit 0` · kiểm `exit 0` · lật MỘT bit trong `ui.json` `exit 1`
+      · khôi phục `exit 0` · xoá `signature.hex` `exit 1`
+- [x] Ứng dụng chưa được cấp quyền **không gọi được** thứ nó không xin
+      → `kiem-hanh-vi`, và phép thử đếm số lần đường mạng bị gọi phải bằng **0**
+- [x] Ứng dụng mẫu hiện trên màn hình
+      → `kiem-man-hinh-ung-dung`, chạy trong CI qua WebKit thật
+- [x] **VoiceOver đọc được ứng dụng mẫu**
+      → soi cây trợ năng THẬT 13/08; hai lỗi tìm ra và sửa (B32, B33)
 - [ ] **Gõ tiếng Việt có dấu bằng bộ gõ hệ thống, dấu chồng đúng, con trỏ đúng chỗ**
-- [ ] Chưa có mã ví nào chạm khoá riêng thật
-- [ ] Chưa trộn tầng web vào lõi
+      → ⚠️ **CỔNG DUY NHẤT CÒN MỞ.** Cần một người ngồi trước máy: bộ gõ là của
+      hệ điều hành, mọi cách giả lập đều bơm thẳng chuỗi hoàn chỉnh vào ô nhập,
+      tức là bỏ qua đúng cái cần đo — phiên ghép. Công cụ đã sẵn:
+
+      ```sh
+      cargo run -p tcc-shell --features window --example kiem-go-tieng-viet -- examples/hello-tcc
+      ```
+
+      Nó hỏi lại WebKit ô nhập chứa gì rồi in mã điểm, số dấu rời, dấu chồng
+      nhiều nhất trên một chữ, và vị trí con trỏ. Nhìn bằng mắt không đủ: `ỡ`
+      dựng sẵn và `o`+2 dấu hiện ra y hệt nhau mà tốn trần `MAX_COMBINING_MARKS`
+      khác hẳn nhau.
+- [x] Chưa có mã ví nào chạm khoá riêng thật
+      → không có mã ví nào tồn tại; cổng cứng ở `SECURITY.md` §3.5
+- [x] Chưa trộn tầng web vào lõi
+      → luật 6 cưỡng chế: API ứng dụng không lộ DOM/HTML/CSS
 
 ---
 
