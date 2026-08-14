@@ -1,0 +1,19 @@
+[package]
+name = "tcc-browser"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+# Mở cửa sổ thật. Không bật mặc định để `cargo test` không phải kéo wry+tao.
+cua-so = ["tcc-shell/cua-so", "tcc-shell/mang"]
+
+[dependencies]
+tcc-shell = { workspace = true }
+tcc-spec = { workspace = true }
+tcc-runtime = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

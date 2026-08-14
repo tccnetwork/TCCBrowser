@@ -1,0 +1,26 @@
+{
+  "kind": "group",
+  "flow": "column",
+  "gap": "large",
+  "children": [
+    { "kind": "text", "content": "Xin chào từ TCC", "emphasis": "title" },
+
+    { "kind": "image", "source": "anh/logo.png",
+      "alt": { "kind": "text", "text": "Biểu trưng TCC — hình vuông màu cam" } },
+
+    { "kind": "text",
+      "content": "Ứng dụng này khai báo có gì trên màn hình. Nó không gửi kèm một dòng mã nào — bộ dựng quyết định vẽ ra sao." },
+
+    { "kind": "text", "emphasis": "subtle",
+      "content": "Ô dưới đây để thử BỘ GÕ TIẾNG VIỆT. Gõ thử: Tiếng Việt có dấu — kiểm dấu chồng đúng chỗ và con trỏ không nhảy." },
+
+    { "kind": "field", "label": "Gõ thử tiếng Việt", "value": "" },
+
+    { "kind": "field", "label": "Ô bí mật (chữ phải bị che)", "value": "", "secret": true },
+
+    { "kind": "group", "flow": "row", "gap": "medium", "children": [
+      { "kind": "button", "label": "Tải trang mẫu", "action": "tai-trang", "tone": "primary" },
+      { "kind": "button", "label": "Xoá dữ liệu", "action": "xoa-du-lieu", "tone": "danger" }
+    ]}
+  ]
+}

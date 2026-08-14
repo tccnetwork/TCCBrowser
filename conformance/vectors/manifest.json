@@ -1,0 +1,812 @@
+{
+ "mo_ta": "Nhận và từ chối bản kê khai. Mỗi trường hợp hỏng nêu một mã ổn định.",
+ "truong_hop": [
+  {
+   "ten": "ban ke khai toi thieu, khong xin quyen",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "Xin chào",
+    "version": "1.0.0",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "ma ung dung thieu dau cham",
+   "dat": false,
+   "code": "bad-app-id",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "ma ung dung co chu hoa",
+   "dat": false,
+   "code": "bad-app-id",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.TCC.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "phien ban dac ta la",
+   "dat": false,
+   "code": "unsupported-spec-version",
+   "ke_khai": {
+    "spec_version": "99.0",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "ten ung dung co ky tu dao chieu chu",
+   "dat": false,
+   "code": "unsafe-display-string",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "Hu‮r",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "ten ung dung co ky tu rong bang khong",
+   "dat": false,
+   "code": "unsafe-display-string",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "TCC​Store",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "xin trung mot quyen hai lan",
+   "dat": false,
+   "code": "duplicate-capability",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "a.tcc-coin.com"
+       ]
+      },
+      "reason": "vo hai"
+     },
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "ke-gian.example"
+       ]
+      },
+      "reason": "muc that"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu ngoai ASCII (chu o Kirin trong shop)",
+   "dat": false,
+   "code": "non-ascii-host",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shоp.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "quyen nang khong co trong tieu chuan",
+   "dat": false,
+   "code": "unknown-capability",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "camera",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "a.tcc-coin.com"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ly do rong",
+   "dat": false,
+   "code": "missing-reason",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "a.tcc-coin.com"
+       ]
+      },
+      "reason": "   "
+     }
+    ]
+   },
+   "ghi_chu": "Mã đúng là `missing-reason`, không phải `unsafe-display-string`: lý do toàn khoảng trắng là THIẾU lý do, và mã cụ thể hơn thì người viết ứng dụng sửa nhanh hơn. Vector này ban đầu tôi ghi sai."
+  },
+  {
+   "ten": "diem vao di ra ngoai goi",
+   "dat": false,
+   "code": "bad-entry",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "../../etc/passwd",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "hanh vi nam trong pham vi quyen",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "/ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "hanh vi goi may chu CHUA xin quyen",
+   "ghi_chu": "Lúc chạy thì quyền năng vẫn chặn — nhưng người dùng đã bấm, không thấy gì xảy ra, và không ai biết vì sao. Bắt ở bản kê khai để `tcc verify` báo cho người viết ứng dụng.",
+   "dat": false,
+   "code": "action-host-not-granted",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "ke-gian.example",
+       "path": "/ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "khai hanh vi ma khong xin quyen mang nao",
+   "dat": false,
+   "code": "action-host-not-granted",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "/ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten mien con KHONG duoc coi la trong pham vi",
+   "ghi_chu": "Phải khớp chính xác, đúng luật của tầng quyền năng. Lệch hai bên là lỗ.",
+   "dat": false,
+   "code": "action-host-not-granted",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "api.shop.tcc-coin.com",
+       "path": "/ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ma hanh dong co khoang trang",
+   "dat": false,
+   "code": "bad-action-id",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "TAI HANG",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "/ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "khai trung mot hanh dong",
+   "dat": false,
+   "code": "duplicate-action",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "/a"
+      }
+     },
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "/b"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "duong dan khong bat dau bang gach cheo",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ],
+    "actions": [
+     {
+      "id": "tai-hang",
+      "effect": {
+       "kind": "fetch",
+       "host": "shop.tcc-coin.com",
+       "path": "ds"
+      }
+     }
+    ]
+   }
+  },
+  {
+   "ten": "khong khai hanh vi nao van hop le",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com"
+       ]
+      },
+      "reason": "tai hang"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu gia mao userinfo",
+   "ghi_chu": "shop.tcc-coin.com:8080@evil.example là ASCII, không rỗng, không có ký tự đại diện — qua hết mọi phép kiểm cũ. Nhưng khi dựng địa chỉ, phần trước @ thành userinfo và máy chủ THẬT là evil.example.",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com:8080@evil.example"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu co dau gach cheo",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com/@evil.example"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu co cong",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com:8443"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu hai dau cham lien nhau",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop..tcc-coin.com"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "doan bat dau bang gach ngang",
+   "dat": false,
+   "code": "bad-scope",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "-shop.tcc-coin.com"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten may chu dang tuyet doi (mot dau cham cuoi) van hop le",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "shop.tcc-coin.com."
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "punycode hop le",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "xn--th-e0a.com"
+       ]
+      },
+      "reason": "x"
+     }
+    ]
+   }
+  },
+  {
+   "ten": "ten ung dung chong 30 dau",
+   "dat": false,
+   "code": "unsafe-display-string",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "Ví́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "ten ung dung tieng Viet dang tach",
+   "dat": true,
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.a",
+    "name": "Ví TCC",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "ten": "truong la o goc ban ke khai",
+   "dat": false,
+   "code": "bad-json",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [],
+    "x-acme-tu-chay": true
+   }
+  },
+  {
+   "ten": "truong la trong muc xin quyen",
+   "dat": false,
+   "code": "bad-json",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "a.com"
+       ]
+      },
+      "reason": "tải dữ liệu",
+      "x-acme-im-lang": true
+     }
+    ]
+   }
+  },
+  {
+   "ten": "truong la trong pham vi quyen",
+   "dat": false,
+   "code": "bad-json",
+   "ke_khai": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "ui.json",
+    "capabilities": [
+     {
+      "name": "network",
+      "scope": {
+       "kind": "network",
+       "hosts": [
+        "a.com"
+       ],
+       "ports": [
+        443
+       ]
+      },
+      "reason": "tải dữ liệu"
+     }
+    ]
+   }
+  }
+ ]
+}

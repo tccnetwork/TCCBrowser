@@ -1,0 +1,425 @@
+//! Mở cửa sổ thật. Chỉ biên dịch khi bật cờ `cua-so`.
+//!
+//! Đây là cửa DUY NHẤT để tầng trên chạm tới một bộ dựng cụ thể. `apps/` gọi
+//! hàm ở đây chứ không gọi thẳng `tcc-render-webview` — luật 2 trong
+//! `tools/kiem-luat-phu-thuoc.sh` kiểm điều đó, kể cả với `apps/`.
+//!
+//! Nhờ vậy ngày đổi sang bộ dựng GPU riêng, chỉ tệp này phải sửa.
+
+use std::{path::Path, time::Duration};
+
+use tcc_crypto::HybridEd25519MlDsa;
+use tcc_render_webview::{WebViewRenderer, cua_so as bo_dung_cua_so};
+use tcc_spec::Manifest;
+use tcc_ui::Renderer as _;
+
+use crate::{
+    ghi_nho::{GhiNho, TinhTrangNguoiKy},
+    hop_thoai_quyen,
+    loi::NgonNgu,
+    man_hinh_quyen,
+};
+
+/// Tiêu đề cửa sổ CỦA ỨNG DỤNG.
+///
+/// # ⚠️ Mã ứng dụng đứng TRƯỚC, tên do ứng dụng đặt đứng SAU
+///
+/// Ứng dụng tự khai `name`. Đặt tên là "TCC — quyền đã cấp" thì cửa sổ của nó
+/// có tiêu đề y hệt màn hình quản lý quyền của trình duyệt — rồi nó vẽ một danh
+/// sách quyền giả với một nút "Cho phép" giả bên trong.
+///
+/// Mã ứng dụng thì KHÔNG giả được: nó nằm trong phạm vi chữ ký và bị
+/// `AppId::parse` ép về `a-z0-9.` — không có dấu cách, không có gạch ngang dài,
+/// nên nó không bắt chước nổi tiêu đề của trình duyệt.
+///
+/// Đặt nó ĐỨNG TRƯỚC vì thứ người ta đọc đầu tiên là thứ bên trái. Và cửa sổ
+/// của trình duyệt thì KHÔNG BAO GIỜ mang mã ứng dụng — đó là dấu phân biệt.
+///
+/// Đây không phải lời giải trọn vẹn cho việc giả mạo tiêu đề (không có lời giải
+/// trọn vẹn nào bằng phần mềm), nhưng nó chặn đúng đòn rẻ nhất.
+#[must_use]
+pub fn tieu_de_ung_dung(m: &Manifest) -> String {
+    format!("{} — {}", m.id.as_str(), m.name)
+}
+
+/// Hiện hộp thoại hỏi quyền trong một cửa sổ thật.
+///
+/// `tu_dong_dong` để kiểm khói tự động: không có nó thì cửa sổ chờ người bấm và
+/// mọi lệnh chạy tự động sẽ treo.
+///
+/// # Errors
+/// Dựng cây hỏng, bộ dựng vẽ hỏng, hoặc không mở được cửa sổ.
+pub fn hien_hop_thoai_quyen(
+    m: &Manifest,
+    ngon_ngu: NgonNgu,
+    tu_dong_dong: Option<Duration>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cay = hop_thoai_quyen::dung(m, ngon_ngu)?;
+
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    // Vẽ TRƯỚC khi mở cửa sổ: tài liệu hỏng thì hỏng ở đây, không hỏng sau khi
+    // người dùng đã thấy một cửa sổ trống.
+    bo_dung.render(&cay)?;
+
+    // Hộp thoại hỏi quyền KHÔNG phục vụ tệp nào: nó là màn hình CỦA TRÌNH DUYỆT,
+    // không phải của ứng dụng. Cho ứng dụng đưa ảnh vào đây là mở đường vẽ đè
+    // lên chính câu cảnh báo.
+    bo_dung_cua_so::mo(bo_dung.tai_lieu(), &m.name, |_| None, tu_dong_dong)
+}
+
+/// Kiểm khói qua WebKit thật: dựng hộp thoại, nạp vào WebView ẩn, hỏi lại
+/// WebKit xem nó nhìn thấy gì.
+///
+/// # Errors
+/// Dựng cây hỏng, vẽ hỏng, hoặc WebKit không báo về kịp.
+pub fn kiem_khoi(
+    m: &Manifest,
+    ngon_ngu: NgonNgu,
+    cho_toi_da: Duration,
+) -> Result<bo_dung_cua_so::BaoCaoKhoi, Box<dyn std::error::Error>> {
+    let cay = hop_thoai_quyen::dung(m, ngon_ngu)?;
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    bo_dung.render(&cay)?;
+    Ok(bo_dung_cua_so::kiem_khoi(bo_dung.tai_lieu(), cho_toi_da)?)
+}
+
+/// Nạp một tài liệu THÔ vào WebKit, không đi qua bộ dịch đánh dấu.
+///
+/// Chỉ dùng để kiểm RIÊNG tầng chính sách nội dung. Ở đường ống thật, tầng thoát
+/// ký tự và bộ quét trợ năng chặn trước nên chính sách nội dung không bao giờ
+/// được thử sức — mà một tầng phòng thủ chưa bao giờ được thử là một tầng chưa
+/// biết có tồn tại hay không.
+///
+/// # Errors
+/// WebKit không báo về kịp.
+pub fn kiem_tai_lieu_tho(
+    tai_lieu: &str,
+    cho_toi_da: Duration,
+) -> Result<bo_dung_cua_so::BaoCaoKhoi, Box<dyn std::error::Error>> {
+    Ok(bo_dung_cua_so::kiem_khoi(tai_lieu, cho_toi_da)?)
+}
+
+/// Hiện hộp thoại hỏi quyền và CHỜ người dùng trả lời TỪNG MỤC.
+///
+/// # ⚠️ Mọi đường không rõ ràng đều dẫn tới TỪ CHỐI
+///
+/// Đóng cửa sổ, cửa sổ hỏng, bấm nút từ chối — tất cả ra `Decision::Deny`. Chỉ
+/// đúng một đường dẫn tới `Allow`: người dùng bấm đúng nút cho phép. Đây là chỗ
+/// mà "quên xử lý một nhánh" phải nghiêng về phía an toàn, nên hàm này KHÔNG
+/// trả `Result` — không có lỗi nào để chỗ gọi lỡ tay `unwrap_or(Allow)`.
+/// Trả về một hàm quyết định cho TỪNG quyền, đã cố định theo câu trả lời của
+/// người dùng. Hỏi đúng MỘT lần, dùng lại cho mọi mục.
+///
+/// Không trả `Result` — cố ý. Có `Result` là có chỗ cho ai đó viết
+/// `.unwrap_or(Allow)`. Mọi hỏng hóc đều thành "người dùng chưa bật gì".
+fn hoi_quyen_tung_muc(
+    m: &Manifest,
+    ngon_ngu: NgonNgu,
+    nguoi_ky: &TinhTrangNguoiKy,
+) -> (Option<String>, Vec<String>) {
+    let Ok(cay) = hop_thoai_quyen::dung_voi_nguoi_ky(m, ngon_ngu, nguoi_ky) else {
+        eprintln!("[khung] không dựng được hộp thoại hỏi quyền — từ chối tất cả");
+        return (None, Vec::new());
+    };
+
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    if let Err(e) = bo_dung.render(&cay) {
+        eprintln!("[khung] không vẽ được hộp thoại: {e} — từ chối tất cả");
+        return (None, Vec::new());
+    }
+
+    let hop_le: Vec<String> = cay
+        .action_ids()
+        .iter()
+        .map(|a| a.as_str().to_owned())
+        .collect();
+
+    match bo_dung_cua_so::hoi(bo_dung.tai_lieu(), &m.name, &hop_le) {
+        Ok(Some(t)) => (Some(t.hanh_dong), t.bat),
+        Ok(None) => (None, Vec::new()),
+        Err(e) => {
+            eprintln!("[khung] cửa sổ hỏng: {e} — từ chối tất cả");
+            (None, Vec::new())
+        }
+    }
+}
+
+/// Đường ống đầy đủ: gói đã ký trên đĩa → kiểm chữ ký → hỏi người dùng → cấp
+/// quyền → nội dung điểm vào.
+///
+/// Thứ tự này là tính chất bảo mật, không phải sở thích. Hỏi trước khi kiểm chữ
+/// ký nghĩa là hộp thoại hiện tên và lý do LẤY TỪ MỘT BẢN KÊ KHAI CHƯA XÁC
+/// THỰC — kẻ gian viết gì người dùng đọc nấy.
+///
+/// # Errors
+/// Thiếu tệp, chữ ký hỏng, thiếu điểm vào, hoặc bản kê khai xin trùng quyền.
+pub fn mo_goi(
+    duong_dan: &Path,
+    ngon_ngu: NgonNgu,
+    kho_quyen: Option<&Path>,
+) -> Result<tcc_runtime::LoadedApp, Box<dyn std::error::Error>> {
+    // 1. Kiểm chữ ký. Chưa hiện gì lên màn hình.
+    let (app, noi_dung) = tcc_runtime::verify_from_dir(duong_dan, &HybridEd25519MlDsa)?;
+    let m = app.manifest().clone();
+
+    let mut nho = kho_quyen.map(GhiNho::mo);
+
+    // Hỏi TRƯỚC khi `nho` ghi đè khoá mới lên — sau đó không còn gì để so.
+    let nguoi_ky = nho
+        .as_ref()
+        .map_or(TinhTrangNguoiKy::LanDau, |n| n.tinh_trang_nguoi_ky(&m));
+    if let TinhTrangNguoiKy::DoiKhoa { van_tay_cu } = &nguoi_ky {
+        eprintln!(
+            "[khung] ⚠️ \"{}\" trước đây ký bằng khoá khác ({van_tay_cu})",
+            m.name
+        );
+    }
+
+    // 2. Quyền nào ĐÃ CÓ CÂU TRẢ LỜI thì không hỏi lại.
+    //
+    //    `tra` trả `None` với mọi trường hợp không rõ ràng: chưa từng hỏi, khoá
+    //    người ký đổi, phạm vi nới rộng. Nên "còn thiếu" luôn nghiêng về phía
+    //    hỏi thêm, không bao giờ nghiêng về phía tự cấp.
+    let con_phai_hoi: Vec<_> = m
+        .capabilities
+        .iter()
+        .filter(|c| nho.as_ref().and_then(|n| n.tra(&m, c)).is_none())
+        .cloned()
+        .collect();
+
+    // Đổi khoá là phải HỎI LẠI TẤT CẢ, kể cả quyền từng đồng ý — vì `tra` đã
+    // trả None cho mọi mục, `con_phai_hoi` tự khắc gồm đủ.
+    let (hanh_dong, dang_bat) = if con_phai_hoi.is_empty() {
+        (None, Vec::new())
+    } else {
+        // Hộp thoại chỉ liệt kê những quyền CÒN THIẾU câu trả lời. Hiện lại cả
+        // những quyền đã đồng ý từ trước là làm người dùng phải đọc lại thứ họ
+        // đã quyết định — và đọc lại quá nhiều lần thì thành bấm bừa.
+        let mut chi_con_thieu = m.clone();
+        chi_con_thieu.capabilities = con_phai_hoi;
+        hoi_quyen_tung_muc(&chi_con_thieu, ngon_ngu, &nguoi_ky)
+    };
+
+    // 3. Cấp quyền — TỪNG MỤC MỘT.
+    let app = tcc_runtime::grant_verified(app, noi_dung, |xin| {
+        // Câu trả lời đã nhớ được ưu tiên; chưa có thì lấy từ hộp thoại vừa rồi.
+        let qd = nho
+            .as_ref()
+            .and_then(|n| n.tra(&m, xin))
+            .unwrap_or_else(|| {
+                hop_thoai_quyen::quyet_dinh(hanh_dong.as_deref(), &dang_bat, &xin.name)
+            });
+        if let Some(n) = nho.as_mut() {
+            n.nho(&m, xin, qd);
+        }
+        qd
+    })?;
+
+    if let Some(n) = nho.as_ref()
+        && let Err(e) = n.ghi()
+    {
+        // Ghi hỏng KHÔNG được làm hỏng phiên đang chạy — chỉ là lần sau hỏi lại.
+        eprintln!("[khung] không ghi được kho quyền: {e} — lần sau sẽ hỏi lại");
+    }
+
+    Ok(app)
+}
+
+/// Hiện màn hình CỦA ỨNG DỤNG, sau khi đã cấp quyền.
+///
+/// Điểm vào là cây component khai báo, **không phải thẻ đánh dấu**. Ứng dụng
+/// nói *có gì trên màn hình*; bộ dựng quyết định *vẽ ra sao*. Đó là thứ giữ cho
+/// đường thoát khỏi WebView luôn mở — xem `tcc_ui::dang_goi`.
+///
+/// Cây đọc từ đĩa đi qua **y hệt** các phép kiểm như cây viết tay trong mã: ký
+/// tự giả mạo, trần độ sâu, trần số nút, cấm ảnh trỏ ra mạng. Không có ưu ái
+/// nào cho nội dung đến từ gói.
+///
+/// # Errors
+/// Điểm vào không đọc được thành cây hợp lệ, hoặc bộ dựng vẽ hỏng.
+pub fn hien_ung_dung(
+    app: &tcc_runtime::LoadedApp,
+    ngon_ngu: NgonNgu,
+    tu_dong_dong: Option<Duration>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cay = tcc_ui::dang_goi::doc(app.entry_content())?;
+
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    bo_dung.render(&cay)?;
+
+    // Ảnh đọc TỪ CÂY TỆP ĐÃ KÝ. Đây là đường duy nhất trang lấy được byte từ
+    // gói, và nó đi qua đúng phép kiểm đường dẫn của tiêu chuẩn.
+    let noi_dung = app.ban_sao_noi_dung();
+    bo_dung_cua_so::mo(
+        bo_dung.tai_lieu(),
+        &tieu_de_ung_dung(app.manifest()),
+        move |p| noi_dung.get(p).map(<[u8]>::to_vec),
+        tu_dong_dong,
+    )
+}
+
+/// Chạy ứng dụng: vẽ màn hình, và mỗi cú bấm chạy hành vi đã khai trong bản kê
+/// khai — qua đúng cổng quyền năng.
+///
+/// # Cổng quyền năng nằm ở `tcc-runtime`, không ở đây
+///
+/// Hàm này chỉ chuyển mã hành động xuống `LoadedApp::thuc_hien`. Nó KHÔNG tự
+/// quyết định được cái gì chạy được: quyền năng do người dùng cấp, và
+/// `thuc_hien` kiểm trước khi chạm mạng. Khung giao diện không có đường vòng.
+///
+/// # Errors
+/// Điểm vào không đọc được thành cây hợp lệ, hoặc bộ dựng vẽ hỏng.
+pub fn chay_ung_dung(
+    app: &tcc_runtime::LoadedApp,
+    ngon_ngu: NgonNgu,
+    mang: &dyn tcc_runtime::Mang,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cay = tcc_ui::dang_goi::doc(app.entry_content())?;
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    bo_dung.render(&cay)?;
+
+    let hop_le: Vec<String> = cay
+        .action_ids()
+        .iter()
+        .map(|a| a.as_str().to_owned())
+        .collect();
+
+    let noi_dung = app.ban_sao_noi_dung();
+    bo_dung_cua_so::chay(
+        bo_dung.tai_lieu(),
+        &tieu_de_ung_dung(app.manifest()),
+        &hop_le,
+        // Ảnh đọc TỪ CÂY TỆP ĐÃ KÝ — đường duy nhất trang lấy được byte từ gói.
+        move |p| noi_dung.get(p).map(<[u8]>::to_vec),
+        |t| {
+            match app.thuc_hien(&t.hanh_dong, mang) {
+                Ok(du_lieu) => {
+                    println!("[ứng dụng] {} → {} byte", t.hanh_dong, du_lieu.len());
+                }
+                // Bị quyền năng từ chối KHÔNG phải lỗi của trình duyệt — đó là
+                // hệ thống làm đúng việc. In ra để nhìn thấy được, rồi chạy tiếp.
+                Err(e) => println!("[ứng dụng] {} bị từ chối: {e}", t.hanh_dong),
+            }
+            bo_dung_cua_so::TiepTuc::Giu
+        },
+    )?;
+    Ok(())
+}
+
+/// Mở màn hình quản lý quyền và xử lý các nút "Quên".
+///
+/// # Đây là màn hình CỦA TRÌNH DUYỆT
+///
+/// Truyền `|_| None` cho trình phục vụ tệp: ứng dụng không đưa được một byte
+/// nào vào đây. Cho phép là mở đường vẽ đè lên chính danh sách quyền mà người
+/// dùng đang đọc để quyết định thu hồi.
+///
+/// # Errors
+/// Dựng cây hỏng, vẽ hỏng, hoặc không mở được cửa sổ.
+pub fn quan_ly_quyen(
+    kho_quyen: &Path,
+    ngon_ngu: NgonNgu,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Kho mở LẠI sau mỗi lần quên, để màn hình luôn phản ánh đúng đĩa. Giữ một
+    // bản trong bộ nhớ rồi vẽ lại từ đó là mở đường cho màn hình lệch với đĩa.
+    let ds = GhiNho::mo(kho_quyen).liet_ke();
+    if ds.is_empty() {
+        println!("[khung] chưa có quyền nào được trả lời");
+    }
+    let cay = man_hinh_quyen::dung(&ds, ngon_ngu)?;
+
+    let mut bo_dung = WebViewRenderer::new().voi_chu(crate::loi::chu_bo_dung(ngon_ngu));
+    bo_dung.render(&cay)?;
+    let hop_le: Vec<String> = cay
+        .action_ids()
+        .iter()
+        .map(|a| a.as_str().to_owned())
+        .collect();
+
+    let duong_dan = kho_quyen.to_path_buf();
+    bo_dung_cua_so::chay(
+        bo_dung.tai_lieu(),
+        crate::loi::nhan(crate::loi::Khoa::QuanLyTieuDeCuaSo, ngon_ngu),
+        &hop_le,
+        |_| None,
+        |t| {
+            if t.hanh_dong == man_hinh_quyen::HANH_DONG_DONG {
+                return bo_dung_cua_so::TiepTuc::Dong;
+            }
+            if let Some(id) = man_hinh_quyen::ung_dung_can_quen(&t.hanh_dong) {
+                let mut g = GhiNho::mo(&duong_dan);
+                g.quen(id);
+                match g.ghi() {
+                    Ok(()) => println!("[khung] đã quên \"{id}\" — lần sau nó sẽ hỏi lại"),
+                    Err(e) => eprintln!("[khung] KHÔNG ghi được kho quyền: {e}"),
+                }
+                // Đóng sau khi quên: vẽ lại danh sách cần dựng lại cả tài liệu,
+                // mà `chay` giữ một tài liệu cố định. Đóng rồi mở lại là hành vi
+                // thật thà hơn một danh sách đứng im sau khi người dùng đã bấm.
+                return bo_dung_cua_so::TiepTuc::Dong;
+            }
+            bo_dung_cua_so::TiepTuc::Giu
+        },
+    )?;
+    Ok(())
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay, không nuốt lỗi"
+)]
+mod kiem_thu {
+    use super::*;
+
+    fn ke_khai(ten: &str) -> Manifest {
+        serde_json::from_str(&format!(
+            r#"{{"spec_version":"0.1","id":"com.tcc.vi-du","name":"{ten}","version":"1",
+"publisher":"{}","scheme":"hybrid-ed25519-mldsa65-v1","content_hash":"{}",
+"entry":"ui.json","capabilities":[]}}"#,
+            "aa".repeat(1992),
+            "bb".repeat(48)
+        ))
+        .expect("bản kê khai mẫu hỏng")
+    }
+
+    /// ⚠️ Một ứng dụng đặt tên giống màn hình của trình duyệt.
+    ///
+    /// Không chặn được nó đặt tên đó — tên là chữ của ứng dụng. Nhưng chặn được
+    /// việc tên đó CHIẾM TRỌN tiêu đề: mã ứng dụng đã ký luôn đứng trước.
+    #[test]
+    fn ten_gia_mao_khong_chiem_duoc_dau_tieu_de() {
+        let m = ke_khai("TCC — quyền đã cấp");
+        let td = tieu_de_ung_dung(&m);
+        assert!(
+            td.starts_with("com.tcc.vi-du"),
+            "tên do ứng dụng đặt chiếm được đầu tiêu đề: {td}"
+        );
+        assert!(td.contains("TCC — quyền đã cấp"), "{td}");
+    }
+
+    /// Cửa sổ của TRÌNH DUYỆT không bao giờ mang mã ứng dụng — đó là dấu phân biệt.
+    #[test]
+    fn tieu_de_trinh_duyet_khong_mang_ma_ung_dung() {
+        for n in [NgonNgu::En, NgonNgu::Vi] {
+            let td = crate::loi::nhan(crate::loi::Khoa::QuanLyTieuDeCuaSo, n);
+            assert!(
+                !td.contains('.'),
+                "tiêu đề của trình duyệt trông giống một mã ứng dụng: {td}"
+            );
+        }
+    }
+
+    /// Mã ứng dụng không bắt chước nổi tiêu đề của trình duyệt: `AppId::parse`
+    /// ép về `a-z0-9.`, không có dấu cách và không có gạch ngang dài.
+    #[test]
+    fn ma_ung_dung_khong_bat_chuoc_noi_tieu_de_trinh_duyet() {
+        for bay in ["TCC — quyền đã cấp", "TCC permissions", "tcc quyen"] {
+            assert!(
+                tcc_spec::AppId::parse(bay).is_err(),
+                "\"{bay}\" dùng làm mã ứng dụng được"
+            );
+        }
+    }
+}

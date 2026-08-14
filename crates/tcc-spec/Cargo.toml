@@ -1,0 +1,19 @@
+[package]
+name = "tcc-spec"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hex = "0.4.3"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# Một crate, KHÔNG phụ thuộc gì thêm. Cần để nhận đúng dấu kết hợp theo bảng
+# Unicode thay vì tự đoán dải mã — tự đoán thì sót, mà sót ở đây là lọt đòn
+# chồng dấu che mất cảnh báo. Xem MAX_DAU_KET_HOP.
+unicode-general-category = "1" 
+
+[lints]
+workspace = true

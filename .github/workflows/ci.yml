@@ -1,0 +1,73 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  checks:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      # Architecture rules run FIRST — if they fail there is no point compiling,
+      # because code that runs is still code with the wrong architecture.
+      - name: Architecture rules (12 rules)
+        run: tools/kiem-luat-phu-thuoc.sh
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --workspace
+
+      # This is what turns the specification into a STANDARD. Leave it out of CI
+      # and the standard drifts away from the implementation with nobody noticing.
+      - name: Conformance suite
+        run: cargo run -p tcc-conformance
+
+      # The committed example must ALWAYS verify. Editing `content/` and
+      # forgetting to re-sign is the easiest mistake to make here, and it makes
+      # everyone downstream copy a broken package.
+      - name: Example hello-tcc still verifies
+        run: cargo run -p tcc-cli -- verify examples/hello-tcc
+
+      # An independent implementation re-checks the ML-DSA half. It agrees only
+      # on that half's arithmetic — but that half is the one nobody should be
+      # trusted to implement alone.
+      - name: Independent cross-check (dilithium-py)
+        run: |
+          python3 -m pip install --quiet dilithium-py
+          python3 conformance/doi-chieu-doc-lap.py
+
+  # The parts that need a SCREEN, kept separate: adversarial examples driven
+  # through a real WebKit view. Not merged into the job above because Ubuntu has
+  # no macOS WebKit, and because a failure here is a different kind of news than
+  # a failure in the logic.
+  adversarial:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: App-supplied text cannot escape into the document
+        run: cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong
+      - name: Content policy blocks script (layer 3 tested ALONE)
+        run: cargo run -p tcc-shell --features cua-so --example kiem-khoi-tan-cong chi-csp
+      - name: Click through to decision
+        run: |
+          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut cho-phep
+          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut tu-choi
+          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut bat
+          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ma
+          cargo run -p tcc-shell --features cua-so --example kiem-bam-nut ct-ma
+      - name: App screen through real WebKit
+        run: cargo run -p tcc-shell --features cua-so --example kiem-man-hinh-ung-dung examples/hello-tcc
+      - name: Three-way capability gate
+        run: cargo run -p tcc-shell --example kiem-hanh-vi examples/hello-tcc
+      - name: Permission store on disk
+        run: cargo run -p tcc-shell --example kiem-ghi-nho examples/hello-tcc

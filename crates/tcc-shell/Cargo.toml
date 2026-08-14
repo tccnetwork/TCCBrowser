@@ -1,0 +1,60 @@
+[package]
+name = "tcc-shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+# Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
+# tcc-render-webview trực tiếp.
+cua-so = ["tcc-render-webview/cua-so"]
+# Đường ra ngoài thật. Tách cờ riêng để dựng được bản KHÔNG có mạng.
+mang = ["dep:tcc-net"]
+
+[dependencies]
+tcc-spec = { workspace = true }
+tcc-ui = { workspace = true }
+tcc-runtime = { workspace = true }
+tcc-capability = { workspace = true }
+tcc-crypto = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Đây là ĐIỂM LẮP RÁP — crate duy nhất được phép biết tới một bộ dựng cụ thể.
+# Luật 2 trong tools/kiem-luat-phu-thuoc.sh chốt điều đó.
+tcc-render-webview = { workspace = true }
+tcc-net = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tcc-spec = { workspace = true }
+tcc-capability = { workspace = true }
+tcc-render-webview = { workspace = true }
+tcc-ui = { workspace = true }
+tcc-crypto = { workspace = true }
+tcc-runtime = { workspace = true }
+
+[[example]]
+name = "kiem-khoi-tan-cong"
+required-features = ["cua-so"]
+
+[[example]]
+name = "kiem-bam-nut"
+required-features = ["cua-so"]
+
+[[example]]
+name = "kiem-man-hinh-ung-dung"
+required-features = ["cua-so"]
+
+[[example]]
+name = "kiem-hanh-vi"
+
+[[example]]
+name = "kiem-ghi-nho"
+
+[[example]]
+name = "xem-man-hinh"
+required-features = ["cua-so"]
+
+[lints]
+workspace = true

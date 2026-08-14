@@ -1,0 +1,17 @@
+[package]
+name = "tcc-net"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+tcc-runtime = { workspace = true }
+thiserror = { workspace = true }
+# `ureq` + rustls: 22 crate, đồng bộ, thuần Rust. Đã đo so với `reqwest` (86
+# crate, kéo theo cả runtime async). Rustls chứ không phải OpenSSL: hợp với
+# `unsafe_code = deny` và tránh cả một lịch sử lỗi của OpenSSL.
+ureq = { version = "3", default-features = false, features = ["rustls"] }
+
+[lints]
+workspace = true

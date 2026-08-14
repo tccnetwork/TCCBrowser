@@ -1,0 +1,17 @@
+{
+  "mo_ta": "Khớp phạm vi quyền mạng. Khớp sai một ký tự là ứng dụng gọi được máy chủ của kẻ gian.",
+  "truong_hop": [
+    { "ten": "khop chinh xac", "cap": ["shop.tcc-coin.com"], "goi": "shop.tcc-coin.com", "cho_phep": true },
+    { "ten": "ten mien con KHONG khop", "cap": ["tcc-coin.com"], "goi": "shop.tcc-coin.com", "cho_phep": false },
+    { "ten": "ten mien cha KHONG khop", "cap": ["shop.tcc-coin.com"], "goi": "tcc-coin.com", "cho_phep": false },
+    { "ten": "hau to KHONG khop — don gia mao kinh dien",
+      "ghi_chu": "evil-tcc-coin.com kết thúc bằng tcc-coin.com. Khớp hậu tố là lỗ.",
+      "cap": ["tcc-coin.com"], "goi": "evil-tcc-coin.com", "cho_phep": false },
+    { "ten": "tien to KHONG khop", "cap": ["shop.tcc-coin.com"], "goi": "shop.tcc-coin.com.evil.example", "cho_phep": false },
+    { "ten": "khac hoa thuong van khop",
+      "ghi_chu": "Tên miền không phân biệt hoa thường theo DNS.",
+      "cap": ["shop.tcc-coin.com"], "goi": "SHOP.TCC-COIN.COM", "cho_phep": true },
+    { "ten": "nhieu may chu, khop cai thu hai", "cap": ["a.tcc-coin.com","b.tcc-coin.com"], "goi": "b.tcc-coin.com", "cho_phep": true },
+    { "ten": "khong co trong danh sach", "cap": ["a.tcc-coin.com"], "goi": "ke-gian.example", "cho_phep": false }
+  ]
+}

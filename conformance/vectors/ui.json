@@ -1,0 +1,193 @@
+{
+  "mo_ta": "Cây giao diện đến từ gói phải qua ĐÚNG những phép kiểm như cây viết tay trong mã.",
+  "truong_hop": [
+    {
+      "ten": "cay toi thieu",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "Xin chào"
+      }
+    },
+    {
+      "ten": "cay long nhau day du",
+      "dat": true,
+      "cay": {
+        "kind": "group",
+        "flow": "column",
+        "gap": "large",
+        "children": [
+          {
+            "kind": "text",
+            "content": "TCC Store",
+            "emphasis": "title"
+          },
+          {
+            "kind": "field",
+            "label": "Mật khẩu",
+            "secret": true
+          },
+          {
+            "kind": "image",
+            "source": "anh/logo.png",
+            "alt": {
+              "kind": "text",
+              "text": "Biểu trưng"
+            }
+          },
+          {
+            "kind": "button",
+            "label": "Thanh toán",
+            "action": "thanh-toan",
+            "tone": "danger"
+          }
+        ]
+      }
+    },
+    {
+      "ten": "nhan nut co ky tu dao chieu chu",
+      "dat": false,
+      "code": "unsafe-display-string",
+      "cay": {
+        "kind": "button",
+        "label": "Hu‮r",
+        "action": "x"
+      }
+    },
+    {
+      "ten": "anh tro ra mang",
+      "dat": false,
+      "code": "external-image",
+      "cay": {
+        "kind": "image",
+        "source": "https://theo-doi.example/1.png",
+        "alt": {
+          "kind": "decorative"
+        }
+      }
+    },
+    {
+      "ten": "anh di ra ngoai goi",
+      "dat": false,
+      "code": "bad-path",
+      "cay": {
+        "kind": "image",
+        "source": "../bi-mat.png",
+        "alt": {
+          "kind": "decorative"
+        }
+      }
+    },
+    {
+      "ten": "ma hanh dong co khoang trang",
+      "dat": false,
+      "code": "bad-action-id",
+      "cay": {
+        "kind": "button",
+        "label": "A",
+        "action": "cho phep"
+      }
+    },
+    {
+      "ten": "ma hanh dong co chu hoa",
+      "dat": false,
+      "code": "bad-action-id",
+      "cay": {
+        "kind": "button",
+        "label": "A",
+        "action": "ChoPhep"
+      }
+    },
+    {
+      "ten": "nhan nut xuong dong",
+      "dat": false,
+      "code": "unsafe-display-string",
+      "cay": {
+        "kind": "button",
+        "label": "Đồng\ný",
+        "action": "ok"
+      }
+    },
+    {
+      "ten": "doan van duoc xuong dong",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "Dòng một\nDòng hai"
+      }
+    },
+    {
+      "ten": "tieng Viet co dau va emoji",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "Chào bạn — số dư 3 TCC 🎉"
+      }
+    },
+    {
+      "ten": "the kich ban trong chu la CHUOI BINH THUONG, khong phai loi",
+      "ghi_chu": "Tiêu chuẩn KHÔNG cấm chuỗi này — nó không chứa ký tự giả mạo nào. Chặn nằm ở tầng dịch đánh dấu của bộ dựng, không ở đây. Vector này chốt ranh giới đó cho mọi bản triển khai.",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "<script>alert(1)</script>"
+      }
+    },
+    {
+      "ten": "anh thieu mo ta",
+      "dat": false,
+      "code": "json",
+      "cay": {
+        "kind": "image",
+        "source": "a.png"
+      }
+    },
+    {
+      "ten": "truong la",
+      "dat": false,
+      "code": "json",
+      "cay": {
+        "kind": "text",
+        "content": "x",
+        "mau": "do"
+      }
+    },
+    {
+      "ten": "loai nut khong co trong tieu chuan",
+      "dat": false,
+      "code": "json",
+      "cay": {
+        "kind": "video",
+        "source": "a.mp4"
+      }
+    },
+    {
+      "ten": "nhan nut chong 20 dau len mot chu",
+      "dat": false,
+      "code": "unsafe-display-string",
+      "ghi_chu": "Vẽ ra thành vệt dọc trùm lên phần màn hình bên trên. Trong hộp thoại hỏi quyền, phần bên trên là câu cảnh báo danh tính.",
+      "cay": {
+        "kind": "button",
+        "label": "Huỷ́́́́́́́́́́́́́́́́́́́́",
+        "action": "huy"
+      }
+    },
+    {
+      "ten": "tieng Viet dang TACH van phai qua",
+      "ghi_chu": "Bộ gõ macOS thường sinh dạng tách. Cấm quá tay ở đây là giết tiếng Việt.",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "Tiếng Việt có dáu"
+      }
+    },
+    {
+      "ten": "cau dai nhieu dau van phai qua",
+      "dat": true,
+      "cay": {
+        "kind": "text",
+        "content": "Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt Tiếng Việt "
+      }
+    }
+  ]
+}

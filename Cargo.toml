@@ -1,0 +1,67 @@
+[workspace]
+resolver = "3"
+members = [
+  # ---- Nền: không phụ thuộc gì trong workspace ----
+  "crates/tcc-spec",         # kiểu dữ liệu của TIÊU CHUẨN, không logic
+  "crates/tcc-crypto",       # biên giới tin cậy — ít phụ thuộc nhất, kiểm định riêng
+
+  # ---- Tiêu chuẩn ----
+  "crates/tcc-manifest",     # đọc + kiểm bản kê khai ứng dụng
+  "crates/tcc-capability",   # mô hình quyền năng
+
+  # ---- Giao diện ----
+  "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào
+  "crates/tcc-render-webview", # bộ dựng #1: giàn giáo, sẽ tháo
+
+  # ---- Thân ----
+  "crates/tcc-runtime",      # nạp và chạy ứng dụng TCC
+  "crates/tcc-net",          # đường ra ngoài — CHỈ tcc-shell được phụ thuộc
+  "crates/tcc-shell",        # khung trình duyệt: thẻ, thanh địa chỉ
+
+  # ---- Công cụ ----
+  "tools/tcc-cli",           # tcc new / sign / verify
+  "tools/tcc-conformance",   # BỘ KIỂM ĐỊNH TUÂN THỦ — thứ biến đặc tả thành tiêu chuẩn
+
+  # ---- Sản phẩm ----
+  "apps/tcc-browser",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+license = "UNLICENSED"
+authors = ["TCC"]
+
+# Phiên bản dùng chung — đổi một chỗ, cả workspace theo.
+[workspace.dependencies]
+tcc-spec = { path = "crates/tcc-spec" }
+tcc-crypto = { path = "crates/tcc-crypto" }
+tcc-manifest = { path = "crates/tcc-manifest" }
+tcc-capability = { path = "crates/tcc-capability" }
+tcc-ui = { path = "crates/tcc-ui" }
+tcc-render-webview = { path = "crates/tcc-render-webview" }
+tcc-runtime = { path = "crates/tcc-runtime" }
+tcc-net = { path = "crates/tcc-net" }
+tcc-shell = { path = "crates/tcc-shell" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[workspace.lints.rust]
+# `deny` chứ KHÔNG phải `forbid`: forbid không gỡ được ở bất cứ đâu, mà vài crate
+# (bộ dựng WebView) buộc phải gọi FFI. Dùng `deny` để chỗ nào cần thì phải viết
+# `#![allow(unsafe_code)]` kèm lý do — tức là cố ý và thấy được khi duyệt mã.
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Chỗ nào thật sự cần thì gỡ ở crate đó kèm lý do.
+unwrap_used = "warn"
+expect_used = "warn"
+# Tài liệu của dự án là văn xuôi TIẾNG VIỆT xen thuật ngữ tiếng Anh (WebView,
+# WKWebView, ML-DSA…). `doc_markdown` đòi bọc backtick quanh từng từ như vậy,
+# làm câu tiếng Việt vỡ vụn và khó đọc hơn hẳn. Ta ưu tiên chú thích dễ đọc.
+doc_markdown = "allow"
