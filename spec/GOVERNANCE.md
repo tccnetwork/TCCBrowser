@@ -100,6 +100,10 @@ trustworthy.
 
 ## 6. What may be claimed
 
+The standard and its reference implementation are published under **Apache-2.0**,
+which includes a patent grant (§3). That is a deliberate part of making a second
+implementation possible: permission to read is not permission to build.
+
 | Claim | Allowed |
 |---|---|
 | "Passes the TCC 0.1 conformance vectors" | Yes, if it does — the vectors are public and the claim is checkable |

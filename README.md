@@ -37,7 +37,7 @@ implementation **must not** display "verified publisher".
 ```bash
 cargo test --workspace              # 234 tests
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh        # 13 architecture rules — MUST report 0 violations
+tools/kiem-luat-phu-thuoc.sh        # 14 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 104 conformance vectors
 cargo run -p tcc-cli -- verify examples/hello-tcc
 ```
@@ -79,6 +79,21 @@ This is **pre-audit software implementing an unfrozen draft standard.**
 The largest thing missing is not documentation. It is a **second, independent
 implementation** — and a person who has never read this source producing a valid
 package from the specification alone.
+
+## Licence
+
+**Apache-2.0** — code and specification alike. Use it, change it, ship it in a
+closed-source product; you owe nothing back.
+
+Apache rather than MIT for one reason: **section 3 grants a patent licence.** An
+implementer's first question is not "may I read this" but "may I build on it
+without being sued", and MIT is silent on that. For a standard whose subject is
+post-quantum cryptography — a field young enough that nobody has finished mapping
+the patents — silence is not a good answer.
+
+What the licence does **not** do is certify anything. It is permission to use the
+code, not a statement that the code is ready to be trusted; see
+[SECURITY.md](SECURITY.md) §3 and [spec/GOVERNANCE.md](spec/GOVERNANCE.md) §1.
 
 ## Language
 

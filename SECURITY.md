@@ -765,7 +765,7 @@ cargo test --workspace --features tcc-shell/window  # 237 — three more that ne
 cargo run -p tcc-conformance                        # 104 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 13 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 14 architecture rules
 ```
 
 All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in

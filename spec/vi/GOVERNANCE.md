@@ -98,6 +98,10 @@ chứng minh — mà thuật sai là cách rẻ nhất để trông có vẻ đ�
 
 ## 6. Được phép tuyên bố gì
 
+Tiêu chuẩn và bản cài đặt tham chiếu phát hành theo **Apache-2.0**, có kèm điều
+khoản cấp phép sáng chế (§3). Đó là một phần có chủ ý của việc làm cho bản cài
+đặt thứ hai khả thi: được phép đọc không có nghĩa là được phép dựng.
+
 | Tuyên bố | Được không |
 |---|---|
 | "Đạt bộ vector kiểm định TCC 0.1" | Được, nếu đúng thế — vector công khai và tuyên bố này kiểm được |

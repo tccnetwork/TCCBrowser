@@ -1,0 +1,40 @@
+TCC Browser and the TCC Standard
+Copyright 2026 TCC Network
+
+This product includes software developed by TCC Network.
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+these files except in compliance with the License. You may obtain a copy of the
+License in the LICENSE file in this repository, or at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
+--------------------------------------------------------------------------------
+
+The specification in spec/ is licensed under the same terms as the code.
+
+This is deliberate. The point of the specification is that somebody else
+implements it, and an implementer's first question is not "may I read this" but
+"may I build on it without being sued". Apache-2.0 answers that in section 3:
+every contributor grants a patent licence covering their contribution, and that
+grant terminates only for a party who initiates patent litigation over it.
+
+For a standard whose whole subject is post-quantum cryptography — a field young
+enough that nobody has finished mapping the patents — that answer matters more
+than it would elsewhere.
+
+--------------------------------------------------------------------------------
+
+WHAT THIS LICENCE DOES NOT DO
+
+It does not certify anything. No independent security audit of this code has
+taken place. See SECURITY.md section 3 for what has never been examined, and
+spec/GOVERNANCE.md section 1 for who has and has not reviewed the standard.
+
+A permissive licence is permission to use the code. It is not a statement that
+the code is ready to be trusted.

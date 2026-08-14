@@ -15,7 +15,7 @@ jobs:
 
       # Architecture rules run FIRST — if they fail there is no point compiling,
       # because code that runs is still code with the wrong architecture.
-      - name: Architecture rules (13 rules)
+      - name: Architecture rules (14 rules)
         run: tools/kiem-luat-phu-thuoc.sh
 
       - name: Formatting

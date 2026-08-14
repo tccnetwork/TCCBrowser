@@ -140,6 +140,31 @@ else
 fi
 
 echo
+echo "--- Luật 14: kho phải có giấy phép, và mọi crate phải khai đúng nó ---"
+# Kho công khai KHÔNG có tệp giấy phép thì mặc định pháp lý là "giữ mọi quyền":
+# người ngoài đọc được mà không được cài đặt lại. Điều đó mâu thuẫn thẳng với
+# GOVERNANCE §3 — cổng ra của tiêu chuẩn là một người ngoài tự dựng gói.
+#
+# Kiểm cả hai vế, vì mỗi vế hỏng một kiểu: thiếu tệp LICENSE thì GitHub không
+# nhận ra giấy phép nào; còn một crate khai lệch (hoặc quay lại "UNLICENSED")
+# thì gói xuất bản mang điều khoản khác hẳn thứ kho tuyên bố.
+GIAY_PHEP="Apache-2.0"
+loi_gp=""
+[ -f LICENSE ] || loi_gp="$loi_gp thiếu-tệp-LICENSE"
+grep -qF "Version 2.0, January 2004" LICENSE 2>/dev/null || loi_gp="$loi_gp LICENSE-không-phải-Apache-2.0"
+grep -qF "3. Grant of Patent License" LICENSE 2>/dev/null || loi_gp="$loi_gp LICENSE-thiếu-điều-khoản-sáng-chế"
+lech=$(grep -h '^license' Cargo.toml 2>/dev/null | grep -v "\"$GIAY_PHEP\"" || true)
+[ -n "$lech" ] && loi_gp="$loi_gp workspace-khai:$lech"
+for f in crates/*/Cargo.toml tools/*/Cargo.toml apps/*/Cargo.toml; do
+  grep -q 'license' "$f" || loi_gp="$loi_gp $f-không-khai-giấy-phép"
+done
+if [ -n "$loi_gp" ]; then
+  bao "giấy phép:$loi_gp"
+else
+  dat "LICENSE là $GIAY_PHEP (có điều khoản sáng chế), $(ls crates/*/Cargo.toml tools/*/Cargo.toml apps/*/Cargo.toml | wc -l | tr -d ' ') crate đều khai giấy phép"
+fi
+
+echo
 echo "--- Luật 13: định danh CÔNG KHAI không được mang tên tiếng Việt ---"
 # ARCHITECTURE §7 nói định danh viết tiếng Anh, chú thích viết tiếng Việt. Luật
 # đó đã TRÔI suốt nhiều tháng — vì nó là luật duy nhất không có máy canh. Đây là
