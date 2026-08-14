@@ -85,9 +85,19 @@ at which point screen readers read the password aloud, character by character.
 | | |
 |---|---|
 | Maximum nodes | **10,000** |
-| Maximum depth | **64** |
+| Maximum depth | **32** |
 | Maximum string length | **4,096 characters** (characters, NOT bytes) |
 | Maximum file size | **1 MiB** |
+
+> **Why 32 and not something larger.** Each level of the tree costs **two**
+> levels of JSON nesting — an object and an array. A limit of 64 therefore needs
+> 128 levels of JSON, which is exactly where several common parsers stop by
+> default: the parser rejects the document before this rule can run, so
+> `too-deep` becomes unreachable and a tree at the documented limit is refused.
+> Worse for interoperability, an implementation whose parser nests deeper reports
+> `too-deep` while a shallower one reports `bad-json` — one package, two error
+> codes. A limit belonging to the standard must not depend on the recursion limit
+> of whichever JSON library an implementer happened to pick.
 
 Limits **MUST** be enforced **while building**, not after. A hostile app needs only
 a loop to produce an enormous tree, and by then it is already in memory.

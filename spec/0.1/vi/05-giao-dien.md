@@ -83,9 +83,18 @@ mật" tụt xuống "ô thường" — trình đọc màn hình khi đó đọc
 | | |
 |---|---|
 | Số nút tối đa | **10 000** |
-| Độ sâu tối đa | **64** |
+| Độ sâu tối đa | **32** |
 | Độ dài một chuỗi | **4 096 ký tự** (đếm ký tự, KHÔNG đếm byte) |
 | Kích thước tệp | **1 MiB** |
+
+> **Vì sao 32 chứ không lớn hơn.** Mỗi tầng của cây tốn **hai** tầng lồng JSON —
+> một đối tượng và một mảng. Trần 64 vì thế cần 128 tầng JSON, đúng chỗ nhiều bộ
+> đọc JSON phổ biến dừng lại theo mặc định: bộ đọc từ chối tài liệu TRƯỚC khi
+> luật này kịp chạy, nên `too-deep` thành mã chết và một cây ở đúng trần đã ghi
+> lại bị từ chối. Tệ hơn cho tính liên thông: bản cài đặt có bộ đọc lồng sâu hơn
+> trả `too-deep`, bản nông hơn trả `bad-json` — cùng một gói, hai mã lỗi. Trần
+> của TIÊU CHUẨN không được phụ thuộc vào giới hạn đệ quy của thư viện JSON mà
+> người cài đặt tình cờ chọn.
 
 Trần **PHẢI** kiểm **trong lúc dựng**, không phải sau khi dựng xong: một ứng dụng
 thù địch chỉ cần một vòng lặp là dựng ra cây khổng lồ, và lúc đó nó đã nằm trong

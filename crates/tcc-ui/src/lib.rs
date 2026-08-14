@@ -61,7 +61,23 @@ use thiserror::Error;
 /// 64 tầng đủ cho mọi giao diện thật (giao diện người ta viết tay hiếm khi quá
 /// 15 tầng). Trần này để chặn cây do máy sinh ra nhằm làm tràn ngăn xếp khi bộ
 /// dựng duyệt cây bằng đệ quy.
-pub const MAX_DEPTH: usize = 64;
+///
+/// # Vì sao 32 chứ không phải 64
+///
+/// Trần cũ là 64, và nó **không bao giờ chạm tới được**. Mỗi tầng của cây tốn
+/// HAI tầng lồng của JSON (một đối tượng + một mảng), mà `serde_json` mặc định
+/// dừng ở 128. Nên cây 64 tầng bị bộ đọc JSON từ chối bằng `bad-json` trước khi
+/// phép kiểm này kịp chạy — tức là mã `too-deep` là mã chết, và một cây HỢP LỆ
+/// ở đúng trần lại bị từ chối.
+///
+/// Tệ hơn ở tầng tiêu chuẩn: bản cài đặt nào dùng bộ đọc JSON cho lồng sâu hơn
+/// sẽ trả `too-deep`, bản dùng bộ đọc nông hơn trả `bad-json`. Cùng một gói,
+/// hai mã lỗi. Trần của TIÊU CHUẨN không được phụ thuộc vào giới hạn đệ quy của
+/// thư viện JSON mà bên cài đặt tình cờ chọn.
+///
+/// 32 tầng tốn 64 tầng JSON — nằm thoải mái dưới mọi giới hạn mặc định thường
+/// gặp, nên mọi bản cài đặt đều chạm trần của TIÊU CHUẨN trước.
+pub const MAX_DEPTH: usize = 32;
 
 /// Tổng số nút tối đa trong một cây.
 pub const MAX_NODES: usize = 10_000;

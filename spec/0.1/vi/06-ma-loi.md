@@ -38,7 +38,6 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 | `unsafe-display-string` | Chuỗi hiện ra người dùng chứa ký tự cấm, hoặc quá nhiều dấu chồng |
 | `not-hex` | Trường phải là hex mà không phải |
 | `bad-hex-length` | Chuỗi hex sai độ dài |
-| `publisher-not-hex` | `publisher` không phải hex |
 | `scheme-mismatch` | `scheme` không phải bộ ký đang dùng |
 | `content-hash-mismatch` | Băm nội dung không khớp bản kê khai |
 | `bad-entry` | `entry` là đường dẫn không hợp lệ |
@@ -66,11 +65,11 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 
 | Mã | Khi nào |
 |---|---|
+| `ui-too-large` | Tệp giao diện vượt 1 MiB |
 | `external-image` | `source` của ảnh trỏ ra mạng |
 | `text-too-long` | Chuỗi vượt 4 096 ký tự |
-| `too-deep` | Cây vượt 64 tầng |
+| `too-deep` | Cây vượt 32 tầng |
 | `too-many-nodes` | Cây vượt 10 000 nút |
-| `not-a-container` | Nút lá nhận nút con |
 
 ### Mật mã
 
@@ -78,7 +77,6 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 |---|---|
 | `bad-signature` | Một trong hai nửa chữ ký không hợp lệ |
 | `bad-length` | Khoá hoặc chữ ký sai độ dài |
-| `bad-key` | Khoá không dùng được |
 
 ## Điều mã lỗi KHÔNG nói
 
@@ -86,3 +84,20 @@ Mã cho biết **vì sao từ chối**, không cho biết **nửa nào của ch�
 không cho biết **tệp nào có trong gói**. Bản cài đặt **KHÔNG NÊN** trả thông tin
 chi tiết hơn mức cần cho người viết ứng dụng sửa lỗi — với một gói đang bị dò,
 mỗi chi tiết là một manh mối.
+
+## Ba mã bị BỎ vì không chạm tới được
+
+Từng nằm trong danh sách, và không gói nào sinh ra được chúng:
+
+| Mã bị bỏ | Vì sao không bao giờ nổ |
+|---|---|
+| `not-a-container` | Loại nút lá không có trường `children`, nên bộ đọc từ chối `{"kind":"text","children":[…]}` như một trường lạ — `bad-json` — trước khi luật cây kịp chạy |
+| `publisher-not-hex` | Phép kiểm hình dạng đã từ chối `publisher` không phải hex bằng `not-hex`, và nó chạy trước |
+| `bad-key` | Thư viện Ed25519 thường kiểm điểm LƯỜI, tới lúc verify mới kiểm, nên khoá không giải nén được lại hiện ra thành `bad-signature` |
+
+Tìm ra bằng cách viết vector kiểm định cho từng mã rồi thấy vector bất đồng với
+bản cài đặt. Mã không chạm tới được không vô hại: hai bản cài đặt sẽ báo hai mã
+khác nhau cho cùng một gói — đúng thứ mà mã ổn định sinh ra để ngăn.
+
+Mã thứ tư, `too-deep`, không chạm tới được vì cùng một lớp lý do và đã được SỬA
+chứ không bỏ — trần độ sâu nay là 32, xem [05](05-giao-dien.md).

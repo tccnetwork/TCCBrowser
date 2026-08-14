@@ -807,6 +807,56 @@
      }
     ]
    }
+  },
+  {
+   "case": "content hash is not hex",
+   "expect_pass": false,
+   "code": "not-hex",
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    "entry": "ui.json",
+    "capabilities": []
+   }
+  },
+  {
+   "case": "content hash of the wrong length",
+   "expect_pass": false,
+   "code": "bad-hex-length",
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "abababababababababababababababababababababababababababababababababababababababab",
+    "entry": "ui.json",
+    "capabilities": []
+   },
+   "notes": "80 hex characters, not 96. A hash of the wrong length is a different algorithm, not a typo."
+  },
+  {
+   "case": "entry field is empty",
+   "expect_pass": false,
+   "code": "bad-entry",
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "PUB",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "HASH",
+    "entry": "",
+    "capabilities": []
+   },
+   "notes": "`missing-entry` is a different code: it means `entry` names a file that is not in the package, which can only be checked once the content is available. An empty string is a malformed field, caught during shape checking."
   }
  ]
 }

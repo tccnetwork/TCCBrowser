@@ -191,6 +191,26 @@ pub enum DecodeError {
     Tree(String),
 }
 
+impl DecodeError {
+    /// Mã ổn định của tiêu chuẩn.
+    ///
+    /// Thiếu hàm này thì tầng giải mã cây giao diện KHÔNG có mã nào để người
+    /// ngoài khớp — và bộ kiểm định đã phải tự bịa ra chuỗi `"json"`, một mã
+    /// không có trong `06-ma-loi.md`. Bịa mã ở bộ kiểm định là làm hỏng đúng
+    /// thứ bộ kiểm định sinh ra để bảo vệ.
+    ///
+    /// `Tree` mang mã của NGUYÊN NHÂN GỐC nên phải để bên gọi lấy từ lỗi bên
+    /// dưới; ở đây nó chỉ trả về `spec` như một mã bao ngoài.
+    #[must_use]
+    pub const fn ma(&self) -> &'static str {
+        match self {
+            Self::TooLarge(_) => "ui-too-large",
+            Self::Json(_) => "bad-json",
+            Self::Tree(_) => "spec",
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,

@@ -2498,6 +2498,7 @@ dependencies = [
  "serde_json",
  "tcc-capability",
  "tcc-crypto",
+ "tcc-manifest",
  "tcc-spec",
  "tcc-ui",
 ]

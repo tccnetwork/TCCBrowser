@@ -1,0 +1,123 @@
+{
+ "description": "Package-layer rules from 01-package.md: path constraints and case collisions. `duplicate-path` cannot be expressed here — a JSON object cannot hold the same key twice — so a conforming implementation must reject it on its own input path. See FORMAT.md.",
+ "cases": [
+  {
+   "case": "valid nested path",
+   "expect_pass": true,
+   "files": {
+    "a/b/c.txt": "x"
+   }
+  },
+  {
+   "case": "empty path",
+   "expect_pass": false,
+   "code": "empty-path",
+   "files": {
+    "": "x"
+   }
+  },
+  {
+   "case": "parent escape",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "../secret": "x"
+   },
+   "notes": "`..` walks out of the package. The signature covers what is inside; what gets read would be outside."
+  },
+  {
+   "case": "absolute path",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "/etc/passwd": "x"
+   }
+  },
+  {
+   "case": "backslash separator",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "a\\b.txt": "x"
+   },
+   "notes": "Linux sees one file with a backslash in its name; Windows sees two path components. One signature, two file trees."
+  },
+  {
+   "case": "colon in path",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "C:file.txt": "x"
+   },
+   "notes": "Windows reads this as a drive letter or an alternate data stream."
+  },
+  {
+   "case": "double slash",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "a//b.txt": "x"
+   },
+   "notes": "Two spellings of one file."
+  },
+  {
+   "case": "trailing slash",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "a/b/": "x"
+   },
+   "notes": "That is a directory, not a file."
+  },
+  {
+   "case": "single dot",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    ".": "x"
+   }
+  },
+  {
+   "case": "control character in path",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "a\tb.txt": "x"
+   }
+  },
+  {
+   "case": "path over 1024 characters",
+   "expect_pass": false,
+   "code": "bad-path",
+   "files": {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "x"
+   }
+  },
+  {
+   "case": "case collision",
+   "expect_pass": false,
+   "code": "case-collision",
+   "files": {
+    "Logo.png": "a",
+    "logo.png": "b"
+   },
+   "notes": "macOS and Windows treat these as ONE file, so the same signature unpacks differently depending on the operating system."
+  },
+  {
+   "case": "Vietnamese path is valid",
+   "expect_pass": true,
+   "files": {
+    "tài-liệu/chào.txt": "Chào bạn"
+   },
+   "notes": "Non-ASCII paths are permitted; only the listed constraints apply."
+  },
+  {
+   "case": "path at exactly 1024 characters",
+   "expect_pass": true,
+   "files": {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": "x"
+   },
+   "notes": "The limit is inclusive. An off-by-one here rejects a legal package."
+  }
+ ]
+}

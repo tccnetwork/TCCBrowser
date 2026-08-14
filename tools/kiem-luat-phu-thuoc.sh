@@ -140,6 +140,43 @@ else
 fi
 
 echo
+echo "--- Luật 16: mọi mã lỗi trong đặc tả phải có VECTOR ---"
+# Luật 10 kiểm mã có TỒN TẠI trong mã nguồn. Nó không kiểm được mã đó có bao giờ
+# NỔ hay không — và bốn mã trong danh sách hoá ra không chạm tới được: bộ đọc
+# JSON, phép kiểm hình dạng, hoặc thư viện mật mã chặn trước. Mã không chạm tới
+# được là chỗ hai bản cài đặt báo hai mã khác nhau cho cùng một gói.
+#
+# Viết một vector cho từng mã là cách DUY NHẤT phát hiện ra điều đó.
+MIEN="duplicate-path"   # không diễn đạt được bằng JSON: một đối tượng không thể có hai khoá trùng
+thieu=$(python3 - <<'PY2'
+import json, pathlib, re
+van = open("spec/0.1/06-error-codes.md").read()
+# Bảng "ba mã đã bỏ" cũng là bảng, nên phải cắt trước khi quét — nếu không thì
+# luật này đòi vector cho đúng những mã vừa bị bỏ vì không chạm tới được.
+van = van.split("## Three codes were removed")[0]
+doc = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|", van, re.M))
+vec = set()
+for p in pathlib.Path("conformance/vectors").glob("*.json"):
+    def quet(o):
+        if isinstance(o, dict):
+            if isinstance(o.get("code"), str):
+                vec.add(o["code"])
+            for v in o.values():
+                quet(v)
+        elif isinstance(o, list):
+            for v in o:
+                quet(v)
+    quet(json.load(open(p)))
+print(" ".join(sorted(doc - vec - {"duplicate-path"})))
+PY2
+)
+if [ -n "$thieu" ]; then
+  bao "mã lỗi trong đặc tả mà KHÔNG vector nào chạm tới:$thieu"
+else
+  dat "mọi mã lỗi trong đặc tả đều có vector (miễn trừ có ghi lý do: $MIEN)"
+fi
+
+echo
 echo "--- Luật 15: vector kiểm định phải ĐỌC ĐƯỢC bởi người ngoài ---"
 # Bộ vector là thứ DUY NHẤT phân xử được một tuyên bố tuân thủ, và người đọc nó
 # là người viết bản cài đặt thứ hai — người không đọc tiếng Việt. Khoá của khung
@@ -256,7 +293,7 @@ echo "--- Luật 10: mã lỗi trong đặc tả phải TỒN TẠI trong mã --
 # sẽ cài đặt theo nó rồi không bao giờ khớp bộ kiểm định.
 if [ -f spec/0.1/06-error-codes.md ]; then
   ma_doc=$(grep -oE '^\| `[a-z][a-z0-9-]+` \|' spec/0.1/06-error-codes.md | tr -d '|` ')
-  ma_code=$(grep -rhoE '"[a-z][a-z0-9-]+"' crates/*/src/lib.rs crates/*/src/tree.rs 2>/dev/null | tr -d '"' | sort -u)
+  ma_code=$(grep -rhoE '"[a-z][a-z0-9-]+"' crates/*/src/*.rs 2>/dev/null | tr -d '"' | sort -u)
   thieu=""
   for m in $ma_doc; do
     printf '%s\n' "$ma_code" | grep -qx "$m" || thieu="$thieu $m"
@@ -290,13 +327,13 @@ echo "--- Luật 7: mọi nhóm vector phải có mặt và chạy được ---"
 # vector nghĩa là có phần của đặc tả không ai kiểm được — mà không kiểm được thì
 # nó là lời hứa, không phải tiêu chuẩn.
 thieu=""
-for v in canonical signature acvp-mldsa65 manifest ui capability; do
+for v in canonical signature acvp-mldsa65 manifest ui capability package verify; do
   [ -f "conformance/vectors/$v.json" ] || thieu="$thieu $v"
 done
 if [ -n "$thieu" ]; then
   bao "thiếu nhóm vector:$thieu"
 else
-  dat "đủ sáu nhóm vector"
+  dat "đủ tám nhóm vector"
 fi
 
 echo

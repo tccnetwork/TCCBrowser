@@ -35,7 +35,7 @@ cargo run -p tcc-conformance -- --chi-tiet   # case by case
 
 A non-zero exit status means something failed.
 
-## Six vector groups — 104 cases
+## Eight vector groups — 135 cases
 
 | File | What it checks | Why it matters |
 |---|---|---|
@@ -45,6 +45,8 @@ A non-zero exit status means something failed.
 | `manifest.json` | Accepting and rejecting manifests | The largest attack surface — everything downstream trusts the verdict reached here |
 | `ui.json` | Accepting and rejecting interface trees | The tree arrives from the package and must clear the same checks as a hand-written one |
 | `capability.json` | Capability scope matching | A one-character mismatch is the app reaching an attacker's server |
+| `package.json` | Path rules and case collisions | The package layer had no rejecting case at all until this group existed |
+| `verify.json` | End-to-end verification, **and the order the checks run in** | The order is a security property: size cap before parsing, scheme before cryptography, signature before believing anything |
 
 ## An independent cross-check
 

@@ -29,7 +29,7 @@ implementation **must not** display "verified publisher".
 | [spec/](spec/) | **The standard.** English is normative; a Vietnamese translation lives in `spec/0.1/vi/` |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Three layers, the dependency tree, the hard rules, the escape route from WebView |
 | [SECURITY.md](SECURITY.md) | Threat model, what is proven and what is merely assumed |
-| [conformance/](conformance/) | 104 vectors — what turns a specification into a standard |
+| [conformance/](conformance/) | 135 vectors — what turns a specification into a standard |
 | [examples/hello-tcc/](examples/) | A signed package, committed, verifiable in one command |
 
 ## Run it
@@ -37,8 +37,8 @@ implementation **must not** display "verified publisher".
 ```bash
 cargo test --workspace              # 234 tests
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh        # 15 architecture rules — MUST report 0 violations
-cargo run -p tcc-conformance        # 104 conformance vectors
+tools/kiem-luat-phu-thuoc.sh        # 16 architecture rules — MUST report 0 violations
+cargo run -p tcc-conformance        # 135 conformance vectors
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release      # fuzz the parsers — unauthenticated input
 ```

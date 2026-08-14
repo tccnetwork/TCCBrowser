@@ -386,6 +386,22 @@ fn chay_manifest(chi_tiet: bool) -> Ket {
 
 // ───────────────────────────── Cây giao diện ────────────────────────────────
 
+/// Dựng cây từ mô tả `generate`, cho những ca quá lớn để viết thẳng ra.
+///
+/// Viết thẳng cây 10001 nút là một tệp vector 300 KB không ai đọc. Mô tả cách
+/// dựng thì bên cài đặt nào cũng làm lại được trong ba dòng — xem FORMAT.md.
+fn dung_tu_mo_ta(g: &Value) -> Option<Value> {
+    if g["shape"].as_str() == Some("big_text") {
+        let n = usize::try_from(g["bytes"].as_u64()?).ok()?;
+        return Some(serde_json::json!({"kind": "text", "content": "a".repeat(n)}));
+    }
+    let so = g["children"].as_u64()?;
+    let con: Vec<Value> = (0..so)
+        .map(|_| serde_json::json!({"kind": "text", "content": "x"}))
+        .collect();
+    Some(serde_json::json!({"kind": "group", "children": con}))
+}
+
 fn chay_ui(chi_tiet: bool) -> Ket {
     let v = doc_vector("ui.json");
     let mut k = Ket::moi();
@@ -396,7 +412,17 @@ fn chay_ui(chi_tiet: bool) -> Ket {
             .as_bool()
             .expect("thiếu trường `expect_pass`");
         let cho_ma = t["code"].as_str();
-        let byte = serde_json::to_vec(&t["tree"]).expect("cây không tuần tự hoá được");
+        let cay = if t["generate"].is_object() {
+            if let Some(c) = dung_tu_mo_ta(&t["generate"]) {
+                c
+            } else {
+                k.ghi(ten, false, "mô tả `generate` không đọc được", chi_tiet);
+                continue;
+            }
+        } else {
+            t["tree"].clone()
+        };
+        let byte = serde_json::to_vec(&cay).expect("cây không tuần tự hoá được");
 
         match (cho_dat, tcc_ui::wire::decode(&byte)) {
             (true, Ok(_)) => k.ghi(ten, true, "", chi_tiet),
@@ -408,18 +434,18 @@ fn chay_ui(chi_tiet: bool) -> Ket {
             ),
             (false, Ok(_)) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
             (false, Err(e)) => {
-                // Lỗi giải mã JSON không có mã của tiêu chuẩn — vector ghi "json".
+                // `Json` và `TooLarge` ĐÃ có mã chuẩn. Chỉ `Tree` là gói thông báo
+                // chứ không gói mã, nên riêng nó mới phải dựng lại cây để lấy mã
+                // của nguyên nhân gốc.
+                //
+                // Bản đầu tôi viết nhánh này chạy cho MỌI lỗi khác `bad-json`, và
+                // nó ghi đè mất mã đúng: ca "tệp giao diện quá 1 MiB" báo
+                // `text-too-long` vì cây được dựng lại mà bỏ qua trần kích thước.
                 let ma = match &e {
-                    tcc_ui::wire::DecodeError::Json(_) => "json".to_owned(),
-                    tcc_ui::wire::DecodeError::TooLarge(_) => "ui-too-large".to_owned(),
-                    tcc_ui::wire::DecodeError::Tree(s) => s.clone(),
-                };
-                // `DecodeError::Tree` gói thông báo chứ không gói mã, nên so bằng cách
-                // dựng lại cây và lấy mã trực tiếp.
-                let ma = if ma.starts_with("cây giao diện") || cho_ma != Some("json") {
-                    ma_cay(&byte).unwrap_or(ma)
-                } else {
-                    ma
+                    tcc_ui::wire::DecodeError::Tree(s) => {
+                        ma_cay(&byte).unwrap_or_else(|| s.clone())
+                    }
+                    khac => khac.ma().to_owned(),
                 };
                 let khop = cho_ma.is_none_or(|c| ma == c);
                 k.ghi(
@@ -444,6 +470,154 @@ fn ma_cay(byte: &[u8]) -> Option<String> {
 }
 
 // ───────────────────────────── Quyền năng ───────────────────────────────────
+
+// ─────────────────────────── Tầng gói: đường dẫn ────────────────────────────
+
+/// Luật đường dẫn của `01-package.md`.
+///
+/// Nhóm này ra đời sau khi rà đặc tả và thấy **16 trong 32 mã lỗi không có
+/// vector nào** — nghĩa là một nửa tiêu chuẩn không ai ngoài dự án kiểm chứng
+/// được. Tầng gói không có lấy một ca từ chối.
+fn chay_package(chi_tiet: bool) -> Ket {
+    let v = doc_vector("package.json");
+    let mut k = Ket::moi();
+
+    for t in cac_truong_hop(&v) {
+        let ten = ten_cua(t);
+        let cho_dat = t["expect_pass"]
+            .as_bool()
+            .expect("thiếu trường `expect_pass`");
+        let cho_ma = t["code"].as_str();
+
+        let mut cay = FileTree::new();
+        let mut loi: Option<String> = None;
+        if let Some(tep) = t["files"].as_object() {
+            for (duong, noi) in tep {
+                if let Err(e) = cay.insert(duong, noi.as_str().unwrap_or_default().into()) {
+                    loi = Some(e.ma().to_owned());
+                    break;
+                }
+            }
+        }
+
+        match (cho_dat, loi) {
+            (true, None) => k.ghi(ten, true, "", chi_tiet),
+            (true, Some(e)) => k.ghi(
+                ten,
+                false,
+                &format!("phải ĐẠT nhưng bị từ chối: {e}"),
+                chi_tiet,
+            ),
+            (false, None) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
+            (false, Some(ma)) => {
+                let khop = cho_ma.is_none_or(|c| ma == c);
+                k.ghi(
+                    ten,
+                    khop,
+                    &format!("từ chối đúng nhưng SAI MÃ: chờ {cho_ma:?}, thật \"{ma}\""),
+                    chi_tiet,
+                );
+            }
+        }
+    }
+    k
+}
+
+// ─────────────────────────── Quyền năng ────────────────────────────
+
+// ──────────────── Kiểm gói đầu-cuối: THỨ TỰ là tính chất bảo mật ────────────────
+
+/// Nhóm này ký gói NGAY LÚC CHẠY rồi mới kiểm.
+///
+/// Dùng một gói đã ký sẵn thì chỉ kiểm được một mẫu cố định; ký tại chỗ mới kiểm
+/// được cả ĐƯỜNG ỐNG, kể cả thứ tự các bước — thứ mà `01-package.md` gọi là một
+/// tính chất bảo mật chứ không phải chi tiết cài đặt.
+fn chay_verify(chi_tiet: bool) -> Ket {
+    let v = doc_vector("verify.json");
+    let mut k = Ket::moi();
+    let bo_ky = HybridEd25519MlDsa;
+    let bi_mat = doc_hex(&v["signer_secret_hex"]);
+    let cong_khai = match HybridEd25519MlDsa::public_from_secret(&bi_mat) {
+        Ok(c) => hex::encode(c),
+        Err(e) => {
+            k.ghi("khoá ký của vector", false, &format!("{e}"), chi_tiet);
+            return k;
+        }
+    };
+
+    for t in cac_truong_hop(&v) {
+        let ten = ten_cua(t);
+        let cho_dat = t["expect_pass"]
+            .as_bool()
+            .expect("thiếu trường `expect_pass`");
+        let cho_ma = t["code"].as_str();
+
+        // Cây tệp
+        let mut cay = FileTree::new();
+        if let Some(tep) = t["files"].as_object() {
+            for (d, n) in tep {
+                let _ = cay.insert(d, n.as_str().unwrap_or_default().into());
+            }
+        }
+
+        // Bản kê khai: thay chỗ giữ chỗ bằng giá trị thật
+        let mut ke = t["manifest"].clone();
+        if ke["publisher"] == "SIGNER" {
+            ke["publisher"] = Value::String(cong_khai.clone());
+        }
+        if ke["content_hash"] == "COMPUTED" {
+            ke["content_hash"] = Value::String(content_hash_hex(&cay.canonical_bytes()));
+        }
+        if let Some(n) = t["pad_manifest_to"].as_u64() {
+            let dai = usize::try_from(n).unwrap_or(0);
+            ke["name"] = Value::String("A".repeat(dai));
+        }
+        let byte_ke = serde_json::to_vec(&ke).expect("bản kê khai không tuần tự hoá được");
+
+        let chu_ky = if t["sign"].as_bool() == Some(true) {
+            match bo_ky.sign(&bi_mat, &byte_ke) {
+                Ok(c) => c,
+                Err(e) => {
+                    k.ghi(ten, false, &format!("ký hỏng: {e}"), chi_tiet);
+                    continue;
+                }
+            }
+        } else {
+            vec![0u8; 3373]
+        };
+
+        // Sửa nội dung SAU khi ký: đây là điều duy nhất `content_hash` tồn tại để bắt.
+        if t["tamper_content_after_signing"].as_bool() == Some(true) {
+            let _ = cay.insert("them.txt", b"sua sau khi ky".to_vec());
+        }
+
+        // Kiểm chữ ký, RỒI mới đối chiếu bản kê khai với nội dung. Hai bước tách
+        // rời vì bước sau chỉ có nghĩa khi bước trước đã qua — bản kê khai chưa
+        // được kiểm chữ ký thì nói gì cũng chưa đáng tin.
+        let ket = tcc_manifest::verify_package(&byte_ke, &chu_ky, &cay, &bo_ky).and_then(|app| {
+            app.manifest()
+                .validate_against_content(&cay)
+                .map_err(tcc_manifest::ManifestError::from)?;
+            Ok(app)
+        });
+        match (cho_dat, ket) {
+            (true, Ok(_)) => k.ghi(ten, true, "", chi_tiet),
+            (true, Err(e)) => k.ghi(ten, false, &format!("phải ĐẠT nhưng hỏng: {e}"), chi_tiet),
+            (false, Ok(_)) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
+            (false, Err(e)) => {
+                let ma = e.ma();
+                let khop = cho_ma.is_none_or(|c| ma == c);
+                k.ghi(
+                    ten,
+                    khop,
+                    &format!("từ chối đúng nhưng SAI MÃ: chờ {cho_ma:?}, thật \"{ma}\""),
+                    chi_tiet,
+                );
+            }
+        }
+    }
+    k
+}
 
 fn chay_capability(chi_tiet: bool) -> Ket {
     let v = doc_vector("capability.json");
@@ -508,6 +682,8 @@ fn main() -> ExitCode {
         ("Bản kê khai", chay_manifest(chi_tiet)),
         ("Cây giao diện", chay_ui(chi_tiet)),
         ("Quyền năng", chay_capability(chi_tiet)),
+        ("Tầng gói: đường dẫn", chay_package(chi_tiet)),
+        ("Kiểm gói đầu-cuối", chay_verify(chi_tiet)),
     ];
 
     let mut tong_dat = 0;
