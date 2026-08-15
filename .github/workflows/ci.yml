@@ -142,11 +142,9 @@ jobs:
   # macOS, so the claim was untested, and an auditor on Linux would have been
   # the one to find out.
   #
-  # Build only, not run: the adversarial examples need a display. Running them
-  # under xvfb is the next step once this is known to compile.
+  # It compiles, so this is a real check now, not a trial.
   linux-render:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -156,3 +154,23 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
       - run: cargo check -p tcc-render-webview --features window --all-targets
       - run: cargo check -p tcc-shell --features window --all-targets
+
+      # The adversarial examples on a SECOND platform. They are the checks that
+      # drive a real WebKit view and ask it what it sees, so running them on one
+      # operating system only proves the defence on that one operating system.
+      #
+      # continue-on-error while it is being established: WebKitGTK under a
+      # virtual display is a different beast from WKWebView, and a red mark here
+      # should not read as "the escaping defence is broken" until this is known
+      # to work at all.
+      - name: Virtual display
+        run: sudo apt-get install -y xvfb
+      - name: App text cannot escape the document (Linux)
+        continue-on-error: true
+        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
+      - name: Content policy blocks script, layer 3 alone (Linux)
+        continue-on-error: true
+        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
+      - name: App screen through real WebKitGTK (Linux)
+        continue-on-error: true
+        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
