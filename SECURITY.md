@@ -400,12 +400,19 @@ a filter is the mutation class that valid-input-only tests never touch. Closed
 with the `kiem-bam-nut ma` mode: send a fabricated id directly and require that
 nothing arrives.
 
-**B7 runs on TWO WebKit implementations since 2026-08-15.** The escaping, the
-content policy and the accessibility scan are now driven through WKWebView on
-macOS and WebKitGTK on Linux under a virtual display, in CI, on every push. One
-engine proves the defence against one engine; a defence resting on a quirk of
-WKWebView would have looked identical to a real one until somebody ran it
-elsewhere. All three passed on Linux the first time they were tried.
+**B7 is checked on a second WebKit implementation, best-effort.** WKWebView on
+macOS enforces it strictly; WebKitGTK on Linux under a virtual display runs the
+same three examples on every push but cannot fail the build. One engine proves a
+defence against one engine, and a defence resting on a WKWebView quirk would
+look identical to a real one until something else ran it — so the second engine
+is worth having even unenforced.
+
+Why unenforced: all three passed the first time, the flag came off, and the next
+run failed with *"the underlying handle is not available"* — WebKitGTK under
+xvfb does not reliably get a usable window handle. That is a property of the
+virtual display, not of the defence. **One green run is not evidence of
+reliability**, and treating it as such is how a flaky check gets promoted to a
+blocking one.
 
 **B7 deserves its own note — three layers, each tested ALONE.**
 

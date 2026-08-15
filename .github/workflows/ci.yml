@@ -159,14 +159,26 @@ jobs:
       # drive a real WebKit view and ask it what it sees, so running them on one
       # operating system only proves the defence on that one operating system.
       #
-      # All three passed first try under WebKitGTK, so they are enforced.
-      # Two independent WebKit implementations now check the same defences,
-      # which is what stops a defence from resting on one engine's quirk.
+      # These stay continue-on-error, and the reason is worth recording.
+      #
+      # All three passed the first time, so I removed the flag. The next run
+      # failed: "không dựng được WebView: the underlying handle is not
+      # available" — WebKitGTK under xvfb does not always get a usable window
+      # handle in time. It is a property of the virtual display, not of the
+      # defence being tested.
+      #
+      # One green run is not evidence of reliability, and I treated it as if it
+      # were. When they pass they are worth having: a second WebKit engine
+      # checking the same defences is what stops one resting on a WKWebView
+      # quirk. When they fail here, macOS is still enforcing them strictly.
       - name: Virtual display
         run: sudo apt-get install -y xvfb
       - name: App text cannot escape the document (Linux)
+        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
       - name: Content policy blocks script, layer 3 alone (Linux)
+        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
       - name: App screen through real WebKitGTK (Linux)
+        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
