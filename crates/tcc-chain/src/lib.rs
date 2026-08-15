@@ -23,6 +23,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod wallet;
+
 use core::fmt;
 
 /// Địa chỉ: 32 byte, hiện ra dạng `0x` + 64 hex.

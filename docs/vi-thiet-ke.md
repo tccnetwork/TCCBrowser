@@ -296,3 +296,85 @@ là giao diện mất khả năng nói điều đúng.
 
 Nhập ví cũ từ `tcc_wallets_v4` hay chỉ tạo ví mới — xem §8. Bản thân kho khoá
 không phụ thuộc câu trả lời ấy, nên nó làm xong trước.
+
+
+## 11. Sinh khoá ví — ĐÃ CHỐT: giống ví web từng byte (15/08/2026)
+
+Câu hỏi §8.3 (*"nhập ví cũ hay tạo ví mới?"*) hoá ra đặt sai. Ví cũ và ví mới
+**không phải hai loại ví**:
+
+| | Ví web `tcc_wallets_v4` | Ví trong trình duyệt |
+|---|---|---|
+| Thuật toán | ML-DSA-65 | y hệt |
+| Địa chỉ | `BLAKE3(pubkey)` | y hệt |
+| Chuỗi | 91338 | y hệt |
+| **Cất khoá** | `localStorage`, PIN → PBKDF2 100k → AES-GCM | **Keychain, `USER_PRESENCE`** |
+
+Chỉ dòng cuối khác. Nên nguyên tắc là: **giống nhau ở chỗ sinh khoá, khác nhau ở
+chỗ cất khoá.**
+
+### Giống ở đâu
+
+`crates/tcc-chain/src/wallet.rs` bám đúng chuỗi dẫn xuất của chuỗi TCC:
+
+```text
+chuỗi hạt giống (ASCII) → BLAKE3 derive_key("tcc_chain_2026_seed_v1", …)
+                        → 32 byte → ML-DSA-65 KeyGen → pubkey 1952 byte
+                        → BLAKE3(pubkey) = địa chỉ
+```
+
+**Neo bằng chương trình của đội chuỗi, không phải bằng mã của mình.**
+`tcc-keygen address --seed hello` in ra `0x6c1be53f…`; phép thử
+`dia_chi_khop_chuong_trinh_cua_doi_chuoi` đòi đúng con số ấy. Đây là bài học
+§7.3: phép thử tự so mã của mình với chính nó thì không chứng minh được gì.
+
+Đột biến để kiểm phép kiểm — đổi bối cảnh KDF một ký tự, và đổi
+`BLAKE3(pubkey)` thành "32 byte đầu của pubkey". Cả hai đều đỏ, và cái thứ hai
+**chỉ mỗi phép thử neo bắt được** — tám phép thử còn lại vẫn xanh. Neo ngoài là
+thứ chịu lực ở đây.
+
+### Khác ở đâu, và vì sao không chép sang
+
+Ví web dùng PIN, sàn `MIN_PIN_LENGTH = 6`. PIN sáu chữ số là **một triệu** khả
+năng; PBKDF2-SHA256 100k vòng ≈ 2×10⁵ phép nén mỗi lần đoán, một card đồ hoạ đời
+mới chạy cỡ 10¹⁰ phép nén mỗi giây → **dò cạn trong khoảng vài chục giây**. Con
+số ấy là tính, chưa đo — nhưng sai một bậc thì vẫn là *vài phút*.
+
+Số vòng không cứu được: bí mật chỉ có một triệu khả năng thì làm chậm bao nhiêu
+cũng vẫn đếm hết. Và **đó không phải lỗi của ví web** — trang web không có lựa
+chọn nào khác. Trình duyệt thì có, và nếu chép cách cất khoá ấy sang thì trình
+duyệt chỉ là **thêm một bản sao của cùng điểm yếu, nằm trên đĩa**.
+
+### Hai đường dẫn xuất, và cái bẫy đã làm chuỗi đứng im
+
+Cùng 32 byte có hai đường vào: **băm chuỗi** (`from_seed_phrase`, đường của ví
+web) và **byte nguyên xi** (`from_raw_seed`, đường của `node.key_seed`). Đưa
+cùng một giá trị vào hai đường ra hai ví khác nhau — đội chuỗi mất nhiều giờ vì
+đúng chỗ này ngày 30/07/2026, nút ký phiếu bằng khoá không phải khoá đã đăng ký
+và mạng dừng chốt khối **không in ra một dòng lỗi nào**.
+
+Nên đây là **hai hàm tên khác nhau**, không phải một hàm với một cờ `bool`.
+Chọn nhầm tên hàm thì đọc mã là thấy; chọn nhầm một `bool` thì không. Phép thử
+`bam_chuoi_va_byte_nguyen_xi_ra_hai_vi_khac_nhau` tồn tại để ngày ai đó "dọn
+dẹp" hai hàm thành một thì nó đỏ.
+
+### ⚠️ Phải nói với đội chuỗi: đây KHÔNG phải BIP39 chuẩn
+
+Ví web làm `mnemonicToEntropy → hex → generate_keypair`. BIP39 chuẩn là
+`mnemonic → PBKDF2-2048 → seed 64 byte`. Ví web lấy **thẳng entropy** làm chuỗi
+hạt giống, nên 24 từ ấy **không ví nào khác khôi phục được**, kể cả ví ghi "hỗ
+trợ BIP39".
+
+Không sai — nhưng phải ghi vào tài liệu là *"24 từ theo từ điển BIP39, dẫn xuất
+riêng của TCC"*, đừng để người dùng tưởng mang đi đâu cũng được.
+
+Và một chi tiết nhỏ mà mất ví: hex sinh bằng `toString(16)` là **chữ thường**.
+Ai "chuẩn hoá" cụm từ khôi phục thành chữ hoa là ra ví khác. Ghim bằng phép thử
+`hex_chu_hoa_ra_vi_khac`, không ghim bằng lời dặn.
+
+### Còn lại
+
+1. **BIP39 24 từ → entropy** trong Rust (cần từ điển 2048 từ + SHA-256).
+2. **Nhập ví cũ**: đọc `tcc_wallets_v4`, giải mã PBKDF2+AES-GCM bằng PIN đúng
+   một lần, rồi cất lại vào Keychain. Tốn công cài lại phần mật mã ấy chỉ để
+   đọc một lần — nhưng không có nó thì người đang có ví bị bỏ lại.
