@@ -13,6 +13,9 @@ window = ["tcc-render-webview/window"]
 network = ["dep:tcc-net"]
 
 [dependencies]
+thiserror = { workspace = true }
+tcc-chain = { workspace = true }
+tcc-keystore = { workspace = true }
 tcc-spec = { workspace = true }
 tcc-ui = { workspace = true }
 tcc-runtime = { workspace = true }

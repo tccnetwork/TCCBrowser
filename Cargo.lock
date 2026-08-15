@@ -2593,12 +2593,15 @@ dependencies = [
  "serde",
  "serde_json",
  "tcc-capability",
+ "tcc-chain",
  "tcc-crypto",
+ "tcc-keystore",
  "tcc-net",
  "tcc-render-webview",
  "tcc-runtime",
  "tcc-spec",
  "tcc-ui",
+ "thiserror 2.0.20",
  "unicode-general-category",
 ]
 
