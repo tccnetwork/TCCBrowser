@@ -298,6 +298,14 @@ Chỉ những bẫy của v2. Bẫy của v1 (chặn quảng cáo, Electron) n�
   trên luồng chính, mà bộ khung kiểm thử của Rust chạy mỗi phép thử trên luồng
   phụ. Phép thử cần cửa sổ phải nằm trong `examples/`.
 
+- **`runner.sh` đã GỠ khỏi kho (15/08/2026).** Nó là công cụ cho môi trường làm
+  việc của trợ lý — một trình nền đọc lệnh từ thư mục hàng đợi rồi chạy — chứ
+  không phải một phần của TCC. Nằm ở gốc kho công khai thì nó vừa là nhiễu cho
+  người soát, vừa là một kịch bản "chạy lệnh tuỳ ý" đặt sai chỗ trong một kho
+  nói về an ninh. Bản gốc còn ở `~/.codetrail/template/runner.sh`, và lịch sử
+  git vẫn giữ bản trong kho. Bẫy dưới đây vẫn đáng nhớ vì nó là bẫy của CÔNG CỤ,
+  và mọi dự án chép mẫu ấy đều thừa hưởng:
+
 - **`runner.sh exec` BÁO THÀNH CÔNG khi lệnh còn đang chạy (13/08/2026).**
   Lỗi nằm trong khuôn mẫu codetrail, không phải cấu hình của ta. Tiến trình nền
   ghi phần đầu tệp kết quả *trước* khi chạy lệnh, còn `exec` chỉ chờ **tệp xuất
