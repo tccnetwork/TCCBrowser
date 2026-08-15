@@ -259,7 +259,15 @@ def main() -> int:
 
     # 2 — nội dung, và dạng chuẩn tắc của nó.
     ui = json.dumps(
-        {"kind": "text", "content": "Chào từ Python"}, ensure_ascii=False
+        {
+            "kind": "group",
+            "flow": "column",
+            "children": [
+                {"kind": "text", "content": "Chào từ Python", "emphasis": "title"},
+                {"kind": "button", "label": "Tải danh sách", "action": "tai-danh-sach"},
+            ],
+        },
+        ensure_ascii=False,
     ).encode()
     files = {"ui.json": ui}
     bam = content_hash_hex(canonical_bytes(files))
@@ -267,6 +275,12 @@ def main() -> int:
 
     # 3 — bản kê khai. Chữ ký ký lên ĐÚNG chuỗi byte được ghi ra đĩa, nên phải
     #     tuần tự hoá MỘT LẦN rồi dùng lại chính chuỗi đó.
+    # Bản kê khai ĐẦY ĐỦ, không phải bản tối thiểu: quyền năng và hành vi là
+    # phần nhiều luật nhất của định dạng, và là phần mà hai bên bất đồng thì
+    # hậu quả là bảo mật chứ không phải là "gói không mở được".
+    #
+    # `03-signature` và `04-capabilities` đòi: tên máy chủ khớp CHÍNH XÁC, và
+    # hành vi phải NẰM TRONG phạm vi quyền đã xin. Bản Rust từ chối nếu lệch.
     manifest = {
         "spec_version": "0.1",
         "id": "com.tcc.python",
@@ -276,7 +290,28 @@ def main() -> int:
         "scheme": "hybrid-ed25519-mldsa65-v1",
         "content_hash": bam,
         "entry": "ui.json",
-        "capabilities": [],
+        "capabilities": [
+            {
+                "name": "network",
+                "scope": {"kind": "network", "hosts": ["shop.tcc-coin.com"]},
+                "reason": "Tải danh sách sản phẩm",
+            },
+            {
+                "name": "storage",
+                "scope": {"kind": "storage", "quota_bytes": 1048576},
+                "reason": "Nhớ giỏ hàng",
+            },
+        ],
+        "actions": [
+            {
+                "id": "tai-danh-sach",
+                "effect": {
+                    "kind": "fetch",
+                    "host": "shop.tcc-coin.com",
+                    "path": "/san-pham.json",
+                },
+            }
+        ],
     }
     manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode()
 

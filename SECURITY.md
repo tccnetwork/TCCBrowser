@@ -969,6 +969,14 @@ different language, can **construct** something this one accepts. An
 implementation that rejects everything wrong while producing nothing right still
 cannot exchange packages with anybody.
 
+The package it builds is a **full** manifest, not a minimal one: two
+capabilities and an action. That is deliberate — capabilities and actions carry
+the most rules in the format, and they are where a disagreement between two
+implementations costs security rather than merely failing to open. The last two
+mutations below are that part: a package whose button points somewhere the
+manifest never asked for is refused, and so is one pointing at a subdomain of a
+granted host, because matching is exact.
+
 `conformance/dung-goi-doc-lap.py` runs **both directions**. It builds a complete
 package from nothing — canonical form, content hash, manifest, hybrid signature,
 directory layout — and `tcc verify` accepts it. Then it reads
@@ -997,6 +1005,8 @@ standard makes explicit:
 | The two signature halves swapped | Ed25519 half rejected |
 | One byte changed in the example's content | Python reports a content-hash mismatch |
 | One bit flipped in the example's signature | Python rejects the Ed25519 half |
+| An action pointing at a host outside the requested capability | Rust rejects the manifest |
+| An action pointing at a **subdomain** of a granted host | Rust rejects it — matching is exact |
 
 The middle one is the quiet interoperability trap of the whole standard, and
 this is the first check that would catch a second implementation getting it
