@@ -101,7 +101,86 @@ tcc-shell  ──tiêm──▶  trait Keystore
 - Khoá bí mật đi qua một kiểu **tự xoá khi rời phạm vi** (`zeroize`), và **không
   bao giờ** có `Debug` hay `Display` in ra nội dung.
 
-## 7. Một câu hỏi tôi KHÔNG tự trả lời được
+## 7. Ba câu hỏi — ĐÃ CÓ LỜI ĐÁP (15/08/2026)
+
+Đọc `/Volumes/DATA/TCC/web-login/wallet` (ví web đang chạy) và
+`/Volumes/DATA/Claude/blockchain/tcc-chain/v4` (nút chuỗi, beta3).
+
+### 7.1 Chuỗi nhận chữ ký dạng nào
+
+**ML-DSA-65 THUẦN, KHÔNG lai.** `DECISIONS-IRREVERSIBLE.md` D1 chốt: crate
+`ml-dsa`, mức `MlDsa65`, FIPS 204 **bản cuối**. Mã trong `dilithium3/src/lib.rs`
+ghi rõ *"ML-DSA-65 deterministic sign (empty context, pure mode)"*, chữ ký 3309
+byte.
+
+**Vậy nửa hậu lượng tử của `tcc-crypto` khớp byte với chuỗi.** Cùng crate, cùng
+FIPS 204 bản cuối, cùng biến thể pure với `ctx` RỖNG, cùng ký tất định. Chính là
+quyết định tôi đã ghi vào `spec/0.1/03-signature.md` — và hai bên đi tới nó độc
+lập, vì cùng đọc một tiêu chuẩn.
+
+> **Nhưng đây là HAI bộ ký, không phải một.** Gói TCC ký **lai**
+> (Ed25519+ML-DSA); giao dịch chuỗi ký **thuần** ML-DSA. Khoá ví và khoá ký gói
+> **KHÔNG được là một khoá** — tách khoá theo mục đích là luật cơ bản, và ở đây
+> nó còn tự nhiên vì hai định dạng vốn đã khác nhau.
+
+Băm: chuỗi dùng **BLAKE3** (D2), địa chỉ = `BLAKE3(pubkey)` 32 byte raw (D3),
+hiển thị dạng hex `0x` + 64 ký tự (D4). Cùng hàm băm với băm nội dung gói.
+
+### 7.2 Ví web lưu khoá thế nào
+
+`localStorage["tcc_wallets_v4"]`, mỗi ví gồm `{address, label, pubkeyHex,
+encryptedPrivkey, salt, iv}`. Mã hoá: **PBKDF2-SHA256 100.000 vòng → AES-GCM-256**,
+mở bằng **mã PIN**. Khoá bị xoá khỏi bộ nhớ ngay sau mỗi lần ký (`wipeBytes`).
+
+Có BIP39 trong `vendor/`, nên nhiều khả năng có cụm từ khôi phục — **cần xác
+nhận** trước khi hứa "mang ví sang được".
+
+⚠️ **PBKDF2 100k với một mã PIN là yếu.** PIN 6 chữ số chỉ có một triệu khả
+năng; ai lấy được `localStorage` (XSS, hoặc đọc đĩa) thì dò cạn được. Con số
+100.000 vòng hợp lý cho **mật khẩu**, không hợp lý cho **PIN**. Trình duyệt TCC
+nếu nhập khoá từ ví web thì phải **cất lại bằng kho khoá hệ điều hành**, chứ
+không chép nguyên cách bảo vệ ấy sang.
+
+### 7.3 Địa chỉ và ký giao dịch
+
+`signing_message()` trong `dilithium3/src/lib.rs` là **BLAKE3** của:
+
+```text
+nonce(BE) ‖ from(32) ‖ to(32) ‖ amount(BE) ‖ gas_price(BE)
+          ‖ gas_limit(BE) ‖ timestamp(LE) ‖ payload.hash()
+```
+
+Hai điều đáng nói, và cả hai đều thuộc về chuỗi chứ không thuộc trình duyệt:
+
+**(a) `timestamp` dùng LITTLE-endian trong khi mọi trường khác BIG-endian.**
+Chạy được vì hai bên cùng làm thế, nhưng đó đúng là loại chi tiết làm vỡ bản cài
+đặt thứ hai — cùng lớp với bẫy giao diện FIPS 204 mà dự án này đã dẫm.
+
+**(b) `chain_id` KHÔNG có trong thông điệp ký.** `DECISIONS-IRREVERSIBLE.md` D6
+nói `chain_id` phải đi vào *"tx-signing domain + chống replay cross-chain"* và
+đánh dấu **CẦN-VERIFY**. Mã hiện chưa có nó. Nên một giao dịch đã ký về nguyên
+tắc **phát lại được sang mạng TCC khác** cùng địa chỉ và nonce. Tài liệu quyết
+định đã biết; mã thì chưa theo kịp — cần chốt **trước genesis**, vì sau đó là
+bất khả nghịch.
+
+### 7.4 Và một điều về CHÍNH trình duyệt
+
+Ví web gọi `tcc_buildUnsignedTransfer` rồi **ký thẳng `signing_message_hex` do
+máy chủ RPC trả về**. Vì thông điệp ấy là một **băm 32 byte**, ví không kiểm
+được nó ứng với giao dịch nào.
+
+> Người dùng thấy *"gửi 5 TCC cho X"* trên màn hình, nhưng ký một chuỗi băm mà
+> máy chủ đưa. Một RPC bị chiếm có thể trả về băm của một giao dịch khác hẳn.
+
+Đây là **ký mù**, và nó cho trình duyệt TCC một lý do tồn tại rất cụ thể: máy
+chủ có trả về cả `unsigned_tx_base64`, nên trình duyệt **giải mã được, tự tính
+lại `signing_message`, so khớp, rồi mới ký** — và hiện ra các trường đã giải mã
+chứ không hiện lại thứ người dùng vừa gõ.
+
+Đó chính là mục 3.2 của kế hoạch, và giờ nó không còn là "màn xác nhận cho đẹp"
+mà là **thứ vá một lỗ ký mù**.
+
+## 8. Những gì CÒN phải hỏi người
 
 Chuỗi TCC đã có ví web đang chạy (`network3.tcc-coin.com`), và luật của dự án
 nói **không viết lại phần mật mã đã có**.
@@ -116,6 +195,10 @@ Nên trước khi viết một dòng nào chạm khoá thật, cần biết:
    đó là một quyết định sản phẩm chứ không phải chi tiết cài đặt.
 3. Có sẵn tài liệu về định dạng địa chỉ và ký giao dịch không?
 
-Chưa có ba câu trả lời đó thì phần chạm khoá thật chưa nên viết. Phần **không**
-chạm khoá thật — trait, bản giả, phép thử, luật kiến trúc — viết được ngay, và
-đó là thứ đang làm.
+1. **Có cụm từ khôi phục BIP39 không**, và nếu có thì đường dẫn dẫn xuất là gì?
+   Cần biết trước khi hứa với người dùng rằng ví mang sang được.
+2. **`chain_id` sẽ chốt số nào**, và có vào thông điệp ký trước genesis không?
+   Trình duyệt phải ký đúng thứ chuỗi kiểm.
+3. **Trình duyệt nhập ví cũ hay tạo ví mới?** Nhập thì phải đọc được định dạng
+   `tcc_wallets_v4` và giải mã bằng PIN — tức là trình duyệt phải cài đặt lại
+   PBKDF2+AES-GCM chỉ để đọc một lần rồi cất lại bằng kho khoá hệ điều hành.
