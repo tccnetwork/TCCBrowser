@@ -16,7 +16,7 @@ jobs:
       # Architecture rules run FIRST — if they fail there is no point compiling,
       # because code that runs is still code with the wrong architecture.
       # Kịch bản luật là bash — bỏ qua trên Windows, ubuntu và macOS đã chạy nó.
-      - name: Architecture rules (17 rules)
+      - name: Architecture rules (18 rules)
         if: runner.os != 'Windows'
         run: tools/kiem-luat-phu-thuoc.sh
 

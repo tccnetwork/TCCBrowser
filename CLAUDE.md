@@ -31,7 +31,7 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh   # 17 luật, chạy trước biên dịch trong CI
+tools/kiem-luat-phu-thuoc.sh   # 18 luật, chạy trước biên dịch trong CI
 cargo test --workspace
 cargo run -p tcc-conformance
 ```
@@ -54,7 +54,7 @@ Phép kiểm rẻ nhất là phép bắt được nó.
 - **`$?` sau một pipeline là mã thoát của lệnh CUỐI**, không phải của lệnh bạn
   đang đo. Đo mã thoát thì đừng pipe.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
-  đỏ không phải bằng chứng. Điều này áp cho cả 17 luật kiến trúc.
+  đỏ không phải bằng chứng. Điều này áp cho cả 18 luật kiến trúc.
 
 ## Ranh giới không được vượt
 

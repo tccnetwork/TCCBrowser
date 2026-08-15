@@ -15,6 +15,7 @@ members = [
 
   # ---- Thân ----
   "crates/tcc-runtime",      # nạp và chạy ứng dụng TCC
+  "crates/tcc-keystore",     # kho khoá ví — CHỈ tcc-shell được phụ thuộc
   "crates/tcc-net",          # đường ra ngoài — CHỈ tcc-shell được phụ thuộc
   "crates/tcc-shell",        # khung trình duyệt: thẻ, thanh địa chỉ
 
@@ -44,6 +45,7 @@ tcc-ui = { path = "crates/tcc-ui" }
 tcc-render-webview = { path = "crates/tcc-render-webview" }
 tcc-runtime = { path = "crates/tcc-runtime" }
 tcc-net = { path = "crates/tcc-net" }
+tcc-keystore = { path = "crates/tcc-keystore" }
 tcc-shell = { path = "crates/tcc-shell" }
 
 serde = { version = "1", features = ["derive"] }

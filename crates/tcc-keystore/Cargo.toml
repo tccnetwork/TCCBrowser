@@ -1,0 +1,20 @@
+[package]
+name = "tcc-keystore"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[features]
+# Kho khoá THẬT của hệ điều hành. Cố ý KHÔNG bật mặc định: dựng được bản trình
+# duyệt không có ví là một công cụ soi bảo mật — chạy bản đó thì chắc chắn không
+# byte khoá nào được đọc, dù mã có lỗi gì.
+he-dieu-hanh = []
+
+[dependencies]
+thiserror = { workspace = true }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+
+[lints]
+workspace = true

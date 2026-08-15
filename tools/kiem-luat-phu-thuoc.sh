@@ -140,6 +140,24 @@ else
 fi
 
 echo
+echo "--- Luật 18: chỉ tcc-shell được phụ thuộc tcc-keystore ---"
+# Cùng hình dạng với luật 8, và cùng lý do: ĐỌC `Cargo.toml` LÀ BIẾT NGAY bộ nạp
+# ứng dụng không với tới được khoá ví. Nếu `tcc-runtime` phụ thuộc kho khoá thì
+# đường từ mã ứng dụng tới khoá bí mật chỉ còn là chuyện ai gọi hàm nào — mà đó
+# là thứ phải soi từng dòng mới thấy.
+#
+# Kho khoá GIẢ cũng nằm trong crate này, nên luật còn chặn luôn việc ai đó tiện
+# tay dùng bản giả ở đường chạy thật.
+lac=$(grep -l 'tcc-keystore' crates/*/Cargo.toml apps/*/Cargo.toml tools/*/Cargo.toml 2>/dev/null \
+  | grep -v 'crates/tcc-shell/Cargo.toml' | grep -v 'crates/tcc-keystore/Cargo.toml' || true)
+if [ -n "$lac" ]; then
+  bao "crate KHÔNG phải tcc-shell mà phụ thuộc tcc-keystore:"
+  printf '%s\n' "$lac" | sed 's/^/      /'
+else
+  dat "chỉ tcc-shell được với tới kho khoá ví"
+fi
+
+echo
 echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật THẬT ---"
 # Con số này trôi nhiều nhất và im lặng nhất: tài liệu ghi 6, rồi 10, rồi 12,
 # trong khi kịch bản đã có 16. Người đọc tin con số, không đếm lại.
