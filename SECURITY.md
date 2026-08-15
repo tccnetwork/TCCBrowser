@@ -654,10 +654,33 @@ implementation that streams is checked rather than assumed.
 chunking lives in `tcc-spec` and the hasher in `tcc-crypto` — the layering rule
 decided the shape of the fix.
 
-### 3.4 Side channels not examined
+### 3.4 Side channels — measured 2026-08-15, one finding
 
-`verify` has never been timed. With public data (signatures, content hashes) a
-timing leak reveals no secret, but **nobody has verified that claim**.
+`crates/tcc-crypto/examples/do_thoi_gian.rs`, 300 iterations each, median:
+
+| Input | Time |
+|---|---|
+| Valid signature | 223 µs |
+| **Classical half wrong** | **35 µs** |
+| Post-quantum half wrong | 221 µs |
+
+**Timing tells an observer which half failed.** `verify` checks Ed25519 first and
+returns on failure, so the ML-DSA half never runs — a 6× difference, far too
+large to hide behind noise.
+
+**Not fixed, and the reasoning matters more than the verdict.** What an attacker
+learns is which half of a signature *they themselves supplied* is wrong, which
+they already know. Removing the leak means verifying both halves always, making
+rejection of garbage 6× more expensive — trading a leak of near-zero value for a
+real amplification factor on unauthenticated input. If a use ever arises where
+the attacker does **not** already know the answer, this decision must be revisited.
+
+Signing showed 516 µs against 644 µs for an all-zero versus an all-`0xff` secret
+key. That ratio is within what this crude harness can attribute to noise, and
+**it is not evidence of constant time**: this measurement runs on a laptop with
+turbo and thermal scaling. It is a screen for large differences, not a proof.
+Establishing constant time needs quiet hardware or instruction-level analysis,
+and remains undone.
 
 ### 3.5 No wallet code touches a real private key yet
 
