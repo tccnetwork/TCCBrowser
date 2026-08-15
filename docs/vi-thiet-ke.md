@@ -141,27 +141,46 @@ năng; ai lấy được `localStorage` (XSS, hoặc đọc đĩa) thì dò cạ
 nếu nhập khoá từ ví web thì phải **cất lại bằng kho khoá hệ điều hành**, chứ
 không chép nguyên cách bảo vệ ấy sang.
 
-### 7.3 Địa chỉ và ký giao dịch
+### 7.3 Địa chỉ và ký giao dịch — VÀ MỘT ĐÍNH CHÍNH
 
-`signing_message()` trong `dilithium3/src/lib.rs` là **BLAKE3** của:
+⚠️ **Bản đầu của mục này SAI, vì tôi đọc nhầm tệp.** Tôi dựa vào
+`dilithium3/src/lib.rs` — đó là **SDK WASM cũ**. Nguồn sự thật của v4 là
+`src/tx/signing.rs`, tệp tự ghi *"single source of truth"*.
+
+Hai điều tôi đã báo là **không đúng với v4**:
+
+| Tôi đã nói | Thật ra |
+|---|---|
+| `chain_id` KHÔNG có trong thông điệp ký | **CÓ.** `chain_id u64 LE`, ngay sau `version` |
+| `timestamp` little-endian lệch pha với các trường big-endian | **Toàn bộ little-endian.** Không có gì lệch |
+
+Và v4 còn có hai thứ tốt hơn tôi tưởng: một **bộ tách miền** `"tcc/v1/tx"` đứng
+đầu thông điệp — thứ mà chữ ký GÓI của TCC hiện **chưa có**, đáng mượn — và
+`expires_at` cũng nằm trong băm, nên máy chủ không kéo dài hạn một giao dịch đã
+ký được.
+
+Công thức đúng, **đã neo bằng một giao dịch thật lấy từ testnet chain 91338**:
 
 ```text
-nonce(BE) ‖ from(32) ‖ to(32) ‖ amount(BE) ‖ gas_price(BE)
-          ‖ gas_limit(BE) ‖ timestamp(LE) ‖ payload.hash()
+BLAKE3( "tcc/v1/tx" ‖ version(u32) ‖ chain_id(u64) ‖ from(32) ‖ to(32)
+        ‖ nonce(u64) ‖ amount(u128) ‖ gas_price(u64) ‖ gas_limit(u64)
+        ‖ timestamp(i64) ‖ expires_at(i64) ‖ BLAKE3(0x01 ‖ memo) )
 ```
 
-Hai điều đáng nói, và cả hai đều thuộc về chuỗi chứ không thuộc trình duyệt:
+Mọi số little-endian. `0x01` là `Payload::TAG_TRANSFER` — **khác** con số biến
+thể trên dây (là `0`); hai không gian số riêng biệt, lẫn chúng là ra băm sai mà
+vẫn "chạy".
 
-**(a) `timestamp` dùng LITTLE-endian trong khi mọi trường khác BIG-endian.**
-Chạy được vì hai bên cùng làm thế, nhưng đó đúng là loại chi tiết làm vỡ bản cài
-đặt thứ hai — cùng lớp với bẫy giao diện FIPS 204 mà dự án này đã dẫm.
+Chuỗi còn có **v2** với bộ tách miền riêng `"tcc/v2/tx"`, bỏ `nonce` và
+`gas_price`, thêm `recent_blockhash` và `priority_fee`. Trình duyệt hiện chỉ
+hiểu v1; khi mạng chuyển sang v2 thì phải theo, và `version` trong gói tin là
+thứ nói cho ta biết.
 
-**(b) `chain_id` KHÔNG có trong thông điệp ký.** `DECISIONS-IRREVERSIBLE.md` D6
-nói `chain_id` phải đi vào *"tx-signing domain + chống replay cross-chain"* và
-đánh dấu **CẦN-VERIFY**. Mã hiện chưa có nó. Nên một giao dịch đã ký về nguyên
-tắc **phát lại được sang mạng TCC khác** cùng địa chỉ và nonce. Tài liệu quyết
-định đã biết; mã thì chưa theo kịp — cần chốt **trước genesis**, vì sau đó là
-bất khả nghịch.
+**Bài học, và nó thuộc về tôi.** Tôi đã báo cho bạn một "phát hiện bảo mật"
+dựa trên một tệp không phải nguồn sự thật, và suýt để đội chuỗi đi sửa một thứ
+không hỏng. Thứ cứu lại là đòi hỏi một **mốc ngoài** trước khi tin bố cục byte —
+đúng nguyên tắc dự án này áp cho mọi thứ khác. Mẫu thật cho tôi biết mình sai
+trong vòng một phút.
 
 ### 7.4 Và một điều về CHÍNH trình duyệt
 

@@ -56,6 +56,9 @@ pub enum ChainError {
     #[error("loại payload {0} không phải giao dịch chuyển tiền")]
     NotATransfer(u32),
 
+    #[error("phiên bản giao dịch {0} — crate này chỉ hiểu v{1}")]
+    UnsupportedVersion(u32, u32),
+
     #[error("còn {0} byte thừa sau khi giải mã xong — đây không phải giao dịch ta hiểu")]
     TrailingBytes(usize),
 
@@ -76,105 +79,142 @@ pub enum ChainError {
 /// vào chỉ tạo ấn tượng sai rằng chúng được bảo vệ.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transfer {
-    pub nonce: u128,
+    pub version: u32,
+    /// Mạng nào. **Có** trong thông điệp ký, nên một giao dịch của testnet
+    /// không phát lại được sang mainnet.
+    pub chain_id: u64,
     pub from: Address,
     pub to: Address,
+    pub nonce: u64,
     /// Đơn vị nhỏ nhất, 18 chữ số thập phân — như wei.
     pub amount: u128,
-    pub gas_price: u128,
-    pub gas_limit: u128,
-    /// Dấu thời gian của chuỗi. Xem ghi chú về endianness ở `signing_message`.
+    pub gas_price: u64,
+    pub gas_limit: u64,
     pub timestamp: i64,
-    /// Chuỗi ghi nhớ, tức `PayloadOption::Commit`.
+    /// Chiều cao khối mà giao dịch hết hạn. Cũng nằm trong thông điệp ký, nên
+    /// máy chủ không kéo dài hạn của một giao dịch đã ký được.
+    pub expires_at: i64,
     pub memo: String,
 }
 
-/// Chỉ số biến thể của `PayloadOption::Commit` trong `enum` của chuỗi.
+/// Bộ tách miền của thông điệp ký v1 — `src/tx/signing.rs` của chuỗi.
 ///
-/// `bincode` 1.x mã hoá biến thể enum bằng `u32` little-endian theo THỨ TỰ KHAI
-/// BÁO. `Commit` khai đầu tiên nên là 0. Thêm một biến thể vào TRƯỚC nó ở phía
-/// chuỗi là đổi con số này — và đó là thay đổi phá vỡ, im lặng.
-const PAYLOAD_COMMIT: u32 = 0;
+/// Có nó thì một chuỗi byte ký cho TCC không bao giờ trùng nghĩa với chuỗi byte
+/// ký cho giao thức khác. Đây là thứ gói TCC **chưa có** ở tầng chữ ký gói, và
+/// là một ý đáng mượn.
+const DOMAIN_V1: &[u8] = b"tcc/v1/tx";
+
+/// Biến thể `Transfer` trên DÂY (thứ tự khai báo enum).
+const WIRE_TRANSFER: u32 = 0;
+
+/// Nhãn `Transfer` khi BĂM payload — `Payload::TAG_TRANSFER` của chuỗi.
+///
+/// ⚠️ Khác con số trên dây: dây dùng 0, băm dùng 1. Hai không gian số riêng
+/// biệt, và lẫn chúng là tính ra băm sai mà vẫn "chạy".
+const TAG_TRANSFER: u8 = 0x01;
+
+/// Phiên bản giao dịch v1 — bố cục thông điệp ký mà crate này hiểu.
+///
+/// Chuỗi đã có **v2** với bộ tách miền riêng `"tcc/v2/tx"`, bỏ `nonce` và
+/// `gas_price`, thêm `recent_blockhash` và `priority_fee`. Ta chỉ hiểu v1, nên
+/// gặp phiên bản khác thì **từ chối** — tính băm theo bố cục sai rồi so sánh là
+/// một phép kiểm luôn trượt, còn ký theo nó thì tệ hơn nhiều.
+pub const TX_VERSION_V1: u32 = 1;
 
 impl Transfer {
     /// Thông điệp ký, tính lại **độc lập** với máy chủ.
     ///
-    /// Công thức chép từ `dilithium3/src/lib.rs::signing_message` của chuỗi:
+    /// Chép từ `src/tx/signing.rs::signing_message` của chuỗi — tệp tự ghi
+    /// *"single source of truth"*. Mọi số little-endian:
     ///
     /// ```text
-    /// BLAKE3( nonce(BE) ‖ from(32) ‖ to(32) ‖ amount(BE)
-    ///         ‖ gas_price(BE) ‖ gas_limit(BE) ‖ timestamp(LE) ‖ BLAKE3(memo) )
+    /// BLAKE3( "tcc/v1/tx" ‖ version(u32) ‖ chain_id(u64) ‖ from(32) ‖ to(32)
+    ///         ‖ nonce(u64) ‖ amount(u128) ‖ gas_price(u64) ‖ gas_limit(u64)
+    ///         ‖ timestamp(i64) ‖ expires_at(i64) ‖ BLAKE3(0x01 ‖ memo) )
     /// ```
     ///
-    /// ⚠️ **`timestamp` là LITTLE-endian trong khi mọi trường khác BIG-endian.**
-    /// Đây không phải lỗi gõ của tôi — chuỗi làm đúng thế. Nó chạy được vì hai
-    /// bên cùng làm, nhưng nó đúng là loại chi tiết làm vỡ bản cài đặt thứ ba,
-    /// cùng lớp với bẫy giao diện FIPS 204 mà dự án này đã dẫm một lần.
-    ///
-    /// ⚠️ **`chain_id` KHÔNG có trong đây.** Chuỗi chưa đưa nó vào (D6, trạng
-    /// thái `CẦN-VERIFY`). Nghĩa là một giao dịch đã ký về nguyên tắc phát lại
-    /// được sang mạng TCC khác cùng địa chỉ và nonce. Khi chuỗi sửa, **hàm này
-    /// phải sửa theo cùng lúc**, nếu không trình duyệt sẽ tính ra băm khác và
-    /// từ chối ký mọi giao dịch — hỏng về phía an toàn, nhưng vẫn là hỏng.
+    /// Neo bằng một giao dịch THẬT lấy từ testnet — xem `khop_giao_dich_that`.
+    /// Không có mốc ấy thì đây chỉ là cách tôi ĐỌC mã của chuỗi, và đọc sai thì
+    /// trình duyệt từ chối mọi giao dịch hợp lệ.
     #[must_use]
     pub fn signing_message(&self) -> [u8; 32] {
-        let mut d = Vec::with_capacity(160);
-        d.extend_from_slice(&self.nonce.to_be_bytes());
-        d.extend_from_slice(&self.from.0);
-        d.extend_from_slice(&self.to.0);
-        d.extend_from_slice(&self.amount.to_be_bytes());
-        d.extend_from_slice(&self.gas_price.to_be_bytes());
-        d.extend_from_slice(&self.gas_limit.to_be_bytes());
-        d.extend_from_slice(&self.timestamp.to_le_bytes());
-        d.extend_from_slice(blake3::hash(self.memo.as_bytes()).as_bytes());
-        *blake3::hash(&d).as_bytes()
+        let mut h = blake3::Hasher::new();
+        h.update(DOMAIN_V1);
+        h.update(&self.version.to_le_bytes());
+        h.update(&self.chain_id.to_le_bytes());
+        h.update(&self.from.0);
+        h.update(&self.to.0);
+        h.update(&self.nonce.to_le_bytes());
+        h.update(&self.amount.to_le_bytes());
+        h.update(&self.gas_price.to_le_bytes());
+        h.update(&self.gas_limit.to_le_bytes());
+        h.update(&self.timestamp.to_le_bytes());
+        h.update(&self.expires_at.to_le_bytes());
+        h.update(&payload_hash(&self.memo));
+        *h.finalize().as_bytes()
     }
 
-    /// Giải mã `unsigned_tx_base64` đã bỏ base64.
+    /// Giải mã `unsigned_tx_hex` / `unsigned_tx_base64` đã bỏ base64.
     ///
-    /// Bố cục là `bincode` 1.x mặc định: số nguyên cố định độ dài, **little-
-    /// endian**, `Vec` và `String` có tiền tố độ dài `u64`, biến thể enum là
-    /// `u32`.
+    /// Bố cục dây, mọi số little-endian:
+    ///
+    /// ```text
+    /// version(u32) chain_id(u64) from(32) to(32) nonce(u64) amount(u128)
+    /// gas_price(u64) gas_limit(u64) timestamp(i64) expires_at(i64)
+    /// payload: bien_the(u32) do_dai(u64) byte
+    /// ```
     ///
     /// # Errors
     /// Dữ liệu cụt, thừa byte, payload không phải chuyển tiền, hoặc memo hỏng.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainError> {
         let mut r = Doc::new(bytes);
-        let nonce = r.u128()?;
+        let version = r.u32()?;
+        if version != TX_VERSION_V1 {
+            return Err(ChainError::UnsupportedVersion(version, TX_VERSION_V1));
+        }
+        let chain_id = r.u64()?;
         let from = Address(r.mang32()?);
         let to = Address(r.mang32()?);
+        let nonce = r.u64()?;
         let amount = r.u128()?;
-        let gas_price = r.u128()?;
-        let gas_limit = r.u128()?;
+        let gas_price = r.u64()?;
+        let gas_limit = r.u64()?;
         let timestamp = r.i64()?;
+        let expires_at = r.i64()?;
 
         let bien_the = r.u32()?;
-        if bien_the != PAYLOAD_COMMIT {
+        if bien_the != WIRE_TRANSFER {
             return Err(ChainError::NotATransfer(bien_the));
         }
         let memo = r.chuoi()?;
 
-        // `public_key` và `signature` đứng sau; giao dịch CHƯA ký nên cả hai
-        // rỗng. Đọc cho hết để phát hiện byte thừa — dữ liệu ta không hiểu là
-        // dữ liệu ta không được phép bỏ qua.
-        let _pub = r.byte_co_do_dai()?;
-        let _sig = r.byte_co_do_dai()?;
         let con_lai = r.con_lai();
         if con_lai != 0 {
             return Err(ChainError::TrailingBytes(con_lai));
         }
 
         Ok(Self {
-            nonce,
+            version,
+            chain_id,
             from,
             to,
+            nonce,
             amount,
             gas_price,
             gas_limit,
             timestamp,
+            expires_at,
             memo,
         })
     }
+}
+
+/// Băm payload chuyển tiền: `BLAKE3(TAG_TRANSFER ‖ memo)`.
+fn payload_hash(memo: &str) -> [u8; 32] {
+    let mut v = Vec::with_capacity(1 + memo.len());
+    v.push(TAG_TRANSFER);
+    v.extend_from_slice(memo.as_bytes());
+    *blake3::hash(&v).as_bytes()
 }
 
 /// Kiểm rằng thông điệp máy chủ đưa ĐÚNG là của giao dịch này.
@@ -278,119 +318,126 @@ impl<'a> Doc<'a> {
 mod kiem_thu {
     use super::*;
 
-    fn mau() -> Transfer {
-        Transfer {
-            nonce: 7,
-            from: Address([0x11; 32]),
-            to: Address([0x22; 32]),
-            amount: 5_000_000_000_000_000_000, // 5 TCC
-            gas_price: 1,
-            gas_limit: 21_000,
-            timestamp: 1_760_000_000,
-            memo: "chào".to_owned(),
-        }
+    /// Giao dịch THẬT lấy từ RPC testnet ngày 15/08/2026 (chain 91338).
+    ///
+    /// Đây là MỐC NGOÀI của cả crate. Không có nó, mọi thứ ở đây chỉ là cách
+    /// tôi ĐỌC mã của chuỗi — và bản đầu tôi đọc nhầm tệp, dựng theo SDK WASM
+    /// cũ với bố cục khác hẳn. Phép thử này bắt được điều đó ngay.
+    const TX_HEX: &str = "01000000ca640100000000001111111111111111111111111111111111111111111111111111111111111111222222222222222222222222222222222222222222222222222222222222222200000000000000000000f444829163450000000000000000c40051160b00000008520000000000000000000000000000b67a0200000000000000000004000000000000006368616f";
+    const SIGNING_MESSAGE_HEX: &str =
+        "05d1f926a92678bea9a8d1aae6a7ef86ae295d7a5811301a065e388da97f5b8a";
+
+    fn tu_hex(h: &str) -> Vec<u8> {
+        (0..h.len() / 2)
+            .map(|i| u8::from_str_radix(&h[i * 2..i * 2 + 2], 16).unwrap())
+            .collect()
     }
 
+    fn mau_that() -> Transfer {
+        Transfer::decode(&tu_hex(TX_HEX)).unwrap()
+    }
+
+    /// Giải mã một giao dịch thật, rồi tính lại đúng băm máy chủ đã đưa.
     #[test]
-    fn thong_diep_ky_tat_dinh() {
-        assert_eq!(mau().signing_message(), mau().signing_message());
+    fn khop_giao_dich_that() {
+        let t = mau_that();
+        assert_eq!(t.version, TX_VERSION_V1);
+        assert_eq!(t.chain_id, 91338, "testnet");
+        assert_eq!(t.amount, 5_000_000_000_000_000_000, "5 TCC");
+        assert_eq!(t.gas_limit, 21_000);
+        assert_eq!(t.expires_at, 162_486);
+        assert_eq!(t.memo, "chao");
+
+        let cho: [u8; 32] = tu_hex(SIGNING_MESSAGE_HEX).try_into().unwrap();
+        assert_eq!(
+            t.signing_message(),
+            cho,
+            "tính lại KHÔNG ra băm mà máy chủ đưa"
+        );
+        assert!(check_signing_message(&t, &cho).is_ok());
     }
 
     /// Đổi BẤT KỲ trường nào cũng phải đổi thông điệp ký.
     ///
-    /// Một trường không vào băm là một trường máy chủ sửa được mà không ai biết
-    /// — đúng cái lỗ này sinh ra để chặn.
+    /// Một trường không vào băm là một trường máy chủ sửa được mà không ai biết.
     #[test]
     fn moi_truong_deu_vao_thong_diep_ky() {
-        let goc = mau().signing_message();
-        let mut t = mau();
-        t.nonce += 1;
-        assert_ne!(t.signing_message(), goc, "nonce KHÔNG vào thông điệp ký");
-        let mut t = mau();
-        t.to = Address([0x33; 32]);
-        assert_ne!(
-            t.signing_message(),
-            goc,
-            "NGƯỜI NHẬN không vào thông điệp ký"
-        );
-        let mut t = mau();
-        t.amount += 1;
-        assert_ne!(t.signing_message(), goc, "SỐ TIỀN không vào thông điệp ký");
-        let mut t = mau();
-        t.gas_price += 1;
-        assert_ne!(t.signing_message(), goc, "gas_price không vào");
-        let mut t = mau();
-        t.gas_limit += 1;
-        assert_ne!(t.signing_message(), goc, "gas_limit không vào");
-        let mut t = mau();
-        t.timestamp += 1;
-        assert_ne!(t.signing_message(), goc, "timestamp không vào");
-        let mut t = mau();
-        t.memo.push('!');
-        assert_ne!(t.signing_message(), goc, "memo không vào");
-        let mut t = mau();
-        t.from = Address([0x44; 32]);
-        assert_ne!(t.signing_message(), goc, "from không vào");
+        let goc = mau_that().signing_message();
+        macro_rules! doi {
+            ($ten:literal, $sua:expr) => {{
+                let mut t = mau_that();
+                #[allow(clippy::redundant_closure_call)]
+                ($sua)(&mut t);
+                assert_ne!(t.signing_message(), goc, concat!($ten, " KHÔNG vào băm"));
+            }};
+        }
+        doi!("version", |t: &mut Transfer| t.version += 1);
+        doi!("chain_id", |t: &mut Transfer| t.chain_id += 1);
+        doi!("from", |t: &mut Transfer| t.from = Address([9; 32]));
+        doi!("NGƯỜI NHẬN", |t: &mut Transfer| t.to =
+            Address([9; 32]));
+        doi!("nonce", |t: &mut Transfer| t.nonce += 1);
+        doi!("SỐ TIỀN", |t: &mut Transfer| t.amount += 1);
+        doi!("gas_price", |t: &mut Transfer| t.gas_price += 1);
+        doi!("gas_limit", |t: &mut Transfer| t.gas_limit += 1);
+        doi!("timestamp", |t: &mut Transfer| t.timestamp += 1);
+        doi!("expires_at", |t: &mut Transfer| t.expires_at += 1);
+        doi!("memo", |t: &mut Transfer| t.memo.push('!'));
     }
 
+    /// Đòn thật: máy chủ đưa băm của giao dịch NGƯỜI DÙNG NGHĨ mình đang ký,
+    /// còn gói tin lại là của kẻ gian. Ví web hôm nay sẽ ký. Đây phải từ chối.
     #[test]
-    fn khop_thi_dat_lech_thi_tu_choi() {
-        let t = mau();
-        let dung = t.signing_message();
-        assert!(check_signing_message(&t, &dung).is_ok());
-
-        let mut sai = dung;
-        sai[0] ^= 1;
-        let loi = check_signing_message(&t, &sai).unwrap_err();
+    fn may_chu_doi_nguoi_nhan_thi_bi_bat() {
+        let that = mau_that();
+        let mut ke_gian = mau_that();
+        ke_gian.to = Address([0xEE; 32]);
+        let loi = check_signing_message(&ke_gian, &that.signing_message()).unwrap_err();
         assert!(
             matches!(loi, ChainError::SigningMessageMismatch { .. }),
             "{loi}"
         );
     }
 
-    /// Đòn thật: máy chủ đổi NGƯỜI NHẬN nhưng vẫn đưa băm của giao dịch cũ.
-    ///
-    /// Ví hiện tại sẽ ký. Phép kiểm này phải từ chối.
+    /// Cùng địa chỉ, cùng nonce, KHÁC mạng → khác băm. Không phát lại được.
     #[test]
-    fn may_chu_doi_nguoi_nhan_thi_bi_bat() {
-        let that = mau();
-        let mut ke_gian = mau();
-        ke_gian.to = Address([0xEE; 32]);
-
-        // Máy chủ đưa băm của giao dịch NGƯỜI DÙNG NGHĨ mình đang ký,
-        // nhưng gói tin lại là của kẻ gian.
-        let loi = check_signing_message(&ke_gian, &that.signing_message()).unwrap_err();
-        assert!(matches!(loi, ChainError::SigningMessageMismatch { .. }));
+    fn giao_dich_testnet_khong_phat_lai_duoc_sang_mainnet() {
+        let testnet = mau_that();
+        let mut mainnet = mau_that();
+        mainnet.chain_id = 1;
+        assert_ne!(testnet.signing_message(), mainnet.signing_message());
     }
 
     #[test]
     fn du_lieu_cut_thi_bao_loi_chu_khong_hoang_loan() {
-        for n in 0..80 {
-            let _ = Transfer::decode(&vec![0u8; n]);
+        let b = tu_hex(TX_HEX);
+        for n in 0..b.len() {
+            let _ = Transfer::decode(&b[..n]);
         }
     }
 
     #[test]
     fn byte_thua_bi_tu_choi() {
-        // 16+32+32+16+16+16+8 = 136 byte trường cố định, rồi enum + memo rỗng
-        // + pubkey rỗng + sig rỗng, rồi một byte thừa.
-        let mut b = vec![0u8; 136];
-        b.extend_from_slice(&0u32.to_le_bytes()); // Commit
-        b.extend_from_slice(&0u64.to_le_bytes()); // memo rỗng
-        b.extend_from_slice(&0u64.to_le_bytes()); // pubkey rỗng
-        b.extend_from_slice(&0u64.to_le_bytes()); // signature rỗng
-        assert!(
-            Transfer::decode(&b).is_ok(),
-            "bố cục cơ bản phải giải mã được"
-        );
+        let mut b = tu_hex(TX_HEX);
         b.push(0);
         assert_eq!(Transfer::decode(&b), Err(ChainError::TrailingBytes(1)));
     }
 
+    /// Phiên bản lạ thì TỪ CHỐI, không đoán bố cục.
+    #[test]
+    fn phien_ban_la_thi_tu_choi() {
+        let mut b = tu_hex(TX_HEX);
+        b[0] = 2; // v2 — bố cục khác hẳn
+        assert_eq!(
+            Transfer::decode(&b),
+            Err(ChainError::UnsupportedVersion(2, TX_VERSION_V1))
+        );
+    }
+
     #[test]
     fn payload_khong_phai_chuyen_tien_thi_tu_choi() {
-        let mut b = vec![0u8; 136];
-        b.extend_from_slice(&3u32.to_le_bytes()); // ContractUpgrade chẳng hạn
+        let mut b = tu_hex(TX_HEX);
+        b[132] = 3; // đổi biến thể payload trên dây
         assert_eq!(Transfer::decode(&b), Err(ChainError::NotATransfer(3)));
     }
 }
