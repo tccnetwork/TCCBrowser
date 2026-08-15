@@ -749,8 +749,23 @@ catch anything is not evidence:
 | Deleting the ML-DSA verification step, so only the Ed25519 half is checked | Yes — both crypto targets reported a different key verifying the same signature |
 | A panic on the signature-parsing path | Yes, on the truncated and empty seeds |
 
-Still missing: a coverage-guided run under libFuzzer, and fuzzing of `sign`
-with malformed secret keys.
+`sign` is fuzzed too, with malformed secret keys. That key never comes from an
+attacker in normal use — but it comes from **a file on disk** (`tcc sign --khoa`),
+and truncated files, wrong-version files and corrupt files are ordinary. The
+property is stronger than "does not panic": if signing succeeds, the signature
+must **verify against the key derived from that same secret**. Producing a
+signature you cannot verify yourself is a silent failure that only shows up on
+somebody else's machine.
+
+**The corpus loader silently lost 87% of its seeds.** When the vector files were
+renamed from `truong_hop` to `cases`, the loader kept reading the old keys and
+dropped from 55 seeds to 7 — and the suite went on reporting PASS for several
+runs while having almost nothing to mutate. A fuzzer that loses its corpus does
+not complain; it just stops finding things. There is now a minimum-seed assertion,
+and it is checked **before** the panic hook that silences target crashes is
+installed — the first version asserted after, so it died in complete silence.
+
+Still missing: a coverage-guided run under libFuzzer.
 
 ---
 

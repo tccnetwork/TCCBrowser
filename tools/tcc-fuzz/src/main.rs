@@ -117,6 +117,32 @@ fn target_public_key(byte: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// Ký với KHOÁ BÍ MẬT do fuzz sinh ra.
+///
+/// Đây là đường duy nhất trong kho chạm tới bí mật thật. Khoá bí mật không đến
+/// từ kẻ tấn công trong đường chạy bình thường — nhưng nó đến từ một TỆP TRÊN
+/// ĐĨA (`tcc sign --khoa`), và tệp hỏng, tệp cụt, tệp của phiên bản khác đều là
+/// chuyện thường. Hoảng loạn ở đây là công cụ ký chết giữa chừng, có khi sau
+/// khi đã ghi đè một tệp.
+///
+/// Đòi hỏi: ký được thì chữ ký phải TỰ KIỂM ĐƯỢC. Sinh ra một chữ ký mà chính
+/// mình không kiểm nổi là hỏng âm thầm — nó chỉ lộ ra ở máy người khác.
+fn target_sign(byte: &[u8]) -> Result<(), String> {
+    let Ok(chu_ky) = HybridEd25519MlDsa.sign(byte, b"TCC fuzz") else {
+        return Ok(()); // từ chối khoá hỏng là kết quả ĐÚNG
+    };
+    let Ok(cong_khai) = HybridEd25519MlDsa::public_from_secret(byte) else {
+        return Err("ký được nhưng KHÔNG suy ra nổi khoá công khai".to_owned());
+    };
+    HybridEd25519MlDsa
+        .verify(&cong_khai, b"TCC fuzz", &chu_ky)
+        .map_err(|e| format!("tự ký rồi tự kiểm KHÔNG đạt: {e}"))
+}
+
+fn deep_sign(b: &[u8]) -> bool {
+    b.len() == 64
+}
+
 fn deep_signature(b: &[u8]) -> bool {
     // "Sâu" ở đây nghĩa là qua được phép kiểm độ dài, tức là thật sự chạm vào
     // mã mật mã chứ không bị chặn ở cổng.
@@ -238,6 +264,14 @@ const TARGETS: &[Target] = &[
         seeds: |k| &k.signature,
     },
     Target {
+        ten: "ky",
+        chay: target_sign,
+        co_dinh: true,
+        chi_phi: 20,
+        sau: deep_sign,
+        seeds: |k| &k.secret_key,
+    },
+    Target {
         ten: "khoa-cong-khai",
         chay: target_public_key,
         co_dinh: true,
@@ -252,12 +286,18 @@ fn main() -> ExitCode {
     let so_vong: u64 = arg.next().and_then(|s| s.parse().ok()).unwrap_or(20_000);
     let hat: u64 = arg.next().and_then(|s| s.parse().ok()).unwrap_or(1);
 
-    // Bộ fuzz cố ý nuốt tiếng hoảng loạn: nếu không, dòng in ra lẫn với hàng
-    // nghìn vòng chạy và không ai tìm được đầu vào gây ra nó.
+    // Nạp hạt giống TRƯỚC khi nuốt tiếng hoảng loạn.
+    //
+    // Bản đầu làm ngược lại, và cái chốt "thiếu hạt giống là hỏng" nổ trong im
+    // lặng hoàn toàn: tiến trình chết, không một dòng nào in ra. Móc nuốt hoảng
+    // loạn sinh ra để giấu tiếng nổ CỦA MỤC TIÊU, không phải để giấu tiếng nổ
+    // của chính bộ fuzz.
+    let kho = corpus::load();
+
+    // Từ đây mới nuốt: nếu không, dòng in ra lẫn với hàng nghìn vòng chạy và
+    // không ai tìm được đầu vào gây ra nó.
     let cu = panic::take_hook();
     panic::set_hook(Box::new(|_| {}));
-
-    let kho = corpus::load();
     println!(
         "hạt giống: {} văn bản + {} chữ ký + {} khoá · {so_vong} vòng/mục tiêu · gieo {hat}",
         kho.text.len(),

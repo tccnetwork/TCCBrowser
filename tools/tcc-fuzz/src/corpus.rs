@@ -23,6 +23,8 @@ pub struct Corpus {
     pub signature: Vec<Vec<u8>>,
     /// Khoá công khai lai thật, 1984 byte.
     pub public_key: Vec<Vec<u8>>,
+    /// Khoá bí mật lai, 64 byte.
+    pub secret_key: Vec<Vec<u8>>,
 }
 
 /// Chuỗi hex → byte. Viết tay để không kéo thêm phụ thuộc vào một công cụ kiểm.
@@ -56,7 +58,20 @@ pub fn real_pair() -> (Vec<u8>, Vec<u8>) {
     (khoa, unhex(EXAMPLE_SIGNATURE))
 }
 
+/// Số hạt giống văn bản TỐI THIỂU.
+///
+/// Bộ nạp này đọc khoá của tệp vector. Khi tập vector đổi khoá từ `truong_hop`
+/// sang `cases`, bộ nạp im lặng tụt từ 55 hạt giống xuống 7 — và bộ fuzz vẫn
+/// báo "ĐẠT" suốt nhiều lượt chạy trong khi hầu như không có gì để đột biến.
+///
+/// Một bộ fuzz mất hạt giống không kêu lên; nó chỉ ngừng tìm ra thứ gì. Nên
+/// đây là cái chốt: thiếu hạt giống là HỎNG, không phải là chạy nhanh hơn.
+const TOI_THIEU_VAN_BAN: usize = 40;
+
 /// Rút mọi mẫu từ vector rồi trả về dưới dạng byte.
+///
+/// # Panics
+/// Khi số hạt giống văn bản tụt dưới [`TOI_THIEU_VAN_BAN`].
 #[must_use]
 pub fn load() -> Corpus {
     let (khoa, chu_ky) = real_pair();
@@ -65,11 +80,11 @@ pub fn load() -> Corpus {
         EXAMPLE_UI.as_bytes().to_vec(),
     ];
 
-    for (van, khoa) in [(VECTORS_MANIFEST, "ke_khai"), (VECTORS_UI, "cay")] {
+    for (van, khoa) in [(VECTORS_MANIFEST, "manifest"), (VECTORS_UI, "tree")] {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(van) else {
             continue;
         };
-        if let Some(cac) = v["truong_hop"].as_array() {
+        if let Some(cac) = v["cases"].as_array() {
             for t in cac {
                 let muc = &t[khoa];
                 if !muc.is_null()
@@ -93,6 +108,13 @@ pub fn load() -> Corpus {
     sau.push_str(&"]}".repeat(64));
     ra.push(sau.into_bytes());
 
+    assert!(
+        ra.len() >= TOI_THIEU_VAN_BAN,
+        "chỉ nạp được {} hạt giống văn bản, cần ít nhất {TOI_THIEU_VAN_BAN} — \
+         tập vector đã đổi khoá mà bộ nạp chưa theo?",
+        ra.len()
+    );
+
     Corpus {
         text: ra,
         // Chữ ký cụt và chữ ký đảo hai nửa: bố cục byte là một phần của tiêu
@@ -104,5 +126,7 @@ pub fn load() -> Corpus {
             Vec::new(),
         ],
         public_key: vec![khoa.clone(), khoa[..32].to_vec(), Vec::new()],
+        // Hạt giống khoá bí mật: một khoá hợp lệ, một khoá cụt, và rỗng.
+        secret_key: vec![(0..64u8).collect(), vec![0u8; 32], Vec::new()],
     }
 }
