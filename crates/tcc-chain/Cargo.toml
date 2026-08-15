@@ -9,6 +9,7 @@ authors.workspace = true
 [dependencies]
 blake3 = "1.8.6"
 ml-dsa = "0.1.1"
+sha2 = "0.10.9"
 thiserror = { workspace = true }
 zeroize = { version = "1", features = ["zeroize_derive"] }
 

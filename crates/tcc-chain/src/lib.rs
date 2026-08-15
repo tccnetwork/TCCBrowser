@@ -23,6 +23,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod mnemonic;
 pub mod wallet;
 
 use core::fmt;

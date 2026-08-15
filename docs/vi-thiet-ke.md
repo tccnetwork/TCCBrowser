@@ -378,3 +378,73 @@ Ai "chuẩn hoá" cụm từ khôi phục thành chữ hoa là ra ví khác. Ghi
 2. **Nhập ví cũ**: đọc `tcc_wallets_v4`, giải mã PBKDF2+AES-GCM bằng PIN đúng
    một lần, rồi cất lại vào Keychain. Tốn công cài lại phần mật mã ấy chỉ để
    đọc một lần — nhưng không có nó thì người đang có ví bị bỏ lại.
+
+
+## 12. Cụm từ khôi phục 24 chữ (15/08/2026)
+
+`crates/tcc-chain/src/mnemonic.rs`. Đường đầy đủ đã nối xong:
+
+```text
+24 chữ → entropy 32 byte → hex CHỮ THƯỜNG → BLAKE3 KDF → ML-DSA-65 → địa chỉ
+```
+
+### Neo bằng hai chương trình không biết nhau
+
+| Bước | Neo vào |
+|---|---|
+| chữ ↔ entropy | `@scure/bip39@1.3.0` — **thư viện đóng gói trong chính ví web** |
+| entropy → địa chỉ | `tcc-keygen` — **chương trình của đội chuỗi** |
+
+Phép thử `cum_tu_ra_dia_chi_khop_chuong_trinh_cua_doi_chuoi` đi hết cả hai
+bước. Không chương trình nào trong hai cái ấy biết gì về mã ở đây.
+
+### Từ điển được ghim bằng băm
+
+`data/bip39-english.txt` lấy từ ví web, và băm SHA-256 của nó **khớp đúng
+`english.txt` công bố trong kho `bitcoin/bips`**:
+
+```
+2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda
+```
+
+Đáng làm phép kiểm ấy: một từ điển bị đổi vài từ là **cửa hậu trộm ví hoàn toàn
+im lặng** — cụm từ vẫn "hợp lệ", chỉ ra một ví khác. Kết quả cũng là một tin
+tốt cho ví web: bản đóng gói ở đó không bị sửa.
+
+### ⚠️ Chỗ trình duyệt CỐ Ý khác ví web
+
+Ví web, khi 24 chữ sai tổng kiểm, mời *"Try as raw seed?"* rồi coi cả cụm từ
+như một chuỗi hạt giống thô — **nút đi tiếp vẫn bật**. Nó có chắn: màn xác nhận
+hiện địa chỉ **và số dư** trước khi đi tiếp, nên gõ nhầm thì thấy số dư 0. Không
+phải im lặng, nhưng yếu hơn hẳn tổng kiểm.
+
+Trình duyệt **không làm đường lùi ấy**. Tổng kiểm sinh ra đúng để bắt một chữ
+gõ nhầm; biến nó thành lời gợi ý là vứt đi thứ duy nhất phân biệt *"bạn gõ
+nhầm"* với *"đây là ví khác"*. Hạt giống thô vẫn nhập được, nhưng phải là lựa
+chọn người dùng **tự bấm**, không phải đề nghị hiện ra đúng lúc họ bối rối.
+
+### Lỗi báo VỊ TRÍ, không báo chữ
+
+`UnknownWord(24)` chứ không `UnknownWord("khongcotutrongtudien")`. Người dùng
+cần biết gõ nhầm chữ thứ mấy; nhật ký không cần biết chữ ấy là gì. Một mẩu cụm
+từ khôi phục lọt ra tệp nhật ký vẫn là một mẩu cụm từ khôi phục lọt ra ngoài.
+Ghim bằng `chu_la_bao_vi_tri_chu_khong_bao_chu`.
+
+### Không một `expect` nào trên đường sinh khoá
+
+Bản đầu có bốn chỗ `expect` kiểu *"chỉ số luôn < 2048"*. Đều đúng — và đều là
+một nhánh hoảng loạn không bao giờ chạy, nằm trong mã đụng tới khoá. Viết lại
+để chúng không tồn tại: đếm chỉ số bằng `u32` ngay từ đầu, lấy byte thấp bằng
+`to_le_bytes()[0]` thay vì đổi kiểu, và viết tay bảng hex bốn dòng thay cho
+`write!`.
+
+### Đột biến
+
+| Đổi gì | Bắt được? |
+|---|---|
+| hex thành CHỮ HOA | ✅ — nhưng **chỉ mỗi phép thử neo địa chỉ** |
+| bỏ kiểm tổng kiểm | ✅ |
+| lệch một dòng trong từ điển | ✅ |
+
+Lần nữa, phép thử neo ngoài là thứ chịu lực. Tám phép thử "hợp lý" quanh nó vẫn
+xanh khi hex viết hoa.
