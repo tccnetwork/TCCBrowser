@@ -30,8 +30,17 @@ python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-p
 cargo audit                                         # 0 vulnerabilities, 14 known warnings
 ```
 
-These drive a real WebKit view. On macOS they use WKWebView; on Linux, install
-`libwebkit2gtk-4.1-dev` and prefix with `xvfb-run -a` — CI runs both:
+The commands above run on **macOS, Linux and Windows** in CI. Windows was added
+last and broke immediately — not the code, the checkout: git rewrites LF to CRLF
+there by default and a signature covers raw bytes, so every signature in the
+repository died. `.gitattributes` fixes it here, and `../spec/0.1/01-package.md`
+records the general form, which is that any transport normalising text destroys
+a package.
+
+These next ones drive a real WebKit view. On macOS they use WKWebView; on Linux,
+install `libwebkit2gtk-4.1-dev` and prefix with `xvfb-run -a`. CI runs both, but
+the Linux run cannot fail the build — WebKitGTK under a virtual display does not
+reliably get a window handle:
 
 ```bash
 cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
