@@ -32,6 +32,20 @@ jobs:
       - name: Conformance suite
         run: cargo run -p tcc-conformance
 
+      # Re-signing the committed example must change NOTHING.
+      #
+      # Two claims in one check. Signing is deterministic, so the same package
+      # and key produce the same bytes — that is stated in 03-signature.md and
+      # nothing outside the vectors tested it end to end. And the example in
+      # the repository is exactly what today's code produces, so it cannot
+      # quietly become a fossil signed by an older format while still
+      # verifying.
+      - name: Re-signing the example changes nothing
+        if: runner.os != 'Windows'
+        run: |
+          examples/ky-lai.sh
+          git diff --exit-code examples/
+
       # The committed example must ALWAYS verify. Editing `content/` and
       # forgetting to re-sign is the easiest mistake to make here, and it makes
       # everyone downstream copy a broken package.
