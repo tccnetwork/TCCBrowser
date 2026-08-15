@@ -189,3 +189,19 @@ jobs:
       - name: App screen through real WebKitGTK (Linux)
         continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
+
+  # Does the renderer build on Windows? It has never been compiled there.
+  #
+  # Same question as linux-render, and that one found nothing while adding
+  # Windows to the main matrix found a broken checkout. wry uses WebView2 here,
+  # a third engine behind the same `tcc-ui` seam — if the seam is real, this
+  # compiles; if it does not, the seam is macOS plus Linux and the architecture
+  # document is overstating it.
+  windows-render:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo check -p tcc-render-webview --features window --all-targets
+      - run: cargo check -p tcc-shell --features window --all-targets
