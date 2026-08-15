@@ -134,9 +134,35 @@ impl FileTree {
         self.files.get(path).map(Vec::as_slice)
     }
 
+    /// Đưa dạng chuẩn tắc ra theo TỪNG MẢNH, không dựng cả gói trong bộ nhớ.
+    ///
+    /// # Vì sao cần bản này
+    ///
+    /// `canonical_bytes` cấp phát một bản sao đầy đủ của toàn bộ nội dung. Đo
+    /// được: 64 MiB nội dung ngốn 128 MiB, và trần nội dung là 256 MiB — tức là
+    /// nửa gigabyte cho một gói mà chưa ai chứng minh là đáng tin.
+    ///
+    /// Bản sao đó không cần thiết: người gọi duy nhất là hàm băm, mà hàm băm
+    /// chỉ cần đọc tuần tự. Vẫn giữ `canonical_bytes` vì bộ kiểm định cần CHÍNH
+    /// chuỗi byte đó để so, còn đường chạy thật thì dùng hàm này.
+    ///
+    /// Hai hàm **phải** cho ra cùng một chuỗi byte. Đó không phải chuyện tối ưu:
+    /// lệch một byte là băm khác, là chữ ký của bên này bên kia không kiểm được.
+    /// Có phép thử chốt, và cả bảy vector `canonical` đi qua đường này.
+    pub fn for_each_canonical_chunk(&self, mut f: impl FnMut(&[u8])) {
+        for (path, content) in &self.files {
+            let p = path.as_bytes();
+            f(&(p.len() as u64).to_be_bytes());
+            f(p);
+            f(&(content.len() as u64).to_be_bytes());
+            f(content);
+        }
+    }
+
     /// Dạng chuẩn tắc — thứ được đem đi băm.
     ///
-    /// Mọi trường đều có độ dài ghi trước, nên không có cách nào đọc ra hai kiểu.
+    /// Dựng cả gói trong bộ nhớ. Đường chạy thật nên dùng
+    /// [`Self::for_each_canonical_chunk`]; hàm này để bộ kiểm định so byte.
     #[must_use]
     pub fn canonical_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
@@ -205,6 +231,45 @@ fn check_path(path: &str) -> Result<(), TreeError> {
         return text("chứa ký tự điều khiển");
     }
     Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì nổ ngay")]
+mod kiem_luong {
+    use super::*;
+
+    /// Hai đường dựng dạng chuẩn tắc phải cho ra CÙNG chuỗi byte.
+    ///
+    /// Lệch một byte là băm khác, là chữ ký của bên này bên kia không kiểm được.
+    /// Đây là phép thử duy nhất đứng giữa "tối ưu bộ nhớ" và "phá vỡ liên thông".
+    #[test]
+    fn bam_theo_luong_khop_bam_dung_mot_lan() {
+        let mut c = FileTree::new();
+        c.insert("z.txt", b"cuoi".to_vec()).unwrap();
+        c.insert("a.txt", b"dau".to_vec()).unwrap();
+        c.insert(
+            "thu-muc/tài-liệu.txt",
+            "Chào bạn — 3 TCC".as_bytes().to_vec(),
+        )
+        .unwrap();
+        c.insert("rong.bin", Vec::new()).unwrap();
+
+        let mot_lan = c.canonical_bytes();
+        let mut theo_luong = Vec::new();
+        c.for_each_canonical_chunk(|x| theo_luong.extend_from_slice(x));
+        assert_eq!(
+            mot_lan, theo_luong,
+            "hai đường dựng ra hai chuỗi byte KHÁC nhau"
+        );
+    }
+
+    #[test]
+    fn cay_rong_cung_khop() {
+        let c = FileTree::new();
+        let mut v = Vec::new();
+        c.for_each_canonical_chunk(|x| v.extend_from_slice(x));
+        assert_eq!(c.canonical_bytes(), v);
+    }
 }
 
 #[cfg(test)]

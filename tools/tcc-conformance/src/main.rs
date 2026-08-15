@@ -116,6 +116,22 @@ fn chay_canonical(chi_tiet: bool) -> Ket {
         let that_byte = hex::encode(&byte);
         let that_bam = content_hash_hex(&byte);
 
+        // Băm theo LUỒNG phải ra đúng cùng kết quả. Bản cài đặt nào không chịu
+        // dựng cả gói trong bộ nhớ sẽ đi đường này, và một lệch nhỏ ở đây là
+        // chữ ký hai bên không kiểm được cho nhau.
+        let mut h = tcc_crypto::hash::ContentHasher::new();
+        cay.for_each_canonical_chunk(|c| h.update(c));
+        let bam_luong = h.finish_hex();
+        if bam_luong != that_bam {
+            k.ghi(
+                ten,
+                false,
+                &format!("băm theo luồng KHÁC băm một lần: {bam_luong} ≠ {that_bam}"),
+                chi_tiet,
+            );
+            continue;
+        }
+
         if that_byte != cho_byte {
             k.ghi(
                 ten,

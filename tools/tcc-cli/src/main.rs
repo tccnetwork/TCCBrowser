@@ -18,7 +18,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use tcc_crypto::{HybridEd25519MlDsa, SignatureScheme, content_hash_hex};
+use tcc_crypto::{HybridEd25519MlDsa, SignatureScheme};
 use tcc_manifest::verify_package;
 use tcc_spec::{AppId, SPEC_VERSION};
 
@@ -187,7 +187,9 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
         hex::decode(hex_khoa.trim()).map_err(|e| format!("tệp khoá không phải hex: {e}"))?;
 
     let cay = package::read_content(duong_dan).map_err(|e| e.to_string())?;
-    let bam = content_hash_hex(&cay.canonical_bytes());
+    let mut h = tcc_crypto::hash::ContentHasher::new();
+    cay.for_each_canonical_chunk(|c| h.update(c));
+    let bam = h.finish_hex();
 
     // Đọc bản kê khai, điền publisher + content_hash, ghi lại, RỒI mới ký lên
     // đúng byte vừa ghi. Thứ tự này quan trọng: ký trước rồi sửa tệp là chữ ký chết.

@@ -634,8 +634,25 @@ macOS and Windows `Logo.png` and `logo.png` are the same file, so a package
 containing both unpacks differently depending on the operating system: one
 signature, two outcomes.
 
-**Remaining:** `canonical_bytes` builds the whole package in memory. Acceptable at
-0.1; large packages need streaming hashes.
+**Streaming, since 2026-08-15.** `canonical_bytes` built the whole package in
+memory. Measured: 64 MiB of content cost 128 MiB of RSS, and the content cap is
+**256 MiB** — half a gigabyte for a package nobody has authenticated yet.
+
+`FileTree::for_each_canonical_chunk` feeds the hasher without the copy; the same
+64 MiB now costs nothing beyond the tree itself — measured at 128 MiB against 0 MiB
+of additional RSS, each path in its own process, because an allocator does not
+return memory to the operating system promptly enough to measure both in one. `canonical_bytes` stays,
+because the conformance suite needs the literal bytes to compare against.
+
+The two paths **must** produce identical bytes — a one-byte difference is a
+different hash, which is each side unable to verify the other's signatures. A
+test pins the equivalence, and the conformance runner now computes every
+`canonical` vector both ways and requires the results to match, so an
+implementation that streams is checked rather than assumed.
+
+`tcc-spec` is a leaf crate and may not depend on `tcc-crypto` (rule 3), so the
+chunking lives in `tcc-spec` and the hasher in `tcc-crypto` — the layering rule
+decided the shape of the fix.
 
 ### 3.4 Side channels not examined
 

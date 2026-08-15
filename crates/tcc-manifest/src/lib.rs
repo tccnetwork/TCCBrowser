@@ -38,7 +38,7 @@
 //! bản 0.1. Đừng để giao diện nói "đã xác minh nhà phát hành" khi mới chỉ kiểm
 //! được chữ ký.
 
-use tcc_crypto::{CryptoError, SignatureScheme, content_hash_hex};
+use tcc_crypto::{CryptoError, SignatureScheme};
 
 /// Trần kích thước `manifest.json`.
 ///
@@ -163,7 +163,11 @@ pub fn verify_package(
     // Băm lên DẠNG CHUẨN TẮC của cây tệp, không phải lên từng tệp rời: mọi
     // trường đều có độ dài ghi trước nên hai cây khác nhau không thể ra cùng một
     // chuỗi byte. Xem `tcc_spec::tree`.
-    let actual = content_hash_hex(&content.canonical_bytes());
+    // Băm theo LUỒNG: không dựng bản sao đầy đủ của nội dung chỉ để băm nó.
+    // Với trần 256 MiB, bản sao ấy là nửa gigabyte cho một gói chưa xác thực.
+    let mut h = tcc_crypto::hash::ContentHasher::new();
+    content.for_each_canonical_chunk(|c| h.update(c));
+    let actual = h.finish_hex();
     if actual != manifest.content_hash {
         return Err(ManifestError::ContentHashMismatch {
             expected: manifest.content_hash.clone(),
@@ -178,7 +182,9 @@ pub fn verify_package(
 #[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
 mod kiem_thu {
     use super::*;
+    // Chỉ phép thử cần hàm này; đường chạy thật băm theo LUỒNG.
     use tcc_crypto::HybridEd25519MlDsa;
+    use tcc_crypto::content_hash_hex;
     use tcc_crypto::hybrid::KeyPair;
 
     struct Goi {

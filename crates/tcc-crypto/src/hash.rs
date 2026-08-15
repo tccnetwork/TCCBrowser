@@ -26,6 +26,32 @@
 /// Độ dài kết quả: 48 byte.
 pub const CONTENT_HASH_LEN: usize = 48;
 
+/// Băm nội dung theo LUỒNG.
+///
+/// Tồn tại để không phải dựng cả gói trong bộ nhớ chỉ để băm nó — xem
+/// `FileTree::for_each_canonical_chunk`.
+#[derive(Default)]
+pub struct ContentHasher(blake3::Hasher);
+
+impl ContentHasher {
+    #[must_use]
+    pub fn new() -> Self {
+        Self(blake3::Hasher::new())
+    }
+
+    pub fn update(&mut self, chunk: &[u8]) {
+        self.0.update(chunk);
+    }
+
+    /// Kết quả cuối, hex chữ thường, đúng `CONTENT_HASH_LEN` byte.
+    #[must_use]
+    pub fn finish_hex(&self) -> String {
+        let mut ra = [0u8; CONTENT_HASH_LEN];
+        self.0.finalize_xof().fill(&mut ra);
+        hex::encode(ra)
+    }
+}
+
 /// Băm nội dung, trả chuỗi hex chữ thường — đúng dạng ghi trong bản kê khai.
 #[must_use]
 pub fn content_hash_hex(data: &[u8]) -> String {
