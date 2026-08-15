@@ -47,18 +47,6 @@ jobs:
           echo "seed $SEED (from commit $(git rev-parse --short HEAD))"
           cargo run -p tcc-fuzz --release -- 200000 "$SEED"
 
-      # Dependencies against the RustSec advisory database. Fails on a
-      # vulnerability; reports maintenance warnings without failing, because
-      # they are all in wry's GTK backend and cannot be fixed from here —
-      # see SECURITY.md for which ones and why they do not reach the trust
-      # boundary.
-      - name: Audit dependencies
-        run: |
-          cargo install cargo-audit --locked
-          cargo audit
-          echo "--- warnings, not failing the build ---"
-          cargo audit --deny warnings || true
-
       # An independent implementation re-checks the ML-DSA half. It agrees only
       # on that half's arithmetic — but that half is the one nobody should be
       # trusted to implement alone.
@@ -97,3 +85,29 @@ jobs:
         run: cargo run -p tcc-shell --example kiem-hanh-vi examples/hello-tcc
       - name: Permission store on disk
         run: cargo run -p tcc-shell --example kiem-ghi-nho examples/hello-tcc
+
+  # Dependencies against the RustSec advisory database.
+  #
+  # Its own job, and cached. Putting `cargo install cargo-audit` inside the
+  # main job tripled every push from 1m20 to 4m30 — a check that only depends
+  # on Cargo.lock should not sit on the critical path of every other check.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}
+      - name: Install cargo-audit if not cached
+        run: which cargo-audit || cargo install cargo-audit --locked
+
+      # Fails on a vulnerability. Maintenance warnings are reported without
+      # failing: they are wry's GTK backend and build-time codegen, none of
+      # them reach tcc-crypto, and none can be fixed from here. SECURITY.md
+      # §3.5b says which and why.
+      - name: Vulnerabilities
+        run: cargo audit
+      - name: Maintenance warnings, reported not enforced
+        run: cargo audit --deny warnings || true
