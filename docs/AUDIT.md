@@ -27,6 +27,7 @@ cargo run -p tcc-conformance                        # 136 vectors, eight groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py
+python3 conformance/dung-goi-doc-lap.py             # package built in Python, verified by Rust
 cargo audit                                         # 0 vulnerabilities, 14 known warnings
 ```
 

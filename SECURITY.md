@@ -961,6 +961,44 @@ side cannot verify — while **both sides are "FIPS 204 compliant"**. This is th
 quietest interoperability trap in the standard, and until that day it was written
 down nowhere.
 
+**A whole package built by the other implementation (2026-08-15).**
+
+The vectors check a parser: give it data, see whether it accepts or rejects.
+They cannot check the other direction — that a different implementation, in a
+different language, can **construct** something this one accepts. An
+implementation that rejects everything wrong while producing nothing right still
+cannot exchange packages with anybody.
+
+`conformance/dung-goi-doc-lap.py` builds a complete package from nothing —
+canonical form, content hash, manifest, hybrid signature, package directory —
+and `tcc verify` accepts it. So the two agree on the whole format, not only on
+ML-DSA arithmetic.
+
+Ed25519 is written out in that file from RFC 8032 rather than imported, so the
+classical half really is two implementations and not two calls into one library.
+It was wrong on the first attempt — the point-addition formula returned its
+coordinates in the wrong order — and RFC 8032 TEST 1 caught it before anything
+else ran.
+
+Mutation-tested in three directions, each corresponding to a decision the
+standard makes explicit:
+
+| Mutation | Result |
+|---|---|
+| Length prefix written after the content instead of before | content-hash mismatch |
+| FIPS 204 `ctx` set to `"TCC"` instead of empty | ML-DSA half rejected |
+| The two signature halves swapped | Ed25519 half rejected |
+
+The middle one is the quiet interoperability trap of the whole standard, and
+this is the first check that would catch a second implementation getting it
+wrong.
+
+**Its limits.** I wrote both sides, so it is not the independent implementation
+`spec/GOVERNANCE.md` §3 asks for. It catches a disagreement between two readings
+of the specification; it cannot catch a place where I misread the specification
+the same way twice. `blake3` also comes from a library on both sides, which is
+why the `canonical` group anchors it to the published empty-input KAT.
+
 **The SIGNING direction is anchored by CROSS-CHECKING, not by vectors (2026-08-14).**
 
 ACVP's `sigGen` group is unusable here: it supplies secret keys in EXPANDED

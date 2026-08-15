@@ -65,6 +65,17 @@ jobs:
           /tmp/venv-doi-chieu/bin/pip install --quiet dilithium-py
           /tmp/venv-doi-chieu/bin/python conformance/doi-chieu-doc-lap.py
 
+      # The other direction: a package BUILT in Python, verified by the Rust.
+      # Vectors check that the parser rejects the right things; they cannot
+      # check that a different implementation can CONSTRUCT something this one
+      # accepts, and an implementation that rejects everything wrong while
+      # producing nothing right still cannot exchange packages with anyone.
+      - name: Package built in Python, verified by Rust
+        if: runner.os != 'Windows'
+        run: |
+          /tmp/venv-doi-chieu/bin/pip install --quiet blake3
+          /tmp/venv-doi-chieu/bin/python conformance/dung-goi-doc-lap.py
+
   # The parts that need a SCREEN, kept separate: adversarial examples driven
   # through a real WebKit view. Not merged into the job above because Ubuntu has
   # no macOS WebKit, and because a failure here is a different kind of news than
@@ -197,9 +208,10 @@ jobs:
   # a third engine behind the same `tcc-ui` seam — if the seam is real, this
   # compiles; if it does not, the seam is macOS plus Linux and the architecture
   # document is overstating it.
+  # It compiles. A build check is deterministic, unlike the xvfb runs, so this
+  # one is enforced after a single pass without the mistake made there.
   windows-render:
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
