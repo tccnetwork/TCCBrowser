@@ -1,0 +1,54 @@
+name: Fuzz (coverage-guided)
+
+# Not on every push. libFuzzer needs a nightly toolchain and needs TIME to be
+# worth anything — a 30-second run proves nothing. The cheap byte-mutation
+# fuzzer in tools/tcc-fuzz runs on every push instead; this one goes deeper,
+# on a schedule.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Seconds per target
+        default: "300"
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ke_khai, cay_giao_dien, duong_dan]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      # The dictionary is what makes this worth running. Measured: without it,
+      # two million executions failed to build a valid manifest with an empty
+      # `version`; with it, the same injected bug was found in forty seconds.
+      # Random byte mutation almost always breaks the JSON, so the budget goes
+      # into the JSON parser instead of into this standard's rules.
+      - name: Fuzz ${{ matrix.target }}
+        run: |
+          # corpus/ FIRST: libFuzzer writes new units into the first directory
+          # given. Putting seeds/ first makes every nightly run commit-sized
+          # noise into a directory that is in git — measured the hard way, a
+          # 45-second trial run added 2,000 files to it.
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cargo fuzz run ${{ matrix.target }} \
+            fuzz/corpus/${{ matrix.target }} fuzz/seeds/${{ matrix.target }} -- \
+            -dict=fuzz/tcc.dict \
+            -max_total_time=${{ github.event.inputs.seconds || 300 }} \
+            -print_final_stats=1
+
+      # A crash is only useful if the input that caused it survives the run.
+      - name: Keep any crashing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-${{ matrix.target }}
+          path: fuzz/artifacts/
+          if-no-files-found: ignore

@@ -765,7 +765,30 @@ not complain; it just stops finding things. There is now a minimum-seed assertio
 and it is checked **before** the panic hook that silences target crashes is
 installed — the first version asserted after, so it died in complete silence.
 
-Still missing: a coverage-guided run under libFuzzer.
+**Coverage-guided fuzzing, added 2026-08-15.** `fuzz/` holds three libFuzzer
+targets for the same parsers, run nightly by `.github/workflows/fuzz.yml`. Roughly
+50,000 executions per second against about 20,000 for the byte-mutation fuzzer,
+and it grows its own corpus — 35 seeds became 6,700 inputs in one minute.
+
+**The dictionary is what makes it work, and finding that out was the point.**
+Tested by injecting the same `&self.version[..1]` bug:
+
+| Run | Result |
+|---|---|
+| No dictionary, **2,054,596 executions** | not found |
+| With `fuzz/tcc.dict`, 40 seconds | found |
+
+Random byte mutation almost always breaks the JSON, so the whole budget goes
+into exploring `serde_json` rather than the rules in this standard. The
+dictionary supplies the format's own tokens plus the byte sequences that were
+real holes here — bidi override (L3), combining marks (L10), `@` (L9), `..`. The
+crashing input it finally produced had `U+200B` at the front of `version`, taken
+straight from the dictionary.
+
+Worth stating plainly: **the crude fuzzer found this bug in 20,000 rounds and
+libFuzzer missed it in two million.** Coverage guidance is not a substitute for
+knowing which byte sequences have hurt you before. The two run side by side —
+the cheap one on every push, this one on a schedule.
 
 ---
 

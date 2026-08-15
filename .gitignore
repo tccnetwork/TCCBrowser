@@ -1,3 +1,9 @@
 /target
 **/*.rs.bk
 .DS_Store
+
+# cargo-fuzz: ngữ liệu tự lớn và vật phẩm sự cố không vào git.
+# Hạt giống thì CÓ — `fuzz/seeds/` là thứ khiến lượt chạy đầu không bắt đầu từ số không.
+fuzz/corpus/
+fuzz/artifacts/
+fuzz/target/

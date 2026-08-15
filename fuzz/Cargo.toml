@@ -1,0 +1,41 @@
+[package]
+name = "tcc-fuzz-libfuzzer"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "Apache-2.0"
+
+# Tách khỏi workspace: crate này CHỈ dựng được bằng nightly (libFuzzer cần
+# `-Z sanitizer`). Để nó trong workspace là `cargo build` trên stable hỏng.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+serde_json = "1"
+tcc-spec = { path = "../crates/tcc-spec" }
+tcc-ui = { path = "../crates/tcc-ui" }
+tcc-crypto = { path = "../crates/tcc-crypto" }
+
+[[bin]]
+name = "ke_khai"
+path = "fuzz_targets/ke_khai.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cay_giao_dien"
+path = "fuzz_targets/cay_giao_dien.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "duong_dan"
+path = "fuzz_targets/duong_dan.rs"
+test = false
+doc = false
+bench = false

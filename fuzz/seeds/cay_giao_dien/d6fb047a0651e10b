@@ -1,0 +1,1 @@
+{"kind": "group", "flow": "column", "gap": "large", "children": [{"kind": "text", "content": "TCC Store", "emphasis": "title"}, {"kind": "field", "label": "Mật khẩu", "secret": true}, {"kind": "image", "source": "anh/logo.png", "alt": {"kind": "text", "text": "Biểu trưng"}}, {"kind": "button", "label": "Thanh toán", "action": "thanh-toan", "tone": "danger"}]}

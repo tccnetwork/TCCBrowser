@@ -1,0 +1,1 @@
+{"spec_version": "0.1", "id": "com.tcc.hello", "name": "A", "version": "1", "publisher": "PUB", "scheme": "hybrid-ed25519-mldsa65-v1", "content_hash": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", "entry": "ui.json", "capabilities": []}

@@ -1,0 +1,1 @@
+{"spec_version": "0.1", "id": "com.tcc.hello", "name": "Xin chào", "version": "1.0.0", "publisher": "PUB", "scheme": "hybrid-ed25519-mldsa65-v1", "content_hash": "HASH", "entry": "ui.json", "capabilities": []}

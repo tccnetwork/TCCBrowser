@@ -1,0 +1,60 @@
+# Từ điển cho libFuzzer — mã thông báo của ĐỊNH DẠNG, không phải byte ngẫu nhiên.
+#
+# Đột biến byte ngẫu nhiên gần như luôn phá vỡ JSON, nên ngân sách tiêu hết vào
+# bộ đọc JSON và không bao giờ tới luật của tiêu chuẩn. Đo được: 2 triệu lần
+# chạy KHÔNG dựng nổi một bản kê khai hợp lệ có `version` rỗng, trong khi bộ
+# fuzz mù ở `tools/tcc-fuzz` tìm ra sau 20 nghìn vòng — vì nó chèn ĐÚNG những
+# chuỗi byte đã từng là lỗ hổng thật của dự án này.
+#
+# Từ điển đưa lại lợi thế đó cho libFuzzer, và giữ nguyên phần dẫn hướng độ phủ.
+
+# --- khoá của bản kê khai ---
+"spec_version"
+"publisher"
+"content_hash"
+"capabilities"
+"scheme"
+"entry"
+"actions"
+"version"
+"reason"
+"scope"
+"hosts"
+
+# --- khoá của cây giao diện ---
+"kind"
+"children"
+"emphasis"
+"content"
+"label"
+"action"
+"source"
+"secret"
+"toggle"
+"warning"
+"danger"
+
+# --- ký tự ĐÃ TỪNG là lỗ hổng ---
+# U+202E đảo chiều chữ — lỗ L3
+"\xe2\x80\xae"
+# U+0301 dấu sắc kết hợp — lỗ L10
+"\xcc\x81"
+# U+200B rộng bằng không
+"\xe2\x80\x8b"
+# giả mạo userinfo — lỗ L9
+"@"
+# thoát thư mục
+".."
+# `../` viết trá hình
+"%2e%2e%2f"
+"\\"
+":"
+"//"
+
+# --- hình dạng dễ làm vỡ ---
+"\"\""
+"0.1"
+"hybrid-ed25519-mldsa65-v1"
+"-1"
+"1e999"
+"18446744073709551616"

@@ -41,6 +41,7 @@ tools/kiem-luat-phu-thuoc.sh        # 16 architecture rules — MUST report 0 vi
 cargo run -p tcc-conformance        # 135 conformance vectors
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release      # fuzz the parsers — unauthenticated input
+cargo +nightly fuzz run ke_khai fuzz/seeds/ke_khai -- -dict=fuzz/tcc.dict  # coverage-guided
 ```
 
 The architecture rules run **before** compilation in CI. Code that compiles but
