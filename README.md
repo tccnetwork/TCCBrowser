@@ -69,6 +69,11 @@ implementation.
 
 ## Status, stated plainly
 
+Phase 1 closed on 2026-08-15, all nine gates, the last of them — typing
+Vietnamese through the system input method — verified by a person at a keyboard
+because no simulation can produce a real composition session.
+
+
 This is **pre-audit software implementing an unfrozen draft standard.**
 
 - No independent security audit has happened. **No mainnet transaction may depend

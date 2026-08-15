@@ -10,6 +10,21 @@
 > **v1 — trình duyệt Electron — KHÔNG nằm trong kho này.** Nó ở thư mục cha trên
 > máy của đội ngũ, đang tạm dừng, và có ghi chú riêng. Kho công khai chỉ có v2.
 
+### ✅ GIAI ĐOẠN 1 ĐÓNG ĐỦ CHÍN CỔNG (15/08/2026)
+
+Cổng cuối — **gõ tiếng Việt có dấu bằng bộ gõ hệ thống** — đóng hôm nay. Gõ
+`Chào buổi sáng mọi người` bằng Telex của macOS: **24 mã điểm / 24 chữ gốc /
+0 dấu rời**, dạng DỰNG SẴN, con trỏ ở cuối, phiên ghép đã chốt.
+
+Nó là cổng duy nhất cần một CON NGƯỜI: bộ gõ thuộc hệ điều hành, và mọi cách
+giả lập đều bơm chuỗi đã hoàn chỉnh vào ô nhập — tức là bỏ qua đúng cái cần đo.
+
+Giai đoạn 2 cũng đã xong cả bốn mục; cổng ra của nó cần một NGƯỜI NGOÀI đọc
+`spec/0.1/` rồi tự dựng gói, nên không tự đóng được.
+
+**Việc kế tiếp theo kế hoạch: Giai đoạn 3.1 — ví gắn kho khoá hệ điều hành.**
+Cổng chặn cứng vẫn nguyên: không giao dịch mainnet trước kiểm định độc lập.
+
 ### v2 tới đâu rồi (15/08/2026)
 
 Xong: `tcc-spec`, `tcc-crypto`, `tcc-manifest`, `tcc-capability`, `tcc-runtime`,

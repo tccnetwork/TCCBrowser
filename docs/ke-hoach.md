@@ -54,7 +54,7 @@ Không phải đặc tả trước. Không phải bộ dựng hình trước.
 | 1.9 | `tcc new` / `tcc sign` / `tcc verify` | `tcc-cli` |
 | 1.10 | Ứng dụng mẫu `hello-tcc` | `examples/` |
 
-### Cổng ra — Giai đoạn 1 xong khi
+### Cổng ra — Giai đoạn 1 ✅ ĐÓNG ĐỦ CHÍN CỔNG (15/08/2026)
 
 Trạng thái ngày 14/08/2026. Mỗi mục ghi **bằng chứng chạy được**, không ghi
 cảm nhận — cổng nào chỉ dựa vào trí nhớ thì coi như chưa đóng.
@@ -72,19 +72,21 @@ cảm nhận — cổng nào chỉ dựa vào trí nhớ thì coi như chưa đ�
       → `kiem-man-hinh-ung-dung`, chạy trong CI qua WebKit thật
 - [x] **VoiceOver đọc được ứng dụng mẫu**
       → soi cây trợ năng THẬT 13/08; hai lỗi tìm ra và sửa (B32, B33)
-- [ ] **Gõ tiếng Việt có dấu bằng bộ gõ hệ thống, dấu chồng đúng, con trỏ đúng chỗ**
-      → ⚠️ **CỔNG DUY NHẤT CÒN MỞ.** Cần một người ngồi trước máy: bộ gõ là của
-      hệ điều hành, mọi cách giả lập đều bơm thẳng chuỗi hoàn chỉnh vào ô nhập,
-      tức là bỏ qua đúng cái cần đo — phiên ghép. Công cụ đã sẵn:
+- [x] **Gõ tiếng Việt có dấu bằng bộ gõ hệ thống, dấu chồng đúng, con trỏ đúng chỗ**
+      → **ĐÓNG 15/08/2026.** Gõ `Chào buổi sáng mọi người` bằng Telex của macOS
+      qua `kiem-go-tieng-viet`: **24 mã điểm / 24 chữ gốc / 0 dấu rời**, tức bộ
+      gõ cho ra dạng **DỰNG SẴN** — `ổ` là một `U+1ED5` chứ không phải `o` cộng
+      hai dấu. Con trỏ ở 24, đúng cuối; phiên ghép đã chốt.
 
-      ```sh
-      cargo run -p tcc-shell --features window --example kiem-go-tieng-viet -- examples/hello-tcc
-      ```
+      Vì sao con số ấy quan trọng: dạng tách rời hiện ra y hệt nhưng tốn trần
+      `MAX_COMBINING_MARKS` gấp ba, nên một câu bình thường sẽ bò tới gần cái
+      trần vốn dựng để chặn kẻ tấn công. Mắt không phân biệt được; chỉ hỏi lại
+      WebKit mới thấy.
 
-      Nó hỏi lại WebKit ô nhập chứa gì rồi in mã điểm, số dấu rời, dấu chồng
-      nhiều nhất trên một chữ, và vị trí con trỏ. Nhìn bằng mắt không đủ: `ỡ`
-      dựng sẵn và `o`+2 dấu hiện ra y hệt nhau mà tốn trần `MAX_COMBINING_MARKS`
-      khác hẳn nhau.
+      ⚠️ Đo trên **Telex của macOS**. Bộ gõ khác (EVKey, OpenKey, hoặc IME của
+      Windows/Linux) có thể cho ra dạng tách rời — công cụ vẫn còn đó để chạy
+      lại, và đó là việc nên làm trước khi phát hành trên hệ điều hành mới.
+
 - [x] Chưa có mã ví nào chạm khoá riêng thật
       → không có mã ví nào tồn tại; cổng cứng ở `SECURITY.md` §3.5
 - [x] Chưa trộn tầng web vào lõi
