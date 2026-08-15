@@ -2477,6 +2477,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "tcc-chain"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "tcc-cli"
 version = "0.1.0"
 dependencies = [

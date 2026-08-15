@@ -140,7 +140,7 @@ else
 fi
 
 echo
-echo "--- Luật 18: chỉ tcc-shell được phụ thuộc tcc-keystore ---"
+echo "--- Luật 18: chỉ tcc-shell được phụ thuộc tcc-keystore và tcc-chain ---"
 # Cùng hình dạng với luật 8, và cùng lý do: ĐỌC `Cargo.toml` LÀ BIẾT NGAY bộ nạp
 # ứng dụng không với tới được khoá ví. Nếu `tcc-runtime` phụ thuộc kho khoá thì
 # đường từ mã ứng dụng tới khoá bí mật chỉ còn là chuyện ai gọi hàm nào — mà đó
@@ -148,13 +148,16 @@ echo "--- Luật 18: chỉ tcc-shell được phụ thuộc tcc-keystore ---"
 #
 # Kho khoá GIẢ cũng nằm trong crate này, nên luật còn chặn luôn việc ai đó tiện
 # tay dùng bản giả ở đường chạy thật.
-lac=$(grep -l 'tcc-keystore' crates/*/Cargo.toml apps/*/Cargo.toml tools/*/Cargo.toml 2>/dev/null \
-  | grep -v 'crates/tcc-shell/Cargo.toml' | grep -v 'crates/tcc-keystore/Cargo.toml' || true)
+# `tcc-chain` cùng hạng: nó biết bố cục giao dịch của chuỗi, và bộ nạp ứng dụng
+# không có việc gì với thứ đó.
+lac=$(grep -lE 'tcc-keystore|tcc-chain' crates/*/Cargo.toml apps/*/Cargo.toml tools/*/Cargo.toml 2>/dev/null \
+  | grep -v 'crates/tcc-shell/Cargo.toml' | grep -v 'crates/tcc-keystore/Cargo.toml' \
+  | grep -v 'crates/tcc-chain/Cargo.toml' || true)
 if [ -n "$lac" ]; then
-  bao "crate KHÔNG phải tcc-shell mà phụ thuộc tcc-keystore:"
+  bao "crate KHÔNG phải tcc-shell mà phụ thuộc tcc-keystore/tcc-chain:"
   printf '%s\n' "$lac" | sed 's/^/      /'
 else
-  dat "chỉ tcc-shell được với tới kho khoá ví"
+  dat "chỉ tcc-shell được với tới kho khoá ví và bố cục giao dịch chuỗi"
 fi
 
 echo

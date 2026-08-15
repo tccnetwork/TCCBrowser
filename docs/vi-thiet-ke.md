@@ -202,3 +202,37 @@ Nên trước khi viết một dòng nào chạm khoá thật, cần biết:
 3. **Trình duyệt nhập ví cũ hay tạo ví mới?** Nhập thì phải đọc được định dạng
    `tcc_wallets_v4` và giải mã bằng PIN — tức là trình duyệt phải cài đặt lại
    PBKDF2+AES-GCM chỉ để đọc một lần rồi cất lại bằng kho khoá hệ điều hành.
+
+
+## 9. Đã dựng phần chống ký mù (15/08/2026)
+
+`crates/tcc-chain` — **đọc, không ký**. Không khoá nào đi qua nó.
+
+Nó giải mã `unsigned_tx_base64` (bincode 1.x: số nguyên little-endian cố định
+độ dài, `Vec`/`String` có tiền tố `u64`, biến thể enum là `u32`), **tự tính lại**
+`signing_message` theo đúng công thức của chuỗi, và **từ chối ký nếu lệch**.
+
+Phép thử quan trọng nhất là `may_chu_doi_nguoi_nhan_thi_bi_bat`: máy chủ đưa băm
+của giao dịch người dùng NGHĨ mình đang ký, còn gói tin lại là của kẻ gian. Ví
+web hôm nay sẽ ký; phép kiểm này từ chối.
+
+Và `moi_truong_deu_vao_thong_diep_ky` đòi rằng đổi **bất kỳ** trường nào cũng
+đổi băm — một trường không vào băm là một trường máy chủ sửa được mà không ai
+biết.
+
+### ⚠️ Chưa có mốc ngoài — đây là điểm yếu lớn nhất của phần này
+
+Bố cục byte trên đây **chép từ mã của chuỗi**, chưa đối chiếu với một giao dịch
+THẬT. Nếu tôi đọc sai `bincode`, trình duyệt sẽ từ chối mọi giao dịch hợp lệ —
+hỏng về phía an toàn, nhưng vẫn là hỏng, và chỉ lộ ra lúc có người dùng thật.
+
+Cần **một mẫu thật** để neo, và có hai đường lấy:
+
+1. Mở ví web, bật DevTools, chép lại một cặp `unsigned_tx_base64` +
+   `signing_message_hex` từ lời gọi `tcc_buildUnsignedTransfer`. Không cần ký,
+   không cần gửi gì.
+2. Cho phép tôi gọi thẳng `tcc_buildUnsignedTransfer` trên RPC testnet. Đó là
+   lời gọi CHỈ ĐỌC — nó dựng giao dịch chứ không phát tán — nhưng nó là một
+   lượt gọi ra hạ tầng của bạn, nên tôi hỏi trước.
+
+Có mẫu rồi thì nó thành vector kiểm định, và phần này mới đáng tin.
