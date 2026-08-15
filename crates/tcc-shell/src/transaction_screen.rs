@@ -133,7 +133,11 @@ pub enum XacNhanError {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
 mod kiem_thu {
     use super::*;
     use tcc_chain::Address;
