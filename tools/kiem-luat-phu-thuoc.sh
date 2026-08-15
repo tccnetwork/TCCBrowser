@@ -140,6 +140,28 @@ else
 fi
 
 echo
+echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật THẬT ---"
+# Con số này trôi nhiều nhất và im lặng nhất: tài liệu ghi 6, rồi 10, rồi 12,
+# trong khi kịch bản đã có 16. Người đọc tin con số, không đếm lại.
+#
+# Chỉ kiểm SỐ LUẬT, không kiểm số phép thử hay số vector: luật chạy TRƯỚC bước
+# biên dịch, nên nó không biết hai con số kia. Và quan trọng hơn — số trong VĂN
+# KỂ là sự thật lịch sử ("211 phép thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ.
+that=$(grep -c '^echo "--- Luật' "$0")
+lech=""
+for f in README.md SECURITY.md ARCHITECTURE.md docs/ke-hoach.md ../docs/dang-lam-gi.md ../memory/active-context.md; do
+  [ -f "$f" ] || continue
+  for n in $(grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules)' "$f" | grep -oE '^[0-9]+' | sort -u); do
+    [ "$n" = "$that" ] || lech="$lech $(basename "$f"):$n"
+  done
+done
+if [ -n "$lech" ]; then
+  bao "tài liệu ghi sai số luật (thật là $that):$lech"
+else
+  dat "$that luật, và mọi tài liệu nhắc tới đều ghi đúng con số"
+fi
+
+echo
 echo "--- Luật 16: mọi mã lỗi trong đặc tả phải có VECTOR ---"
 # Luật 10 kiểm mã có TỒN TẠI trong mã nguồn. Nó không kiểm được mã đó có bao giờ
 # NỔ hay không — và bốn mã trong danh sách hoá ra không chạm tới được: bộ đọc

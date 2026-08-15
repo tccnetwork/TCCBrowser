@@ -62,7 +62,7 @@ cảm nhận — cổng nào chỉ dựa vào trí nhớ thì coi như chưa đ�
 - [x] `cargo check --workspace` sạch trên macOS **và** Linux
       → CI GitHub Actions, cả `macos-latest` lẫn `ubuntu-latest`
 - [x] `tools/kiem-luat-phu-thuoc.sh` — 0 vi phạm
-      → 16 luật, chạy TRƯỚC bước biên dịch trong CI
+      → 17 luật, chạy TRƯỚC bước biên dịch trong CI
 - [x] `tcc sign` rồi `tcc verify` chạy đúng; **sửa một byte trong gói là kiểm thất bại**
       → đo 14/08: ký `exit 0` · kiểm `exit 0` · lật MỘT bit trong `ui.json` `exit 1`
       · khôi phục `exit 0` · xoá `signature.hex` `exit 1`
