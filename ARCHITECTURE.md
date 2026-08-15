@@ -162,6 +162,10 @@ the building.
 
 Rules 1, 2, 5 and 6 exist **solely** to keep the right-hand box reachable.
 
+The seam is no longer only a plan: `tcc-render-webview` is built and exercised
+on **WebKitGTK under Linux** as well as WKWebView on macOS, in CI. The renderer
+being replaceable was an argument until something else actually ran it.
+
 A side benefit: the constraint forces `tcc-ui` to be designed properly from the
 start. If it is abstract enough to run on two genuinely different renderers, it
 was designed correctly.

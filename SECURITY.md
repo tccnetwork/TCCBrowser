@@ -400,6 +400,13 @@ a filter is the mutation class that valid-input-only tests never touch. Closed
 with the `kiem-bam-nut ma` mode: send a fabricated id directly and require that
 nothing arrives.
 
+**B7 runs on TWO WebKit implementations since 2026-08-15.** The escaping, the
+content policy and the accessibility scan are now driven through WKWebView on
+macOS and WebKitGTK on Linux under a virtual display, in CI, on every push. One
+engine proves the defence against one engine; a defence resting on a quirk of
+WKWebView would have looked identical to a real one until somebody ran it
+elsewhere. All three passed on Linux the first time they were tried.
+
 **B7 deserves its own note — three layers, each tested ALONE.**
 
 | Layer | Blocks | How it is tested alone |

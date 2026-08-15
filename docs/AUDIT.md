@@ -30,7 +30,8 @@ python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-p
 cargo audit                                         # 0 vulnerabilities, 14 known warnings
 ```
 
-macOS only, because they drive a real WebKit view:
+These drive a real WebKit view. On macOS they use WKWebView; on Linux, install
+`libwebkit2gtk-4.1-dev` and prefix with `xvfb-run -a` — CI runs both:
 
 ```bash
 cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
