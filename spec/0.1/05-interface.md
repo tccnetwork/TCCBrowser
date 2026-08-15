@@ -32,7 +32,7 @@ renderers. The scaffolding becomes the building.
 
 | `kind` | Fields | |
 |---|---|---|
-| `text` | `content` MUST · `emphasis` (`title`/`normal`/`subtle`, default `normal`) | A paragraph; newlines ARE allowed |
+| `text` | `content` MUST · `emphasis` (`title`/`normal`/`subtle`/`warning`, default `normal`) | A paragraph; newlines ARE allowed |
 | `button` | `label` MUST · `action` MUST · `tone` (`neutral`/`primary`/`danger`, default `neutral`) | |
 | `field` | `label` MUST · `value` (default empty) · `secret` (default `false`) | Text input |
 | `toggle` | `label` MUST · `action` MUST · `on` (default **`false`**) | Switch |
@@ -41,6 +41,22 @@ renderers. The scaffolding becomes the building.
 
 Unknown fields **MUST** be rejected. They are almost always a typo, and ignoring
 them silently means the author believes a property took effect when it did not.
+
+### `warning` was added to `emphasis`, and why
+
+[04](04-capabilities.md) requires the signing-capable wallet capability to be
+**visually distinct from every other capability**. The vocabulary here offered
+`title`, `normal` and `subtle` — none of which can express "distinct". The
+standard demanded something it gave no means to say.
+
+That is a defect in the standard rather than in any implementation, so it is
+fixed here. Adding a value is a breaking change ([VERSIONING](../VERSIONING.md)
+§3): `emphasis` is a closed set, so a renderer **will not compile** until it
+handles the new value. That cost is the point — see the note on `toggle` below.
+
+`warning` means: this line must stand out from every line around it. As with
+every other intent, the app declares the intent and the implementation decides
+the appearance — but it **MUST** actually look different, per the rule above.
 
 ## No pixels, no colours
 

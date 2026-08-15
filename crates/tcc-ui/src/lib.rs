@@ -151,6 +151,20 @@ pub enum Emphasis {
     Normal,
     /// Chữ phụ, chú thích.
     Subtle,
+    /// **Cảnh báo.** Dòng chữ phải nổi rõ hơn mọi dòng khác quanh nó.
+    ///
+    /// # Vì sao phải thêm một giá trị vào TIÊU CHUẨN
+    ///
+    /// `04-quyen-nang.md` bắt buộc quyền ví ký được **PHẢI hiện khác hẳn** mọi
+    /// quyền khác. Nhưng từ vựng giao diện chỉ có `title`/`normal`/`subtle` —
+    /// không giá trị nào diễn đạt được "khác hẳn". Tức là tiêu chuẩn đòi một
+    /// thứ mà chính nó không cung cấp phương tiện để nói.
+    ///
+    /// Đó là lỗi của tiêu chuẩn, không phải của bản cài đặt, nên sửa ở tiêu
+    /// chuẩn. `Emphasis` không đánh dấu `#[non_exhaustive]`, nên mọi bộ dựng
+    /// **không biên dịch được** cho tới khi xử lý giá trị mới — cái giá đã ghi
+    /// từ đầu, và đây là lần thứ hai trả nó.
+    Warning,
 }
 
 /// Sắc thái của một hành động. Bộ dựng ánh xạ sang màu — ứng dụng thì không.

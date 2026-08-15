@@ -174,7 +174,22 @@ fn muc_quyen(c: &CapabilityRequest, ngon_ngu: Language) -> Result<Node, UiError>
     Node::group(Flow::Column, Gap::Small)
         // Công tắc MẶC ĐỊNH TẮT. Mặc định bật là câu hỏi tự trả lời hộ người dùng.
         .child(Node::toggle(tieu_de, false, &toggle_id(&c.name))?)?
-        .child(Node::text_with(&chi_tiet, Emphasis::Normal)?)?
+        // Quyền ví KÝ ĐƯỢC phải hiện KHÁC HẲN mọi quyền khác — `04` bắt buộc thế.
+        // Nói ra thôi là chưa đủ: B31 đã dạy rằng một ý định khai mà bộ dựng vẽ
+        // giống hệt các ý định khác thì người nhìn không phân biệt được gì.
+        .child(Node::text_with(
+            &chi_tiet,
+            if matches!(
+                c.scope,
+                Scope::Wallet {
+                    may_request_signature: true
+                }
+            ) {
+                Emphasis::Warning
+            } else {
+                Emphasis::Normal
+            },
+        )?)?
         // Lý do là chữ của ỨNG DỤNG, không phải chữ của ta. Hiện nguyên văn.
         .child(Node::text_with(&c.reason, Emphasis::Subtle)?)
 }
@@ -315,6 +330,39 @@ mod kiem_thu {
 
         let sv = chu_tren_man_hinh(&ke_khai(XIN_VI_KY), Language::Vi);
         assert!(sv.contains("chuyển tiền"), "{sv}");
+    }
+
+    /// `04` §quyền ví: PHẢI hiện khác hẳn mọi quyền khác, và PHẢI nói bằng
+    /// tiếng người rằng nó chuyển tiền.
+    ///
+    /// Trước phép thử này, hộp thoại nói đúng câu "việc này chuyển tiền" nhưng
+    /// vẽ hàng ví Y HỆT hàng quyền mạng. Nửa sau của luật được giữ, nửa đầu thì
+    /// không — và nửa đầu mới là nửa người dùng NHÌN thấy.
+    #[test]
+    fn quyen_vi_ky_duoc_hien_khac_han_quyen_khac() {
+        use tcc_render_webview::WebViewRenderer;
+        let ve = |q: &str| {
+            let cay = build(&ke_khai(q), Language::En).unwrap();
+            let mut bd = WebViewRenderer::new();
+            bd.render(&cay).unwrap();
+            bd.body().to_owned()
+        };
+        let vi = ve(XIN_VI_KY);
+        let mang = ve(r#"[{"name":"network",
+                    "scope":{"kind":"network","hosts":["shop.tcc-coin.com"]},
+                    "reason":"tải danh sách"}]"#);
+        assert!(
+            vi.contains("data-nhan=\"canh-bao\""),
+            "hàng ví không mang dấu hiệu cảnh báo:\n{vi}"
+        );
+        assert!(
+            !mang.contains("data-nhan=\"canh-bao\""),
+            "hàng quyền mạng cũng mang dấu cảnh báo — vậy thì không còn KHÁC HẲN nữa"
+        );
+        assert!(
+            vi.contains("this moves money"),
+            "thiếu câu nói rõ nó chuyển tiền:\n{vi}"
+        );
     }
 
     #[test]

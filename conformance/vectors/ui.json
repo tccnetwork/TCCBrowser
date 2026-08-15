@@ -581,6 +581,16 @@
     "bytes": 1100000
    },
    "notes": "The size cap is checked BEFORE parsing, so it fires ahead of every other interface rule. Generated rather than stored: see FORMAT.md."
+  },
+  {
+   "case": "text with warning emphasis",
+   "expect_pass": true,
+   "tree": {
+    "kind": "text",
+    "content": "This moves money",
+    "emphasis": "warning"
+   },
+   "notes": "`warning` was added because 04 requires the signing-capable wallet capability to look different from every other one, and the vocabulary had no way to say that. An implementation must render it visibly differently, not merely accept it."
   }
  ]
 }

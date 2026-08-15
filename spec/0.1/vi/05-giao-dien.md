@@ -32,7 +32,7 @@ Giàn giáo hoá thành nhà.
 
 | `kind` | Trường | |
 |---|---|---|
-| `text` | `content` PHẢI · `emphasis` (`title`/`normal`/`subtle`, mặc định `normal`) | Đoạn chữ; CHO xuống dòng |
+| `text` | `content` PHẢI · `emphasis` (`title`/`normal`/`subtle`/`warning`, mặc định `normal`) | Đoạn chữ; CHO xuống dòng |
 | `button` | `label` PHẢI · `action` PHẢI · `tone` (`neutral`/`primary`/`danger`, mặc định `neutral`) | |
 | `field` | `label` PHẢI · `value` (mặc định rỗng) · `secret` (mặc định `false`) | Ô nhập |
 | `toggle` | `label` PHẢI · `action` PHẢI · `on` (mặc định **`false`**) | Công tắc |
@@ -41,6 +41,21 @@ Giàn giáo hoá thành nhà.
 
 Trường lạ → **PHẢI** từ chối. Nó gần như luôn là gõ sai tên, và im lặng bỏ qua
 nghĩa là người viết tưởng đã đặt được một thuộc tính mà thật ra không.
+
+### `warning` được THÊM vào `emphasis`, và vì sao
+
+[04](04-quyen-nang.md) bắt buộc quyền ví ký được phải **hiện khác hẳn mọi quyền
+khác**. Từ vựng ở đây chỉ có `title`, `normal`, `subtle` — không giá trị nào nói
+được "khác hẳn". Tiêu chuẩn đòi một thứ mà nó không cho phương tiện để nói.
+
+Đó là lỗi của TIÊU CHUẨN chứ không phải của bản cài đặt, nên sửa ở đây. Thêm một
+giá trị là thay đổi phá vỡ ([VERSIONING](../../VERSIONING.md) §3): `emphasis` là
+tập đóng, nên bộ dựng **không biên dịch được** cho tới khi xử lý giá trị mới. Cái
+giá đó chính là điểm mạnh — xem ghi chú về `toggle` bên dưới.
+
+`warning` nghĩa là: dòng chữ này phải nổi rõ hơn mọi dòng quanh nó. Như mọi ý
+định khác, ứng dụng khai ý định còn bản cài đặt quyết định hình thức — nhưng nó
+**PHẢI** trông khác thật, theo đúng luật trên.
 
 ## Không có pixel, không có màu
 

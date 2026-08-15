@@ -100,6 +100,7 @@ const fn ten_nhan(e: Emphasis) -> &'static str {
         Emphasis::Title => "tieu-de",
         Emphasis::Normal => "thuong",
         Emphasis::Subtle => "phu",
+        Emphasis::Warning => "canh-bao",
     }
 }
 
@@ -278,6 +279,8 @@ const BANG_KIEU: &str = "\
 body{font:15px/1.55 -apple-system,system-ui,sans-serif;margin:22px;color:#14161c}\
 [data-nhan=tieu-de]{font-size:1.5em;font-weight:600;margin:0 0 .3em}\
 [data-nhan=phu]{color:#5b6270;font-size:.92em}\
+[data-nhan=canh-bao]{color:#8a2b06;background:#fff1e8;border-left:3px solid #d2521a;\
+padding:4px 9px;border-radius:4px;font-weight:600}\
 [data-huong=doc]{display:flex;flex-direction:column}\
 [data-huong=ngang]{display:flex;flex-direction:row;align-items:center}\
 [data-cach=nho]{gap:6px}[data-cach=vua]{gap:12px}[data-cach=lon]{gap:20px}\
