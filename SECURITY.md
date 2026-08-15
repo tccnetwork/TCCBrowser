@@ -725,6 +725,31 @@ As planned. The hard gate:
 
 > **No transaction reaches mainnet before an independent security audit.**
 
+### 3.4c A signed package does not survive a helpful transport — found 2026-08-15
+
+The committed example verified on macOS and Linux and **failed on Windows** the
+first time CI ran there:
+
+```
+✗ chữ ký không hợp lệ: chữ ký Ed25519 không hợp lệ
+```
+
+The package was never broken. Git converts LF to CRLF on checkout under Windows
+by default, and a signature is computed over the **raw bytes** of
+`manifest.json` — 4,682 bytes became 4,713, one per line, and the signature no
+longer matched. The content hash over `content/` broke the same way.
+
+Fixed here with `.gitattributes` (`* -text`), and the rule covers every file
+rather than only packages, because a rule that must be remembered for each new
+signed file is one that gets forgotten.
+
+**The lesson generalises past git, and belongs to implementers rather than to
+this repository.** Any channel that normalises text destroys a package: an
+archive tool with a text mode, a chat client, an editor that "fixes" line
+endings on save, a CI step that runs a formatter. This is recorded in
+[`spec/0.1/01-package.md`](spec/0.1/01-package.md) so anyone building
+distribution for TCC packages meets it before their users do.
+
 ### 3.5b Dependencies, checked against RustSec from 2026-08-15
 
 `cargo audit` runs in CI. It fails the build on a vulnerability and reports

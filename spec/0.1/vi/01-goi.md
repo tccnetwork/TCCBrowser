@@ -14,6 +14,21 @@ Ba mục này **PHẢI** có. Thiếu bất kỳ mục nào là gói không hợ
 Mọi thứ **ngoài** ba mục đó **KHÔNG ĐƯỢC** đi vào chữ ký, và bản cài đặt **KHÔNG
 ĐƯỢC** đọc chúng khi chạy ứng dụng.
 
+## Gói là BYTE, và đường vận chuyển không được chạm vào
+
+Chữ ký phủ lên byte thô của `manifest.json`; băm nội dung phủ lên byte thô của
+mọi tệp dưới `content/`. Không có bước chuẩn hoá nào trước đó — không xuống
+dòng, không Unicode, không khoảng trắng.
+
+Nên bất kỳ đường vận chuyển nào "tử tế" viết lại văn bản đều phá huỷ gói. Thứ
+cắn trước nhất là **git**: trên Windows nó mặc định đổi LF thành CRLF lúc lấy mã
+về. Chính gói ví dụ của bản cài đặt tham chiếu kiểm được trên macOS và Linux mà
+hỏng trên Windows ngay lần đầu chạy ở đó, vì 4.682 byte đã thành 4.713.
+
+Bản cài đặt nào phân phối gói **PHẢI** coi gói là byte đục. Ai dựng đường phân
+phối ấy nên kiểm trước khi phát hành: một gói ký trên hệ điều hành này, đi vòng
+qua kênh của họ, tới hệ điều hành khác thì còn kiểm được không.
+
 ## Bản 0.1 KHÔNG có định dạng đóng gói
 
 Thứ mục trên định nghĩa là một **thư mục**. Bản 0.1 không định nghĩa dạng nén

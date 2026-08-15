@@ -1,0 +1,22 @@
+# Git MUST NOT rewrite any byte in this repository.
+#
+# On Windows, git converts LF to CRLF on checkout by default. A TCC signature is
+# computed over the RAW BYTES of `manifest.json`, and the content hash over the
+# raw bytes of every file in `content/` — so a helpful line-ending conversion
+# adds one byte per line and destroys every signature in the repository.
+#
+# This is not hypothetical. `tcc verify examples/hello-tcc` passed on macOS and
+# Linux and failed on Windows with "chữ ký Ed25519 không hợp lệ", the first time
+# CI ran there. The package was never broken; the checkout was.
+#
+# `-text` on everything, not just on packages: a rule that has to be remembered
+# for each new signed file is a rule that gets forgotten the day somebody adds
+# one.
+* -text
+
+# Conformance vectors are compared byte for byte against expected hashes, so
+# they are in the same position as package content.
+conformance/vectors/*.json -text
+
+# Fuzzing corpora are opaque bytes by definition.
+fuzz/seeds/** -text binary

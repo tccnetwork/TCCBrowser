@@ -14,6 +14,23 @@ All three **MUST** be present. A package missing any of them is invalid.
 Anything **outside** those three **MUST NOT** enter the signature, and an
 implementation **MUST NOT** read it when running the app.
 
+## A package is BYTES, and transports must not touch them
+
+The signature covers the raw bytes of `manifest.json`; the content hash covers
+the raw bytes of every file under `content/`. Nothing is normalised first — not
+line endings, not Unicode, not whitespace.
+
+So any transport that "helpfully" rewrites text destroys the package. The one
+that will bite first is **git**, which converts LF to CRLF on checkout under
+Windows by default: the reference implementation's own example verified on macOS
+and Linux and failed on Windows the first time it was tried there, because 4,682
+bytes had become 4,713.
+
+An implementation distributing packages **MUST** treat them as opaque bytes.
+Whoever builds that distribution should check, before shipping, that a package
+signed on one operating system still verifies after a round trip through their
+channel on another.
+
 ## There is NO container format in 0.1
 
 What this section defines is a **directory**. Version 0.1 defines no archive, no
