@@ -65,6 +65,28 @@ all produced by the same party.** So "conformant to TCC 0.1" currently means
 All three are mutation-tested: the check is proven to go red when the thing it
 guards is broken, and green again when it is restored.
 
+## What auditing the clauses found
+
+On 2026-08-15 every normative clause in `0.1/` was listed and each was asked a
+single question: *what watches this?* Four kinds of defect came out, and none of
+them would have been found by running the test suite, because every test was
+green throughout.
+
+| Defect | Example |
+|---|---|
+| A clause with **nothing** watching it | The signing-capable wallet capability must look different from every other one. It did not, and could not — see below |
+| A requirement the standard **gave no means to satisfy** | `emphasis` had no value meaning "distinct", so `warning` was added |
+| Codes that **could never fire** | Four of them. `too-deep` was unreachable because each tree level costs two levels of JSON nesting, so the limit of 64 sat exactly where common parsers stop; three others were removed entirely |
+| An artifact named but **never defined** | The exit gate asked for a `.tccapp` package. No container format exists, so the gate was unsatisfiable by construction |
+
+Half the error codes — 16 of 32 — had no conformance vector at all. Rule 16 now
+requires one for every code, and writing those vectors is what exposed the
+unreachable ones.
+
+The lesson worth carrying: **a specification can be internally consistent, fully
+implemented, and still ask for things that cannot happen.** Only writing a check
+for each clause finds that out.
+
 ## Still missing before this deserves the word "standard"
 
 - **A second, independent implementation.** This is the largest gap, and every

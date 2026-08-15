@@ -116,6 +116,16 @@ The dialog **MUST** show: the app name · the **specific scope** (name the serve
 never just "network access") · the app's **reason verbatim** · and a warning that
 the signature does not prove identity.
 
-The two decision buttons **SHOULD** carry equal visual weight. Making the consent
+The two decision buttons **MUST** carry equal visual weight. Making the consent
 button more prominent than the refusal button pushes the user one way — at exactly
 the most dangerous moment.
+
+This was a SHOULD until it was audited. It is a MUST for the same reason "never
+display verified publisher" is: it governs **what an implementation shows a
+person**, and the cryptography beneath is worthless if the interface tilts the
+answer. Every other rule on this page can be satisfied perfectly while a
+prominent Allow button next to a faint Deny collects consent nobody meant to
+give.
+
+It is also enforceable, which a SHOULD invites implementers to doubt: the two
+buttons carry a tone, and a check that the two tones are equal is a few lines.

@@ -113,5 +113,16 @@ Hộp thoại **PHẢI** hiện: tên ứng dụng · **phạm vi cụ thể** (
 chủ, không nói "kết nối mạng") · **lý do nguyên văn của ứng dụng** · và câu cảnh
 báo rằng chữ ký không chứng minh danh tính.
 
-Hai nút quyết định **NÊN** ngang nhau về mặt thị giác. Làm nút đồng ý nổi hơn nút
+Hai nút quyết định **PHẢI** ngang nhau về mặt thị giác. Làm nút đồng ý nổi hơn nút
 từ chối là đẩy người dùng về một phía — và đẩy ở đúng chỗ nguy hiểm nhất.
+
+
+Điều này từng là NÊN cho tới khi được rà lại. Nó là PHẢI vì đúng lý do khiến
+"không bao giờ hiện đã xác minh nhà phát hành" là PHẢI: nó chi phối **thứ bản
+cài đặt hiện ra cho một con người**, mà mật mã bên dưới trở nên vô giá trị nếu
+giao diện làm nghiêng câu trả lời. Mọi luật khác trên trang này có thể đạt hoàn
+hảo trong khi một nút Cho phép nổi bật đứng cạnh một nút Từ chối mờ nhạt vẫn thu
+về sự đồng ý mà không ai định cho.
+
+Nó cũng cưỡng chế được — điều mà chữ NÊN khiến người cài đặt nghi ngờ: hai nút
+đều mang một sắc thái, và kiểm hai sắc thái bằng nhau chỉ tốn vài dòng.
