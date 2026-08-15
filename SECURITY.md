@@ -734,6 +734,25 @@ What this does **not** say: a clean advisory scan means nobody has *reported* a
 vulnerability, not that there is none. `ml-dsa` 0.1.1 has no advisory against it
 and also no published audit (§3.2). The scan is a floor, not a ceiling.
 
+### 3.5c Dependency licences, and the MSRV claim
+
+Both were claims nobody checked, which is the pattern this document keeps
+finding.
+
+**Licences across all 356 dependencies**: no strong copyleft, none undeclared.
+The bulk is `MIT OR Apache-2.0`. Four crates are **MPL-2.0** — `cssparser`,
+`cssparser-macros`, `dtoa-short`, `selectors`, all reached through `wry` — which
+is file-level copyleft: distributing them is fine under Apache-2.0, but a
+modified MPL file stays MPL. One crate offers LGPL among its options
+(`r-efi`, `MIT OR Apache-2.0 OR LGPL-2.1-or-later`), and the permissive option
+is the one taken.
+
+**MSRV**: `Cargo.toml` declared `rust-version = "1.90"` and no job ever built
+with it. A dependency raising its own minimum would have broken that quietly for
+anyone not on the newest toolchain. Tested and true, and CI now checks it — the
+job reads the version out of `Cargo.toml` rather than repeating it, so raising
+the minimum in one place cannot leave the check testing the old one.
+
 ### 3.6 Fuzzing — exists now, and its limits are worth stating
 
 `tools/tcc-fuzz` fuzzes the three parsers. They are worth fuzzing for a reason

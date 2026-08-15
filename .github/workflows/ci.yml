@@ -111,3 +111,25 @@ jobs:
         run: cargo audit
       - name: Maintenance warnings, reported not enforced
         run: cargo audit --deny warnings || true
+
+  # The declared minimum supported Rust version, actually tried.
+  #
+  # Cargo.toml says rust-version = "1.90". Nothing checked it, so it was a
+  # claim rather than a fact — and a dependency bumping its own MSRV would
+  # have broken it silently for anyone not on the newest toolchain. Same
+  # class as every other unwatched claim in this repository.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the version from Cargo.toml, do not hardcode it here
+        id: msrv
+        run: |
+          V=$(grep -m1 '^rust-version' Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "MSRV declared as $V"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - run: cargo check --workspace --all-targets
+      - run: cargo check --workspace --all-targets --features tcc-shell/network
