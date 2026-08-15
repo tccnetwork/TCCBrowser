@@ -969,10 +969,17 @@ different language, can **construct** something this one accepts. An
 implementation that rejects everything wrong while producing nothing right still
 cannot exchange packages with anybody.
 
-`conformance/dung-goi-doc-lap.py` builds a complete package from nothing —
-canonical form, content hash, manifest, hybrid signature, package directory —
-and `tcc verify` accepts it. So the two agree on the whole format, not only on
-ML-DSA arithmetic.
+`conformance/dung-goi-doc-lap.py` runs **both directions**. It builds a complete
+package from nothing — canonical form, content hash, manifest, hybrid signature,
+directory layout — and `tcc verify` accepts it. Then it reads
+`examples/hello-tcc`, signed by the Rust, and verifies it in Python: both
+signature halves, the content hash, the entry point, in the order
+`01-package.md` demands.
+
+The reverse direction matters as much as the forward one and nothing checked it
+before. Nothing proved that what `tcc sign` emits is **readable by anybody
+else** — and an implementation that produces packages only it can read passes
+every test it has.
 
 Ed25519 is written out in that file from RFC 8032 rather than imported, so the
 classical half really is two implementations and not two calls into one library.
@@ -988,6 +995,8 @@ standard makes explicit:
 | Length prefix written after the content instead of before | content-hash mismatch |
 | FIPS 204 `ctx` set to `"TCC"` instead of empty | ML-DSA half rejected |
 | The two signature halves swapped | Ed25519 half rejected |
+| One byte changed in the example's content | Python reports a content-hash mismatch |
+| One bit flipped in the example's signature | Python rejects the Ed25519 half |
 
 The middle one is the quiet interoperability trap of the whole standard, and
 this is the first check that would catch a second implementation getting it

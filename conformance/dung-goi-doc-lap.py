@@ -16,8 +16,13 @@ Kịch bản này dựng cả gói từ con số không, chỉ dùng những gì
 
     dạng chuẩn tắc → băm nội dung → bản kê khai → ký lai → thư mục gói
 
-rồi gọi `tcc verify`. Nếu bản Rust nhận, hai bên đồng ý về TOÀN BỘ định dạng,
-không chỉ về số học của ML-DSA.
+rồi gọi `tcc verify`. Và làm cả CHIỀU NGƯỢC: đọc gói do bản Rust ký, kiểm
+bằng Python. Chiều ngược quan trọng ngang chiều xuôi — không có gì chứng minh
+thứ `tcc sign` xuất ra là ĐỌC ĐƯỢC bởi ai khác, và một bản cài đặt sinh ra gói
+mà chỉ chính nó đọc nổi vẫn qua được mọi phép thử của chính nó.
+
+Nếu cả hai chiều đạt, hai bên đồng ý về TOÀN BỘ định dạng, không chỉ về số học
+của ML-DSA.
 
 # Nó độc lập tới đâu, nói cho đúng
 
@@ -124,6 +129,39 @@ def ed25519_public(seed: bytes) -> bytes:
     return _encode(_mul(a, B))
 
 
+def _decode(b: bytes):
+    y = int.from_bytes(b, "little")
+    sign = y >> 255
+    y &= (1 << 255) - 1
+    if y >= P:
+        return None
+    x = _recover_x(y, sign)
+    if (x * x - (y * y - 1) * _inv(D * y * y + 1)) % P != 0:
+        return None
+    return (x, y, 1, x * y % P)
+
+
+def _equal(p, q):
+    if (p[0] * q[2] - q[0] * p[2]) % P != 0:
+        return False
+    return (p[1] * q[2] - q[1] * p[2]) % P == 0
+
+
+def ed25519_verify(pub: bytes, msg: bytes, sig: bytes) -> bool:
+    """Kiểm chữ ký Ed25519. Cần cho chiều NGƯỢC: Python đọc gói bản Rust dựng."""
+    if len(sig) != 64 or len(pub) != 32:
+        return False
+    A = _decode(pub)
+    Rp = _decode(sig[:32])
+    if A is None or Rp is None:
+        return False
+    s = int.from_bytes(sig[32:], "little")
+    if s >= L:
+        return False
+    k = int.from_bytes(_h(sig[:32] + pub + msg), "little") % L
+    return _equal(_mul(s, B), _add(Rp, _mul(k, A)))
+
+
 def ed25519_sign(seed: bytes, msg: bytes) -> bytes:
     a, prefix = _secret_scalar(seed)
     pub = _encode(_mul(a, B))
@@ -155,6 +193,50 @@ def content_hash_hex(canon: bytes) -> str:
     import blake3
 
     return blake3.blake3(canon).digest(length=48).hex()
+
+
+def kiem_goi_bang_python(goi: pathlib.Path) -> tuple[bool, str]:
+    """Kiểm một gói do bản RUST dựng, hoàn toàn bằng Python.
+
+    Chiều này quan trọng ngang chiều kia và chưa ai kiểm: không có gì chứng
+    minh thứ `tcc sign` xuất ra là ĐỌC ĐƯỢC bởi ai khác. Một bản cài đặt sinh
+    ra gói mà chỉ chính nó đọc nổi vẫn qua được mọi phép thử của chính nó.
+
+    Theo đúng thứ tự của `01-package.md`: chữ ký TRƯỚC, rồi mới tin bản kê khai.
+    """
+    from dilithium_py.ml_dsa import ML_DSA_65
+
+    ke_khai_byte = (goi / "manifest.json").read_bytes()
+    chu_ky = bytes.fromhex((goi / "signature.hex").read_text().strip())
+    if len(chu_ky) != 3373:
+        return False, f"chữ ký {len(chu_ky)} byte, phải 3373"
+
+    ke_khai = json.loads(ke_khai_byte)
+    pub = bytes.fromhex(ke_khai["publisher"])
+    if len(pub) != 1984:
+        return False, f"khoá công khai {len(pub)} byte, phải 1984"
+
+    # 1 — nửa cổ điển, ký lên BYTE THÔ của bản kê khai.
+    if not ed25519_verify(pub[:32], ke_khai_byte, chu_ky[:64]):
+        return False, "nửa Ed25519 không hợp lệ"
+
+    # 2 — nửa hậu lượng tử. Giao diện NGOÀI, ctx RỖNG.
+    if not ML_DSA_65.verify(pub[32:], ke_khai_byte, chu_ky[64:], ctx=b""):
+        return False, "nửa ML-DSA-65 không hợp lệ"
+
+    # 3 — CHỈ TỚI ĐÂY bản kê khai mới đáng tin. Giờ mới so nội dung với nó.
+    tep: dict[str, bytes] = {}
+    goc = goi / "content"
+    for d in sorted(goc.rglob("*")):
+        if d.is_file():
+            tep[str(d.relative_to(goc)).replace("\\", "/")] = d.read_bytes()
+    bam = content_hash_hex(canonical_bytes(tep))
+    if bam != ke_khai["content_hash"]:
+        return False, f"băm nội dung lệch: {bam[:16]}… ≠ {ke_khai['content_hash'][:16]}…"
+    if ke_khai["entry"] not in tep:
+        return False, f"điểm vào {ke_khai['entry']!r} không có trong gói"
+
+    return True, f"{len(tep)} tệp, điểm vào {ke_khai['entry']}"
 
 
 def main() -> int:
@@ -223,14 +305,27 @@ def main() -> int:
     print("\n".join("    " + x for x in (r.stdout + r.stderr).strip().split("\n")))
     shutil.rmtree(tmp, ignore_errors=True)
 
-    if r.returncode == 0:
+    if r.returncode != 0:
+        print("\n✗ TRƯỢT — bản Rust từ chối gói do Python dựng.")
+        return 1
+
+    # ── Chiều ngược: Python đọc gói do bản RUST dựng ──
+    print("\n── chiều ngược: Python kiểm gói do bản Rust ký ──\n")
+    vi_du = pathlib.Path(__file__).resolve().parent.parent / "examples" / "hello-tcc"
+    dat, ly_do = kiem_goi_bang_python(vi_du)
+    print(f"    {'✓' if dat else '✗'} examples/hello-tcc — {ly_do}")
+    if not dat:
+        print("\n✗ TRƯỢT — Python không đọc nổi gói do bản Rust dựng.")
+        return 1
+
+    if True:
         print(
-            "\n✓ ĐẠT — một gói dựng hoàn toàn bằng Python được bản Rust chấp nhận.\n"
+            "\n✓ ĐẠT CẢ HAI CHIỀU.\n"
+            "  Python dựng → Rust nhận, và Rust ký → Python kiểm được.\n"
             "  Hai bên đồng ý về dạng chuẩn tắc, băm nội dung, bố cục byte của\n"
-            "  khoá và chữ ký, và giao diện FIPS 204 — không chỉ về số học ML-DSA."
+            "  khoá và chữ ký, và giao diện FIPS 204 — không chỉ số học ML-DSA."
         )
         return 0
-    print("\n✗ TRƯỢT — hai bên bất đồng ở đâu đó trong định dạng gói.")
     return 1
 
 
