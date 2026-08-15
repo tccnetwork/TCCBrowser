@@ -255,3 +255,44 @@ Cần **một mẫu thật** để neo, và có hai đường lấy:
    lượt gọi ra hạ tầng của bạn, nên tôi hỏi trước.
 
 Có mẫu rồi thì nó thành vector kiểm định, và phần này mới đáng tin.
+
+
+## 10. Keychain thật đã cài (15/08/2026)
+
+`crates/tcc-keystore/src/macos.rs`, sau cờ `os-keystore`. Giá: **11 crate** thêm
+vào (9 → 20). So với `wry` là 71, đây là rẻ.
+
+Ba thứ được đặt, và mục đầu là mục cả kho khoá tồn tại vì nó:
+
+| Đặt gì | Chặn được |
+|---|---|
+| `USER_PRESENCE` | Ký lén — hệ điều hành hỏi Touch ID hoặc mật khẩu **cho từng lần lấy khoá** |
+| `set_access_synchronized(Some(false))` | Khoá theo iCloud sang máy khác |
+| Tự chặn ghi đè | Keychain ghi đè **im lặng**; ghi đè khoá ví là mất tiền vĩnh viễn |
+
+Dùng `USER_PRESENCE` chứ không `BIOMETRY_ANY`: máy không có cảm biến vân tay sẽ
+không mở nổi ví, mà "không mở được ví" hỏng nặng hơn "phải gõ mật khẩu".
+
+`contains` **không** đặt cờ ấy — bắt chạm Touch ID chỉ để biết "đã có ví chưa"
+là cách nhanh nhất dạy người dùng chạm bừa mọi hộp thoại.
+
+### ⚠️ Một hạn chế đã biết
+
+**`Purpose` không tới được hộp thoại của hệ điều hành.** API này không cho
+truyền chuỗi xuống, nên macOS hiện câu chung chung của riêng nó. Lý do vì thế
+phải hiện ở **màn hình của ta**, ngay trước khi gọi `unlock` — đó là việc của
+`transaction_screen`, và nó đã làm.
+
+Tham số `Purpose` vẫn giữ, có chủ ý: nó ép bên gọi phải nghĩ ra lý do, và ngày
+API cho phép truyền xuống thì không phải đổi chữ ký hàm.
+
+### Lỗi được phân loại, không gộp
+
+`NotFound` / `UserRefused` / `Os` là ba câu khác nhau với người dùng: "bạn chưa
+có ví" và "bạn vừa bấm huỷ" không được hiện ra như nhau. Gộp cả ba thành một lỗi
+là giao diện mất khả năng nói điều đúng.
+
+### Còn chờ quyết định
+
+Nhập ví cũ từ `tcc_wallets_v4` hay chỉ tạo ví mới — xem §8. Bản thân kho khoá
+không phụ thuộc câu trả lời ấy, nên nó làm xong trước.

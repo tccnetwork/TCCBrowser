@@ -159,6 +159,14 @@ pub trait Keystore {
 
 pub mod fake;
 
+/// Kho khoá THẬT của macOS. Chỉ có khi bật cờ `os-keystore`.
+///
+/// Cờ tách riêng để dựng được bản trình duyệt KHÔNG có ví — chạy bản đó thì
+/// chắc chắn không byte khoá nào được đọc, dù mã có lỗi gì. Đó là công cụ khi
+/// soi bảo mật, không phải sự cầu kỳ.
+#[cfg(all(feature = "os-keystore", target_os = "macos"))]
+pub mod macos;
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
 mod kiem_thu {

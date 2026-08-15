@@ -10,11 +10,16 @@ authors.workspace = true
 # Kho khoá THẬT của hệ điều hành. Cố ý KHÔNG bật mặc định: dựng được bản trình
 # duyệt không có ví là một công cụ soi bảo mật — chạy bản đó thì chắc chắn không
 # byte khoá nào được đọc, dù mã có lỗi gì.
-he-dieu-hanh = []
+# Tên cờ bằng tiếng Anh vì người kiểm định phải GÕ nó ra từ tài liệu — cùng lý do
+# `cua-so` đã đổi thành `window`.
+os-keystore = ["dep:security-framework"]
 
 [dependencies]
 thiserror = { workspace = true }
 zeroize = { version = "1", features = ["zeroize_derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "3", optional = true }
 
 [lints]
 workspace = true
