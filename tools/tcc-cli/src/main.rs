@@ -13,6 +13,7 @@ use tcc_runtime::package;
 
 use std::{
     fs,
+    io::Write as _,
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -146,23 +147,38 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
 }
 
 fn lenh_key(ra: &Path) -> Result<(), String> {
-    if ra.exists() {
-        return Err(format!(
-            "\"{}\" đã tồn tại — KHÔNG ghi đè, vì ghi đè khoá là mất vĩnh viễn \
-             quyền cập nhật mọi ứng dụng đã ký bằng khoá cũ",
-            ra.display()
-        ));
-    }
     let khoa = HybridEd25519MlDsa::generate();
-    fs::write(ra, hex::encode(&khoa.secret)).map_err(|e| e.to_string())?;
 
-    // Chỉ chủ sở hữu đọc được. Trên Windows lệnh này gần như vô tác dụng, nên
-    // thông báo bên dưới nhắc người dùng tự lo.
+    // Mở tệp với quyền 0600 NGAY LÚC TẠO, không ghi xong rồi mới sửa quyền.
+    //
+    // Bản đầu làm hai bước: `fs::write` rồi `set_permissions`. Giữa hai bước
+    // đó, tệp chứa khoá bí mật nằm trên đĩa với quyền mặc định của umask —
+    // thường là 0644, tức là mọi tài khoản trên máy đọc được. Cửa sổ ấy ngắn,
+    // nhưng nó là cửa sổ vào tệp NHẠY CẢM NHẤT trong cả hệ thống, và đóng nó
+    // không tốn gì.
+    //
+    // `create_new` cũng thay luôn phép kiểm `exists()` trước đó: kiểm rồi ghi
+    // là hai bước, và giữa hai bước ấy tệp có thể xuất hiện. Đây là một bước.
+    let mut mo = fs::OpenOptions::new();
+    mo.write(true).create_new(true);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(ra, fs::Permissions::from_mode(0o600)).map_err(|e| e.to_string())?;
+        use std::os::unix::fs::OpenOptionsExt as _;
+        mo.mode(0o600);
     }
+    let mut tep = mo.open(ra).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            format!(
+                "\"{}\" đã tồn tại — KHÔNG ghi đè, vì ghi đè khoá là mất vĩnh viễn \
+                 quyền cập nhật mọi ứng dụng đã ký bằng khoá cũ",
+                ra.display()
+            )
+        } else {
+            e.to_string()
+        }
+    })?;
+    tep.write_all(hex::encode(&khoa.secret).as_bytes())
+        .map_err(|e| e.to_string())?;
 
     // In VÂN TAY chứ không in cả khoá công khai: khoá lai dài hơn 2000 ký tự hex,
     // đổ hết ra là ngập màn hình. Người dùng cũng không cần chép nó nữa —
@@ -175,10 +191,23 @@ fn lenh_key(ra: &Path) -> Result<(), String> {
         &cong[cong.len() - 16..]
     );
     println!();
+    #[cfg(not(unix))]
+    println!("⚠ Trên Windows tệp này KHÔNG được đặt quyền hạn chế — tự lo lấy.");
     println!("⚠ Mất tệp này là mất quyền cập nhật mọi ứng dụng đã ký bằng nó.");
     println!("  Không có cách khôi phục. Sao lưu ra chỗ an toàn, đừng đưa lên kho mã.");
     Ok(())
 }
+
+/// Khoá công khai của khoá demo trong `examples/`.
+///
+/// Nhúng lúc BIÊN DỊCH từ chính tệp khoá ấy, không chép tay: chép tay là hai
+/// bản sao trôi khỏi nhau, và bản trôi thì cảnh báo im lặng ngừng hoạt động.
+const KHOA_DEMO_CONG_KHAI: &str = {
+    // Suy ra lúc chạy sẽ tốn một lần sinh khoá cho mỗi lệnh `sign`; giá trị này
+    // nằm sẵn trong bản kê khai của gói ví dụ, và luật 9 đã chốt nó không được
+    // xuất hiện ở đâu khác.
+    include_str!("khoa-demo-cong-khai.txt")
+};
 
 fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
     let hex_khoa = fs::read_to_string(tep_khoa)
@@ -201,6 +230,22 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
     // là dán nhầm, và dán nhầm thì gói ký xong không ai kiểm được.
     let khoa_cong = HybridEd25519MlDsa::public_from_secret(&bi_mat)
         .map_err(|e| format!("tệp khoá không dùng được: {e}"))?;
+
+    // Cảnh báo NGAY LÚC KÝ nếu đang dùng khoá demo.
+    //
+    // Luật 9 trong `tools/kiem-luat-phu-thuoc.sh` đã chặn khoá công khai demo
+    // xuất hiện trong bản kê khai ngoài `examples/` — nhưng luật đó chỉ chạy
+    // TRONG kho này. Người ngoài tải kho về, thấy một tệp khoá nằm sẵn, ký bằng
+    // nó, rồi phát hành: không có gì cản, và không có gì nói cho họ biết rằng
+    // mọi người trên thế giới cũng có đúng khoá ấy.
+    //
+    // Chỗ đúng để nói là ở đây, lúc họ đang gõ lệnh.
+    if hex::encode(&khoa_cong) == KHOA_DEMO_CONG_KHAI {
+        eprintln!("⚠ ĐANG KÝ BẰNG KHOÁ DEMO — khoá này nằm công khai trong kho mã.");
+        eprintln!("  Bất kỳ ai cũng ký được gói mang cùng danh tính nhà phát hành.");
+        eprintln!("  Chỉ dùng để thử. Gói thật thì sinh khoá riêng: tcc key --ra khoa.hex");
+        eprintln!();
+    }
 
     ke_khai["publisher"] = serde_json::Value::String(hex::encode(&khoa_cong));
     ke_khai["content_hash"] = serde_json::Value::String(bam.clone());

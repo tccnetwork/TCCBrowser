@@ -216,3 +216,43 @@ fn thieu_thu_muc_noi_dung_thi_bao_ro() {
         "lỗi phải nêu tên thứ bị thiếu:\n{ra}"
     );
 }
+
+/// Tệp khoá bí mật phải ra đời với quyền 0600, không phải được sửa quyền sau.
+///
+/// Bản đầu ghi bằng `fs::write` rồi mới `set_permissions`. Giữa hai bước ấy tệp
+/// nằm trên đĩa với quyền mặc định của umask — thường 0644, tức mọi tài khoản
+/// trên máy đọc được KHOÁ BÍ MẬT. Cửa sổ ngắn, nhưng nó mở vào tệp nhạy cảm
+/// nhất của cả hệ thống.
+#[cfg(unix)]
+#[test]
+fn tep_khoa_ra_doi_voi_quyen_0600() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let thu_muc = std::env::temp_dir().join(format!("tcc-quyen-{}", std::process::id()));
+    std::fs::create_dir_all(&thu_muc).expect("không tạo được thư mục tạm");
+    let khoa = thu_muc.join("k.hex");
+
+    let ra = std::process::Command::new(env!("CARGO_BIN_EXE_tcc-cli"))
+        .args(["key", "--ra"])
+        .arg(&khoa)
+        .output()
+        .expect("không chạy được tcc-cli");
+    assert!(ra.status.success(), "sinh khoá hỏng: {ra:?}");
+
+    let che_do = std::fs::metadata(&khoa)
+        .expect("không đọc được thông tin tệp khoá")
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(che_do, 0o600, "tệp khoá bí mật mang quyền {che_do:o}");
+
+    // Và ghi đè phải bị chặn — mất khoá cũ là mất quyền cập nhật vĩnh viễn.
+    let lai = std::process::Command::new(env!("CARGO_BIN_EXE_tcc-cli"))
+        .args(["key", "--ra"])
+        .arg(&khoa)
+        .output()
+        .expect("không chạy được tcc-cli");
+    assert!(!lai.status.success(), "ghi đè khoá KHÔNG bị chặn");
+
+    std::fs::remove_dir_all(&thu_muc).ok();
+}

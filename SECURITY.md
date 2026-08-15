@@ -682,6 +682,29 @@ turbo and thermal scaling. It is a screen for large differences, not a proof.
 Establishing constant time needs quiet hardware or instruction-level analysis,
 and remains undone.
 
+### 3.4b The signing key file, and two things fixed on 2026-08-15
+
+`tcc key` wrote the secret with `fs::write` and set the mode to 0600 afterwards.
+Between those two calls the file sat on disk with the umask default — typically
+0644, readable by every account on the machine. The window is short and it opens
+onto the most sensitive file in the system. It is now created with
+`create_new(true)` and mode 0600 in one call, which also removes the separate
+`exists()` check that could race. A test asserts the mode of the file as created
+and that a second `tcc key` refuses to overwrite.
+
+`tcc sign` now warns when signing with the demo key. Rule 9 already blocked that
+key from appearing in a manifest outside `examples/`, but that rule only runs
+**inside this repository**. Someone who clones it, finds a key file sitting
+there, signs, and publishes gets no warning at all — and everyone in the world
+holds the same key. The right place to say so is while they are typing the
+command.
+
+The denylist entry is embedded at compile time from the example package, so the
+two cannot drift apart. Rule 9 was widened to scan every file rather than only
+manifests — it had been blind to the key appearing in source — and it now reads
+the demo key from the example package instead of carrying a hardcoded copy that
+would go stale the day the example is re-signed.
+
 ### 3.5 No wallet code touches a real private key yet
 
 As planned. The hard gate:
