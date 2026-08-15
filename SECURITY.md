@@ -711,6 +711,29 @@ As planned. The hard gate:
 
 > **No transaction reaches mainnet before an independent security audit.**
 
+### 3.5b Dependencies, checked against RustSec from 2026-08-15
+
+`cargo audit` runs in CI. It fails the build on a vulnerability and reports
+maintenance warnings without failing, because none of them can be fixed from
+here.
+
+Current state: **0 vulnerabilities**, 14 warnings across 356 dependencies.
+
+| Warnings | Where they come from |
+|---|---|
+| 11 GTK crates — `gtk`, `gdk*`, `atk*`, `glib` (unmaintained; `glib` also unsound) | `wry`'s **Linux** WebView backend. Not compiled on macOS at all — measured: 15 GTK crates in the Linux tree, 0 in the macOS tree |
+| `proc-macro-error`, `fxhash`, `rand 0.7.3` (unsound) | Build-time code generation. `rand 0.7.3` arrives through `phf_generator`, which runs at compile time and is not in the shipped binary |
+
+**None of them reach `tcc-crypto`** — checked by intersecting the warning list
+with that crate's dependency tree, and the intersection is empty. That matters
+because `tcc-crypto` is the trust boundary and the crate an independent audit
+would look at first; it is deliberately kept minimal for exactly this reason
+(rule 3).
+
+What this does **not** say: a clean advisory scan means nobody has *reported* a
+vulnerability, not that there is none. `ml-dsa` 0.1.1 has no advisory against it
+and also no published audit (§3.2). The scan is a floor, not a ceiling.
+
 ### 3.6 Fuzzing — exists now, and its limits are worth stating
 
 `tools/tcc-fuzz` fuzzes the three parsers. They are worth fuzzing for a reason

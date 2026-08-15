@@ -47,6 +47,18 @@ jobs:
           echo "seed $SEED (from commit $(git rev-parse --short HEAD))"
           cargo run -p tcc-fuzz --release -- 200000 "$SEED"
 
+      # Dependencies against the RustSec advisory database. Fails on a
+      # vulnerability; reports maintenance warnings without failing, because
+      # they are all in wry's GTK backend and cannot be fixed from here —
+      # see SECURITY.md for which ones and why they do not reach the trust
+      # boundary.
+      - name: Audit dependencies
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+          echo "--- warnings, not failing the build ---"
+          cargo audit --deny warnings || true
+
       # An independent implementation re-checks the ML-DSA half. It agrees only
       # on that half's arithmetic — but that half is the one nobody should be
       # trusted to implement alone.
