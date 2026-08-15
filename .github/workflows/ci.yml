@@ -44,6 +44,10 @@ jobs:
       # push explores new inputs — and a failure is still reproducible, because
       # the seed is printed in the log.
       - name: Fuzz the parsers
+        # `shell: bash` chứ không bỏ qua Windows: số học `$((16#...))` là cú
+        # pháp bash, mà runner Windows mặc định dùng PowerShell. Git Bash có
+        # sẵn ở đó, nên bộ phân tích vẫn được fuzz trên cả ba hệ.
+        shell: bash
         run: |
           SEED=$((16#$(git rev-parse HEAD | cut -c1-8)))
           echo "seed $SEED (from commit $(git rev-parse --short HEAD))"
