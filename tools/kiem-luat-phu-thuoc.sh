@@ -149,7 +149,7 @@ echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật
 # KỂ là sự thật lịch sử ("211 phép thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ.
 that=$(grep -c '^echo "--- Luật' "$0")
 lech=""
-for f in README.md SECURITY.md ARCHITECTURE.md docs/ke-hoach.md ../docs/dang-lam-gi.md ../memory/active-context.md; do
+for f in README.md SECURITY.md ARCHITECTURE.md CLAUDE.md docs/ke-hoach.md docs/dang-lam-gi.md docs/AUDIT.md; do
   [ -f "$f" ] || continue
   for n in $(grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules)' "$f" | grep -oE '^[0-9]+' | sort -u); do
     [ "$n" = "$that" ] || lech="$lech $(basename "$f"):$n"

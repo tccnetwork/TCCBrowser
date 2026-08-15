@@ -26,6 +26,7 @@ implementation **must not** display "verified publisher".
 
 | | |
 |---|---|
+| [docs/AUDIT.md](docs/AUDIT.md) | **Reviewing this?** Start there — it points at the weak parts, not the strong ones |
 | [spec/](spec/) | **The standard.** English is normative; a Vietnamese translation lives in `spec/0.1/vi/` |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Three layers, the dependency tree, the hard rules, the escape route from WebView |
 | [SECURITY.md](SECURITY.md) | Threat model, what is proven and what is merely assumed |
@@ -35,7 +36,7 @@ implementation **must not** display "verified publisher".
 ## Run it
 
 ```bash
-cargo test --workspace              # 234 tests
+cargo test --workspace              # 238 tests
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh        # 17 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 135 conformance vectors
