@@ -16,7 +16,8 @@
 
     { "kind": "field", "label": "Gõ thử tiếng Việt", "value": "" },
 
-    { "kind": "field", "label": "Ô bí mật (chữ phải bị che)", "value": "", "secret": true },
+    { "kind": "text", "emphasis": "subtle",
+      "content": "Gói này TỪNG có một ô che chữ ở đây. Từ 16/08/2026 gói không dựng được ô che chữ nữa — chỉ khung trình duyệt mới dựng, vì hàng chấm tròn là hình dạng người dùng được dạy để tin. Xem spec/0.1/05-interface.md." },
 
     { "kind": "group", "flow": "row", "gap": "medium", "children": [
       { "kind": "button", "label": "Tải trang mẫu", "action": "tai-trang", "tone": "primary" },
