@@ -70,6 +70,23 @@ pub enum ChainError {
     #[error("chuỗi ghi nhớ không phải UTF-8 hợp lệ")]
     BadMemo,
 
+    /// Gói tin lẽ ra CHƯA KÝ mà đã mang sẵn chữ ký.
+    ///
+    /// Không phải chuyện hình thức: nếu máy chủ đưa một giao dịch đã ký thì thứ
+    /// người dùng sắp xác nhận không phải thứ họ sắp tạo ra, và ta đang bị mời
+    /// đóng dấu lên việc của người khác.
+    #[error("giao dịch lẽ ra chưa ký mà đã mang {0} byte chữ ký")]
+    AlreadySigned(usize),
+
+    /// Trường của v2 mang giá trị khác 0 trong một gói tin xưng là v1.
+    ///
+    /// Đây là chỗ nguy hiểm nhất trong cả bộ giải mã: `recent_blockhash` và
+    /// `priority_fee` **không nằm trong thông điệp ký của v1**. Máy chủ nhét
+    /// giá trị vào đó rồi xưng v1 là một giao dịch có phần KHÔNG ĐƯỢC CHỮ KÝ
+    /// BẢO VỆ — băm vẫn khớp, mà giao dịch làm một việc khác.
+    #[error("gói tin xưng v1 nhưng trường {0} của v2 khác 0 — phần ấy KHÔNG được chữ ký bảo vệ")]
+    V2FieldInV1(&'static str),
+
     #[error(
         "THÔNG ĐIỆP KÝ KHÔNG KHỚP giao dịch — máy chủ đưa {duoc_dua}, tự tính ra {tu_tinh}. \
          KHÔNG ký."
@@ -193,6 +210,37 @@ impl Transfer {
         }
         let memo = r.chuoi()?;
 
+        // ── Phần đuôi: bốn trường KHÔNG nằm trong thông điệp ký ──
+        //
+        // Trước 16/08/2026 bộ giải mã dừng ngay sau memo, và mẫu thử trong mã
+        // cũng dừng ở đó — nên nó khớp. Gọi RPC thật lần đầu thì thừa đúng 49
+        // byte: mẫu tôi neo vào là mẫu tôi TỰ RÁP, không phải thứ chuỗi phát ra.
+        //
+        // Bài học: một mốc mình tự dựng thì không phải mốc. Giá trị băm thì
+        // thật, nhưng cái vỏ quanh nó là của tôi, nên bộ giải mã chưa từng gặp
+        // thứ nó sẽ phải đọc.
+        let chu_ky_dai = r.u64()?;
+        if chu_ky_dai != 0 {
+            return Err(ChainError::AlreadySigned(
+                usize::try_from(chu_ky_dai).unwrap_or(usize::MAX),
+            ));
+        }
+        // `Option<PublicKey>`: một byte nhãn. Có khoá kèm cũng không sao — nó
+        // không vào thông điệp ký và nút tự tra lại từ `from`.
+        let co_khoa = r.u8()?;
+        if co_khoa != 0 {
+            let n = r.u64()?;
+            r.lay(usize::try_from(n).unwrap_or(usize::MAX))?;
+        }
+        // Hai trường của v2. Khác 0 trong một gói xưng v1 là từ chối — xem
+        // `ChainError::V2FieldInV1`.
+        if r.mang32()? != [0u8; 32] {
+            return Err(ChainError::V2FieldInV1("recent_blockhash"));
+        }
+        if r.u64()? != 0 {
+            return Err(ChainError::V2FieldInV1("priority_fee"));
+        }
+
         let con_lai = r.con_lai();
         if con_lai != 0 {
             return Err(ChainError::TrailingBytes(con_lai));
@@ -275,6 +323,10 @@ impl<'a> Doc<'a> {
         Ok(ra)
     }
 
+    fn u8(&mut self) -> Result<u8, ChainError> {
+        Ok(self.lay(1)?.first().copied().unwrap_or(0))
+    }
+
     fn u32(&mut self) -> Result<u32, ChainError> {
         let x: [u8; 4] = self.lay(4)?.try_into().unwrap_or([0; 4]);
         Ok(u32::from_le_bytes(x))
@@ -319,7 +371,11 @@ impl<'a> Doc<'a> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
 mod kiem_thu {
     use super::*;
 
@@ -328,9 +384,20 @@ mod kiem_thu {
     /// Đây là MỐC NGOÀI của cả crate. Không có nó, mọi thứ ở đây chỉ là cách
     /// tôi ĐỌC mã của chuỗi — và bản đầu tôi đọc nhầm tệp, dựng theo SDK WASM
     /// cũ với bố cục khác hẳn. Phép thử này bắt được điều đó ngay.
-    const TX_HEX: &str = "01000000ca640100000000001111111111111111111111111111111111111111111111111111111111111111222222222222222222222222222222222222222222222222222222222222222200000000000000000000f444829163450000000000000000c40051160b00000008520000000000000000000000000000b67a0200000000000000000004000000000000006368616f";
+    ///
+    /// ⚠️ **Và bản thứ hai của mẫu này cũng sai, theo một kiểu tinh vi hơn.**
+    /// Nó dài 148 byte, dừng ngay sau memo — vì tôi TỰ RÁP nó từ các trường,
+    /// chứ không lấy nguyên phản hồi của máy chủ. Giá trị băm thì thật, nên
+    /// phép thử xanh; nhưng cái vỏ quanh nó là của tôi, và bộ giải mã chưa từng
+    /// gặp thứ nó sẽ phải đọc.
+    ///
+    /// Lần đầu gọi RPC thật (16/08/2026) thừa đúng **49 byte** — bốn trường ở
+    /// đuôi cấu trúc. Mẫu bây giờ là **209 byte nguyên văn** máy chủ trả về.
+    ///
+    /// > Một mốc mình tự dựng thì không phải mốc.
+    const TX_HEX: &str = "01000000ca64010000000000266346046c9d284e8598a2ed52ac73e31b095da31d16cf1738c96ee3eb5e9a71266346046c9d284e8598a2ed52ac73e31b095da31d16cf1738c96ee3eb5e9a71ae00000000000000000064a7b3b6e00d0000000000000000c40051160b00000008520000000000000000000000000000979b0200000000000000000010000000000000006b69656d2063686f6e67206b79206d7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
     const SIGNING_MESSAGE_HEX: &str =
-        "05d1f926a92678bea9a8d1aae6a7ef86ae295d7a5811301a065e388da97f5b8a";
+        "3290fdd98ac4554beef2212f04eaac65e06817bb3d2733ee6c7f23eec15d4c3c";
 
     fn tu_hex(h: &str) -> Vec<u8> {
         (0..h.len() / 2)
@@ -342,16 +409,93 @@ mod kiem_thu {
         Transfer::decode(&tu_hex(TX_HEX)).unwrap()
     }
 
+    /// **Gói tin xưng CHƯA KÝ mà đã mang chữ ký → từ chối.**
+    ///
+    /// Nếu máy chủ đưa một giao dịch đã ký thì thứ người dùng sắp xác nhận
+    /// không phải thứ họ sắp tạo ra — ta đang bị mời đóng dấu lên việc của
+    /// người khác.
+    #[test]
+    fn goi_tin_da_mang_chu_ky_thi_tu_choi() {
+        let mut b = tu_hex(TX_HEX);
+        // Trường `signature` là 8 byte độ dài, nằm ngay sau memo.
+        let i = b.len() - 49;
+        b[i] = 1;
+        let loi = Transfer::decode(&b).unwrap_err();
+        assert!(matches!(loi, ChainError::AlreadySigned(1)), "{loi}");
+    }
+
+    /// **Trường của v2 khác 0 trong gói xưng v1 → từ chối.**
+    ///
+    /// Đây là chỗ nguy hiểm nhất: `recent_blockhash` và `priority_fee` KHÔNG
+    /// nằm trong thông điệp ký của v1. Máy chủ nhét giá trị vào rồi xưng v1 là
+    /// một giao dịch có phần **không được chữ ký bảo vệ** — băm vẫn khớp, mà
+    /// giao dịch làm một việc khác.
+    #[test]
+    fn truong_cua_v2_khac_0_trong_goi_v1_thi_tu_choi() {
+        // `recent_blockhash`: 32 byte, ngay trước 8 byte `priority_fee` cuối.
+        let mut b = tu_hex(TX_HEX);
+        let n = b.len();
+        b[n - 40] = 0xFF;
+        let loi = Transfer::decode(&b).unwrap_err();
+        assert!(
+            matches!(loi, ChainError::V2FieldInV1("recent_blockhash")),
+            "{loi}"
+        );
+
+        // `priority_fee`: 8 byte cuối cùng.
+        let mut b = tu_hex(TX_HEX);
+        let n = b.len();
+        b[n - 8] = 1;
+        let loi = Transfer::decode(&b).unwrap_err();
+        assert!(
+            matches!(loi, ChainError::V2FieldInV1("priority_fee")),
+            "{loi}"
+        );
+    }
+
+    /// **Kèm khoá công khai vào đuôi KHÔNG đổi băm** — chốt rằng đuôi thật sự
+    /// nằm ngoài chữ ký.
+    ///
+    /// Phép thử này là lý do hai phép trên tồn tại. Nếu đuôi có vào băm thì
+    /// việc máy chủ sửa nó đã tự lộ, và ta không cần chặn tay.
+    ///
+    /// (Bản đầu của phép thử này SO HAI GIÁ TRỊ GIỐNG HỆT NHAU rồi mang cái
+    /// tên này. Nó xanh, và nó không kiểm gì cả.)
+    #[test]
+    fn kem_khoa_cong_khai_vao_duoi_khong_doi_bam() {
+        let goc = mau_that();
+        let b = tu_hex(TX_HEX);
+        let than = &b[..b.len() - 49];
+
+        // Dựng lại đuôi với `public_key = Some(1952 byte)`.
+        let mut co_khoa = than.to_vec();
+        co_khoa.extend_from_slice(&0u64.to_le_bytes()); // signature: rỗng
+        co_khoa.push(1); // Option::Some
+        co_khoa.extend_from_slice(&1952u64.to_le_bytes());
+        co_khoa.extend(std::iter::repeat_n(0xABu8, 1952));
+        co_khoa.extend_from_slice(&[0u8; 32]); // recent_blockhash
+        co_khoa.extend_from_slice(&0u64.to_le_bytes()); // priority_fee
+
+        let voi_khoa = Transfer::decode(&co_khoa).expect("kèm khoá vẫn giải mã được");
+        assert_eq!(voi_khoa, goc, "kèm khoá làm đổi các trường được ký");
+        assert_eq!(
+            voi_khoa.signing_message(),
+            goc.signing_message(),
+            "đuôi lọt vào thông điệp ký"
+        );
+    }
+
     /// Giải mã một giao dịch thật, rồi tính lại đúng băm máy chủ đã đưa.
     #[test]
     fn khop_giao_dich_that() {
         let t = mau_that();
         assert_eq!(t.version, TX_VERSION_V1);
         assert_eq!(t.chain_id, 91338, "testnet");
-        assert_eq!(t.amount, 5_000_000_000_000_000_000, "5 TCC");
+        assert_eq!(t.amount, 1_000_000_000_000_000_000, "1 TCC");
         assert_eq!(t.gas_limit, 21_000);
-        assert_eq!(t.expires_at, 162_486);
-        assert_eq!(t.memo, "chao");
+        assert_eq!(t.nonce, 174);
+        assert_eq!(t.expires_at, 170_903);
+        assert_eq!(t.memo, "kiem chong ky mu");
 
         let cho: [u8; 32] = tu_hex(SIGNING_MESSAGE_HEX).try_into().unwrap();
         assert_eq!(

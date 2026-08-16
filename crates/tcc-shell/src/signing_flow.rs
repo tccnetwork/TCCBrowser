@@ -139,8 +139,8 @@ mod kiem_thu {
     use super::*;
 
     /// Giao dịch THẬT lấy từ testnet chain 91338 — neo ngoài của `tcc-chain`.
-    const TX_HEX: &str = "01000000ca640100000000001111111111111111111111111111111111111111111111111111111111111111222222222222222222222222222222222222222222222222222222222222222200000000000000000000f444829163450000000000000000c40051160b00000008520000000000000000000000000000b67a0200000000000000000004000000000000006368616f";
-    const BAM: &str = "05d1f926a92678bea9a8d1aae6a7ef86ae295d7a5811301a065e388da97f5b8a";
+    const TX_HEX: &str = "01000000ca64010000000000266346046c9d284e8598a2ed52ac73e31b095da31d16cf1738c96ee3eb5e9a71266346046c9d284e8598a2ed52ac73e31b095da31d16cf1738c96ee3eb5e9a71ae00000000000000000064a7b3b6e00d0000000000000000c40051160b00000008520000000000000000000000000000979b0200000000000000000010000000000000006b69656d2063686f6e67206b79206d7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    const BAM: &str = "3290fdd98ac4554beef2212f04eaac65e06817bb3d2733ee6c7f23eec15d4c3c";
 
     /// Đường đầy đủ: gói tin + băm của máy chủ → màn hình → chữ ký.
     #[test]
@@ -176,9 +176,16 @@ mod kiem_thu {
     /// Máy chủ đổi NGƯỜI NHẬN trong gói tin nhưng giữ băm cũ → chặn.
     #[test]
     fn may_chu_doi_nguoi_nhan_trong_goi_tin_thi_chan() {
-        // 0x22 lặp 32 lần là địa chỉ người nhận; đổi một byte của nó.
-        let sua = TX_HEX.replacen("2222222222222222", "22222222222222EE", 1);
+        // `to` bắt đầu ở byte 44 (4 version + 8 chain_id + 32 from), tức ký tự
+        // hex thứ 88. Đổi byte đầu của nó.
+        //
+        // Trong mẫu thật `from` và `to` là CÙNG một địa chỉ (ví tự gửi cho
+        // chính mình), nên không thay bằng tìm-và-thế được: nó sẽ trúng `from`.
+        // Đó cũng là một phép thử hợp lệ, nhưng là phép thử khác.
+        let mut sua = TX_HEX.to_owned();
+        sua.replace_range(88..90, if TX_HEX[88..90] == *"26" { "27" } else { "26" });
         assert_ne!(sua, TX_HEX, "chuỗi thử không đổi được — phép thử vô nghĩa");
+        assert_eq!(sua.len(), TX_HEX.len());
         let loi = review(&sua, BAM, Language::Vi).unwrap_err();
         assert!(matches!(loi, SigningFlowError::Chain(_)), "{loi}");
     }

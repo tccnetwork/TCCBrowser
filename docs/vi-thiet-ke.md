@@ -640,3 +640,60 @@ chính máy chủ nó đang nói chuyện. Trình duyệt có.
 
 Đáp án ấy hiện mới là mã có phép thử. **Chưa ai dùng nó** — nên nó trả lời được
 câu hỏi, chứ chưa chứng minh được thị trường.
+
+
+## 16. Gọi RPC thật, và mốc tôi tự dựng đã sập (16/08/2026)
+
+Chạy phép kiểm chống ký mù trên một phản hồi RPC **thật** của testnet 91338,
+ví `0x266346…9a71`. Kết quả lần đầu:
+
+```
+✗ TỪ CHỐI: còn 49 byte thừa sau khi giải mã xong
+```
+
+### Mẫu thử của tôi không phải mẫu của chuỗi
+
+Mẫu cũ dài **148 byte** và dừng ngay sau memo. Máy chủ phát ra **209 byte**.
+Chênh đúng 49 byte, và chúng là bốn trường ở đuôi cấu trúc `Transaction`:
+
+| Trường | Byte |
+|---|---|
+| `signature` (độ dài u64, rỗng) | 8 |
+| `public_key` (`Option`, nhãn) | 1 |
+| `recent_blockhash` | 32 |
+| `priority_fee` | 8 |
+
+Vì sao mẫu cũ khớp mọi phép thử: **tôi tự ráp nó từ các trường**, không lấy
+nguyên phản hồi máy chủ. Giá trị băm thì thật — nó khớp — nhưng cái vỏ quanh nó
+là của tôi, nên bộ giải mã **chưa từng gặp thứ nó sẽ phải đọc**.
+
+> Một mốc mình tự dựng thì không phải mốc.
+
+Đây đúng là điều người soát độc lập nói bằng cách khác: 110/136 vector do chính
+dự án sinh ra nên chúng chứng minh tính nhất quán, chưa chứng minh tính đúng.
+Chỗ này là một ví dụ cụ thể, và nó chỉ lộ ra khi chạm vào thứ bên ngoài.
+
+Mẫu bây giờ là **209 byte nguyên văn** máy chủ trả về.
+
+### Và cái đuôi ấy hoá ra là chỗ nguy hiểm nhất
+
+`recent_blockhash` và `priority_fee` là trường của **v2**, và chúng **KHÔNG nằm
+trong thông điệp ký của v1**. Nên một máy chủ nhét giá trị vào đó rồi xưng v1
+đưa ra một giao dịch có phần **không được chữ ký bảo vệ**: băm vẫn khớp, người
+dùng vẫn thấy đúng số tiền, mà giao dịch mang thêm thứ họ không xác nhận.
+
+Bộ giải mã giờ từ chối cả hai (`V2FieldInV1`), và từ chối cả gói tin xưng chưa
+ký mà đã mang chữ ký (`AlreadySigned`). Phép thử
+`kem_khoa_cong_khai_vao_duoi_khong_doi_bam` chốt rằng đuôi thật sự nằm ngoài
+chữ ký — đó chính là lý do phải chặn bằng tay thay vì trông vào băm.
+
+Bản đầu của phép thử ấy **so hai giá trị giống hệt nhau** rồi mang cái tên đó.
+Nó xanh, và nó không kiểm gì cả. Viết lại: dựng một gói tin có kèm khoá công
+khai 1952 byte ở đuôi, đòi nó giải ra cùng các trường và cùng băm.
+
+### Ví dụ chạy được, không cần khoá
+
+`crates/tcc-shell/examples/kiem-chong-ky-mu.rs` nhận `unsigned_tx_hex` và
+`signing_message_hex` của một phản hồi bất kỳ. Toàn bộ phép kiểm chạy xong
+**trước khi khoá được dùng tới** — đó là điểm của thiết kế, và nó cũng có nghĩa
+là người soát chạy được phép kiểm này mà không cần ví nào.
