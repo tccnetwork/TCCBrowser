@@ -581,3 +581,62 @@ một trong hai đổi lời, chuỗi kia đổi theo mà không ai để ý.
 
 Thêm bước chạy clippy + phép thử cho `tcc-shell` với `import-web-wallet` (cả ba
 nền) và với `os-keystore` (chỉ macOS).
+
+
+## 15. Đường ký thật — chống ký mù được cưỡng chế bằng KIỂU (16/08/2026)
+
+`crates/tcc-chain/src/wallet.rs::sign_transaction` +
+`crates/tcc-shell/src/signing_flow.rs`.
+
+### Hàm ký nhận GIAO DỊCH, không nhận băm
+
+Đây là chỗ §7.4 chuyển từ nhận định thành mã. Ví web nhận
+`signing_message_hex` từ máy chủ rồi ký thẳng 32 byte ấy — nó **không có gì để
+so**, vì băm là tất cả những gì nó có.
+
+Ở đây **không có hàm nào ký một băm.** Muốn ký thì phải cầm được một `Transfer`
+đã giải mã, và băm tính TỪ nó. Ai muốn thêm `sign_hash(&[u8; 32])` cho tiện:
+đó chính là lỗ hổng, viết lại dưới dạng một hàm tiện dụng.
+
+### `PendingTransaction` — người gác là trình biên dịch
+
+Trường riêng tư, và **không có hàm dựng công khai nào ngoài `review`**. `review`
+giải mã, tự tính lại, so, và chỉ sinh ra `PendingTransaction` khi khớp.
+
+> Không viết ra được đoạn mã nào ký một giao dịch chưa qua kiểm — không phải vì
+> có ai nhớ luật, mà vì **không có kiểu dữ liệu để cầm**.
+
+Cùng cơ chế `tcc-capability` dùng để chặn một quyền chưa cấp. Có doctest
+`compile_fail` chốt rằng dựng thẳng thì không biên dịch được.
+
+`sign` **nuốt `self`**: một lần kiểm là một lần ký. Muốn ký lại thì phải kiểm
+lại, và nếu gói tin đã đổi thì lần ấy trượt.
+
+### Kiểm HAI lần, cố ý
+
+`review` kiểm để không sinh ra `PendingTransaction`; `transaction_screen::build`
+kiểm lại để không vẽ ra màn hình. Bỏ một trong hai vẫn còn một — đột biến chứng
+minh: bỏ phép kiểm ở `review` thì 2 phép thử đỏ, bỏ **cả hai** thì 4 đỏ.
+
+### Chữ ký neo vào một bản cài đặt khác
+
+`chu_ky_khop_ban_cai_dat_python` so **từng byte** với `dilithium-py` ký cùng
+thông điệp bằng cùng hạt giống. Chữ ký ML-DSA tất định nên so được.
+
+Không phải "ký rồi tự kiểm lại bằng chính mình" — phép ấy xanh kể cả khi cả hai
+chiều cùng sai. Và nếu `ml-dsa` đổi sang ký ngẫu nhiên hoặc lỡ thêm ngữ cảnh thì
+phép thử đỏ ngay: đúng cái bẫy liên thông FIPS 204 đã ghi trong
+`spec/0.1/03-signature.md`.
+
+### Đây là câu trả lời cho một trong ba câu sản phẩm
+
+Người soát độc lập (16/08/2026) xếp *"rủi ro sản phẩm lớn hơn rủi ro kỹ thuật"*
+ở mức cao, vì ba câu trong `ke-hoach.md` vẫn treo — trong đó có *"lập trình viên
+được gì mà web thường không cho"*.
+
+Câu ấy giờ **có đáp án**, và nó nằm ở đây: trang web không đóng được khoảng cách
+giữa "thứ hiện ra" và "thứ được ký", vì nó không có chỗ đứng nào an toàn hơn
+chính máy chủ nó đang nói chuyện. Trình duyệt có.
+
+Đáp án ấy hiện mới là mã có phép thử. **Chưa ai dùng nó** — nên nó trả lời được
+câu hỏi, chứ chưa chứng minh được thị trường.

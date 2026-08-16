@@ -43,10 +43,10 @@
 
 use core::fmt;
 
-use ml_dsa::{KeyInit as _, Keypair as _, MlDsa65, SigningKey};
+use ml_dsa::{KeyInit as _, Keypair as _, MlDsa65, SigningKey, signature::Signer as _};
 use zeroize::{Zeroize as _, ZeroizeOnDrop};
 
-use crate::Address;
+use crate::{Address, Transfer};
 
 /// Bối cảnh BLAKE3 KDF. **Đổi một ký tự là mọi ví cũ thành ví khác.**
 ///
@@ -113,10 +113,65 @@ impl WalletSecret {
         out
     }
 
+    /// Ký một GIAO DỊCH.
+    ///
+    /// # Vì sao hàm này nhận `Transfer` chứ không nhận một băm
+    ///
+    /// Đây là chỗ chống ký mù được cưỡng chế bằng **kiểu dữ liệu**, không bằng
+    /// lời dặn. Ví web nhận `signing_message_hex` từ máy chủ RPC rồi ký thẳng
+    /// 32 byte ấy — nó không có cách nào biết băm đó ứng với giao dịch nào.
+    ///
+    /// Ở đây **không có hàm nào ký một băm**. Muốn ký thì phải cầm được một
+    /// `Transfer` đã giải mã, và băm được tính TỪ NÓ. Một máy chủ bị chiếm gửi
+    /// băm của giao dịch khác thì không có chỗ nào để nhét băm ấy vào.
+    ///
+    /// Ai muốn thêm `sign_hash(&[u8; 32])` cho tiện: đó chính là lỗ hổng, viết
+    /// lại dưới dạng một hàm tiện dụng.
+    #[must_use]
+    pub fn sign_transaction(&self, tx: &Transfer) -> TxSignature {
+        let sk = SigningKey::<MlDsa65>::new(&self.0.into());
+        // `sign` của `ml-dsa`: tất định, ngữ cảnh RỖNG, chế độ thuần — đúng ba
+        // thứ chuỗi dùng (`src/crypto/dilithium3.rs::sign_raw`). Lệch một trong
+        // ba là chữ ký hợp lệ với mình và vô nghĩa với chuỗi.
+        let raw = sk.sign(&tx.signing_message()).encode().to_vec();
+        debug_assert_eq!(raw.len(), RAW_SIGNATURE_LEN);
+        let mut ra = Vec::with_capacity(1 + raw.len());
+        ra.push(SIG_TYPE_ML_DSA_65);
+        ra.extend_from_slice(&raw);
+        TxSignature(ra)
+    }
+
     /// Địa chỉ ví: `BLAKE3(khoá công khai)`, hiện ra `0x` + 64 hex.
     #[must_use]
     pub fn address(&self) -> Address {
         self.public_key().address()
+    }
+}
+
+/// Nhãn loại chữ ký trên dây. **Bất biến, thuộc về chuỗi** — `SigType::MlDsa65`.
+///
+/// beta1/beta2 dùng đúng nhãn này cho Dilithium3 vòng 3; beta3 dùng lại nó cho
+/// ML-DSA-65 bản FIPS 204 cuối trên một genesis mới. Không có kiểm chéo giữa
+/// hai lược đồ, nên nhãn trùng mà không lẫn được.
+pub const SIG_TYPE_ML_DSA_65: u8 = 0x01;
+
+/// Độ dài chữ ký ML-DSA-65 thô.
+pub const RAW_SIGNATURE_LEN: usize = 3309;
+
+/// Chữ ký giao dịch ở dạng trên dây: `[nhãn 1 byte][chữ ký thô]`.
+#[derive(Clone, PartialEq, Eq)]
+pub struct TxSignature(Vec<u8>);
+
+impl TxSignature {
+    #[must_use]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl fmt::Debug for TxSignature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TxSignature({} byte)", self.0.len())
     }
 }
 
@@ -273,6 +328,115 @@ mod kiem_thu {
         for b in v.expose_seed() {
             assert!(!s.contains(&format!("{b}")) || s.contains("32"), "{s}");
         }
+    }
+
+    /// # MỐC NGOÀI — chữ ký so từng byte với `dilithium-py`
+    ///
+    /// Không phải "ký rồi tự kiểm lại bằng chính mình" — phép ấy xanh kể cả khi
+    /// cả hai chiều cùng sai. Đây là một bản cài đặt ML-DSA khác, viết bằng
+    /// Python, ký cùng thông điệp bằng cùng hạt giống.
+    ///
+    /// Chữ ký ML-DSA **tất định** nên so được từng byte. Nếu `ml-dsa` đổi sang
+    /// ký ngẫu nhiên, hoặc lỡ thêm ngữ cảnh, phép thử này đỏ ngay — và đó chính
+    /// là cái bẫy liên thông FIPS 204 đã ghi trong `spec/0.1/03-signature.md`.
+    #[test]
+    fn chu_ky_khop_ban_cai_dat_python() {
+        let v = WalletSecret::from_seed_phrase("hello");
+        let tx = crate::Transfer {
+            version: 1,
+            chain_id: 91338,
+            from: Address([0x11; 32]),
+            to: Address([0x22; 32]),
+            nonce: 0,
+            amount: 5_000_000_000_000_000_000,
+            gas_price: 47_619_047_620,
+            gas_limit: 21_000,
+            timestamp: 0,
+            expires_at: 162_486,
+            memo: "chao".to_owned(),
+        };
+        // Cùng giao dịch thật đã neo ở `lib.rs`.
+        assert_eq!(
+            hex::encode(tx.signing_message()),
+            "05d1f926a92678bea9a8d1aae6a7ef86ae295d7a5811301a065e388da97f5b8a"
+        );
+
+        let sig = v.sign_transaction(&tx);
+        assert_eq!(sig.as_bytes().len(), 1 + RAW_SIGNATURE_LEN);
+        assert_eq!(
+            sig.as_bytes()[0],
+            SIG_TYPE_ML_DSA_65,
+            "sai nhãn loại chữ ký"
+        );
+
+        let tho = &sig.as_bytes()[1..];
+        assert_eq!(
+            hex::encode(&tho[..32]),
+            "8ec2954e5d7284ed786e152d38caf27c8357aa506c5d999332daafe3a9ecf6a9",
+            "32 byte đầu lệch bản Python"
+        );
+        assert_eq!(
+            hex::encode(&tho[tho.len() - 8..]),
+            "0000060b1218222a",
+            "8 byte cuối lệch bản Python"
+        );
+    }
+
+    /// Đổi MỘT trường của giao dịch là đổi hẳn chữ ký.
+    ///
+    /// Nghe hiển nhiên — nhưng nó đỏ nếu ai đó lỡ ký một hằng số, hoặc bỏ sót
+    /// một trường khỏi thông điệp ký. Bỏ sót một trường là chỗ máy chủ sửa
+    /// trường ấy mà chữ ký vẫn hợp lệ.
+    #[test]
+    fn doi_mot_truong_la_doi_chu_ky() {
+        let v = WalletSecret::from_seed_phrase("hello");
+        let goc = crate::Transfer {
+            version: 1,
+            chain_id: 91338,
+            from: Address([0x11; 32]),
+            to: Address([0x22; 32]),
+            nonce: 0,
+            amount: 5_000_000_000_000_000_000,
+            gas_price: 47_619_047_620,
+            gas_limit: 21_000,
+            timestamp: 0,
+            expires_at: 162_486,
+            memo: "chao".to_owned(),
+        };
+        let goc_sig = v.sign_transaction(&goc).as_bytes().to_vec();
+
+        let mut doi = goc.clone();
+        doi.to = Address([0xEE; 32]);
+        assert_ne!(v.sign_transaction(&doi).as_bytes(), goc_sig, "người nhận");
+
+        let mut doi = goc.clone();
+        doi.amount += 1;
+        assert_ne!(v.sign_transaction(&doi).as_bytes(), goc_sig, "số tiền");
+
+        let mut doi = goc.clone();
+        doi.chain_id += 1;
+        assert_ne!(v.sign_transaction(&doi).as_bytes(), goc_sig, "mã mạng");
+    }
+
+    /// Hai ví khác nhau ký cùng giao dịch ra hai chữ ký khác nhau.
+    #[test]
+    fn hai_vi_ra_hai_chu_ky() {
+        let tx = crate::Transfer {
+            version: 1,
+            chain_id: 91338,
+            from: Address([0x11; 32]),
+            to: Address([0x22; 32]),
+            nonce: 0,
+            amount: 1,
+            gas_price: 1,
+            gas_limit: 21_000,
+            timestamp: 0,
+            expires_at: 1,
+            memo: String::new(),
+        };
+        let a = WalletSecret::from_seed_phrase("a").sign_transaction(&tx);
+        let b = WalletSecret::from_seed_phrase("b").sign_transaction(&tx);
+        assert_ne!(a.as_bytes(), b.as_bytes());
     }
 
     /// Bối cảnh KDF là hằng số neo với chuỗi — đổi nó là mọi ví cũ biến mất.

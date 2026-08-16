@@ -23,6 +23,7 @@ pub mod import_screen;
 pub mod permission_dialog;
 pub mod permission_screen;
 pub mod permission_store;
+pub mod signing_flow;
 pub mod text;
 pub mod transaction_screen;
 pub mod wallet_store;
