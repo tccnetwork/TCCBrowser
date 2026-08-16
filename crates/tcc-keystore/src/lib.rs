@@ -98,6 +98,26 @@ pub enum KeystoreError {
     #[error("người dùng từ chối xác thực")]
     UserRefused,
 
+    /// Có một khoá tên ấy, nhưng nó **không được bảo vệ bằng sự hiện diện của
+    /// người dùng** — nên ví từ chối dùng nó.
+    ///
+    /// # Vì sao đây là một lỗi RIÊNG, không phải `NotFound`
+    ///
+    /// Đặt `USER_PRESENCE` lúc ĐỌC là một **bộ lọc**, không phải một yêu cầu:
+    /// truy vấn ấy chỉ nhìn thấy những mục đã được CẤT kèm bảo vệ đó. Một khoá
+    /// cất bằng `security add-generic-password` (hoặc bằng bản cũ của ta) vẫn
+    /// nằm đó, vẫn đọc được bằng truy vấn thường, mà truy vấn của ta báo "không
+    /// có".
+    ///
+    /// Báo "không có ví" khi thật ra là "có ví, không được bảo vệ như ta đòi"
+    /// là nói sai với người dùng về đúng thứ họ cần biết. Phát hiện ngày
+    /// 17/08/2026 khi chạy thật.
+    #[error(
+        "có khoá tên \"{0}\" nhưng nó KHÔNG được bảo vệ bằng Touch ID — \
+         ví từ chối dùng một khoá bảo vệ yếu hơn mức nó hứa"
+    )]
+    UnprotectedKey(String),
+
     #[error("kho khoá của hệ điều hành báo lỗi: {0}")]
     Os(String),
 }

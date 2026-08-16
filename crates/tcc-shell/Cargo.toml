@@ -35,6 +35,7 @@ tcc-render-webview = { workspace = true }
 tcc-net = { workspace = true, optional = true }
 
 [dev-dependencies]
+tcc-keystore = { workspace = true }
 unicode-general-category = "1"
 serde_json = { workspace = true }
 tcc-spec = { workspace = true }
@@ -55,6 +56,10 @@ required-features = ["window"]
 [[example]]
 name = "kiem-man-hinh-ung-dung"
 required-features = ["window"]
+
+[[example]]
+name = "nhap-vi"
+required-features = ["import-web-wallet", "os-keystore"]
 
 [[example]]
 name = "gui-giao-dich"

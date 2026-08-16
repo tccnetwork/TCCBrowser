@@ -752,3 +752,57 @@ Chưa có giao dịch nào được ký và gửi thật — cần hạt giống
 Keychain, và việc cất nó vào là việc của người dùng trên máy của họ. Đường chạy
 đã kiểm tới sát chỗ đó: dừng đúng ở `unlock`, với câu chỉ rõ phải cất khoá dưới
 tên nào.
+
+
+## 18. Chạy thật lần đầu, và hai thứ vỡ ra (17/08/2026)
+
+### Không gõ seed thẳng vào cửa sổ được — và đó là cố ý
+
+Đọc ngược nội dung ô nhập từ WebView về Rust **chưa mở trong đường chạy thật**.
+`tcc-render-webview/src/window.rs` nói rõ: *"Đọc ngược là một đường dữ liệu mới,
+và đường đó chỉ được mở trong một phép kiểm có người ngồi trước máy."*
+
+Nên mở cửa sổ cho người dùng gõ seed vào lúc này là mở một cửa sổ **không có gì
+nhận thứ họ gõ**. Đường nhập chạy được hôm nay là `examples/nhap-vi.rs`, nhận
+một TỆP: JSON ví web (hỏi PIN, tiếng vọng tắt), 64 hex, hoặc 24 chữ.
+
+Nhận tệp chứ không nhận tham số dòng lệnh: hạt giống trên dòng lệnh là hạt
+giống trong lịch sử shell, trong `ps`, và trong mọi bản ghi terminal.
+
+### `USER_PRESENCE` đòi binary được KÝ — bản `cargo run` thì không
+
+```
+✗ không cất được: A required entitlement isn't present.
+```
+
+`AccessControlOptions::USER_PRESENCE` cần quyền `keychain-access-groups`. Ký
+ad-hoc kèm tệp entitlements thì qua được cửa ấy, nhưng rồi **treo** ở chỗ hệ
+điều hành muốn hiện hộp thoại xác thực mà không có ngữ cảnh ứng dụng để hiện.
+
+Kết luận thẳng: **kho khoá thật cần một gói ứng dụng đã ký**, không chạy được
+từ `cargo run`. Đây là việc đóng gói, và nó chưa có trong kế hoạch.
+
+### Và một LỖI trong mã của tôi, chỉ lộ khi chạy thật
+
+Cất khoá bằng `security add-generic-password` rồi đọc lại:
+
+| Gọi gì | Kết quả |
+|---|---|
+| `contains` (không điều kiện) | **true** |
+| `unlock` (đặt `USER_PRESENCE`) | **"không có khoá nào tên…"** |
+
+Đặt `USER_PRESENCE` lúc **đọc** là một **BỘ LỌC**, không phải một yêu cầu: truy
+vấn ấy chỉ nhìn thấy mục đã được **CẤT** kèm bảo vệ đó.
+
+Nên `unlock` đang nói *"không có ví"* trong khi sự thật là *"có ví, nhưng nó
+không được bảo vệ như ta đòi"* — nói sai với người dùng về đúng thứ họ cần
+biết, và theo hướng làm họ yên tâm.
+
+Đã thêm `KeystoreError::UnprotectedKey`: hỏi lại bằng đường không điều kiện
+trước khi kết luận "không có", và **từ chối dùng** khoá bảo vệ yếu hơn mức đã
+hứa. Phép thử `khoa_khong_duoc_bao_ve_thi_noi_dung_chuyen_ay` cất một mục không
+kèm bảo vệ rồi đòi đúng lỗi ấy.
+
+> Ba lỗi hôm nay đều cùng một hình dạng: **mã đúng theo cách tôi đọc tài liệu,
+> và sai theo cách hệ thống thật cư xử.** 49 byte thừa, entitlement, và bộ lọc
+> này. Không phép thử nào tôi tự viết bắt được cả ba.

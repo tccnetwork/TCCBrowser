@@ -77,7 +77,22 @@ impl Keystore for MacKeychain {
         o.set_access_control_options(AccessControlOptions::USER_PRESENCE);
         match generic_password(o) {
             Ok(b) => Ok(SecretKey::new(b)),
-            Err(e) => Err(phan_loai(e, name)),
+            Err(e) => {
+                let loi = phan_loai(e, name);
+                // ⚠️ "Không tìm thấy" ở đây có HAI nghĩa, và chúng khác nhau
+                // với người dùng. Đặt `USER_PRESENCE` lúc đọc là một BỘ LỌC:
+                // truy vấn chỉ thấy mục đã được CẤT kèm bảo vệ ấy. Một khoá
+                // cất bằng `security add-generic-password` vẫn nằm đó và vẫn
+                // đọc được bằng truy vấn thường.
+                //
+                // Nên trước khi nói "không có ví", hỏi lại bằng đường không
+                // điều kiện. Có thật thì đó là chuyện khác hẳn — và là chuyện
+                // người dùng phải biết.
+                if matches!(loi, KeystoreError::NotFound(_)) && self.contains(name) {
+                    return Err(KeystoreError::UnprotectedKey(name.to_owned()));
+                }
+                Err(loi)
+            }
         }
     }
 
@@ -106,8 +121,47 @@ fn phan_loai(e: security_framework::base::Error, name: &str) -> KeystoreError {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
 mod kiem_thu {
     use super::*;
+
+    /// **Khoá cất KHÔNG kèm bảo vệ thì `unlock` phải nói ĐÚNG chuyện ấy.**
+    ///
+    /// Phát hiện ngày 17/08/2026 khi chạy thật: `security add-generic-password`
+    /// cất được khoá, `contains` thấy nó, mà `unlock` báo "không có khoá nào".
+    /// Vì đặt `USER_PRESENCE` lúc đọc là một BỘ LỌC, không phải một yêu cầu.
+    ///
+    /// Phép thử cất một mục KHÔNG kèm bảo vệ rồi đòi `unlock` trả
+    /// `UnprotectedKey`. Nó chạm Keychain thật nhưng **không hỏi người dùng**:
+    /// mục không có điều khiển truy cập thì đọc không cần xác thực.
+    #[test]
+    fn khoa_khong_duoc_bao_ve_thi_noi_dung_chuyen_ay() {
+        let ten = "tcc-kiem-thu-khoa-khong-bao-ve";
+        let k = MacKeychain::new();
+        // Dọn trước, phòng lần chạy hỏng để lại.
+        let _ = delete_generic_password(SERVICE, ten);
+
+        // Cất KHÔNG kèm `USER_PRESENCE` — đúng thứ `security` CLI làm.
+        set_generic_password_options(
+            b"12345678901234567890123456789012",
+            MacKeychain::tuy_chon(ten, false),
+        )
+        .expect("cất được mục không kèm bảo vệ");
+
+        let loi = k
+            .unlock(ten, &Purpose::new("kiểm thử"))
+            .expect_err("phải từ chối");
+        assert!(
+            matches!(loi, KeystoreError::UnprotectedKey(_)),
+            "báo sai loại: {loi}"
+        );
+
+        let _ = delete_generic_password(SERVICE, ten);
+    }
 
     /// Đọc một khoá KHÔNG tồn tại phải ra `NotFound`, không ra `Os(...)`.
     ///
