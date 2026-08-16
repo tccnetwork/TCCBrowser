@@ -33,13 +33,18 @@ jobs:
         run: |
           cargo clippy -p tcc-chain --features import-web-wallet --all-targets -- -D warnings
           cargo test -p tcc-chain --features import-web-wallet
+          cargo clippy -p tcc-shell --features import-web-wallet --all-targets -- -D warnings
+          cargo test -p tcc-shell --features import-web-wallet
 
       # Kho khoá THẬT chỉ dựng được trên macOS. Không chạy `unlock` ở đây: nó
       # hỏi Touch ID, mà runner thì không có ai chạm vào — cùng lý do cổng gõ
       # tiếng Việt cần một con người.
       - name: Real keystore builds and its non-prompting paths pass
         if: runner.os == 'macOS'
-        run: cargo test -p tcc-keystore --features os-keystore
+        run: |
+          cargo test -p tcc-keystore --features os-keystore
+          cargo clippy -p tcc-shell --features os-keystore --all-targets -- -D warnings
+          cargo test -p tcc-shell --features os-keystore
 
       # This is what turns the specification into a STANDARD. Leave it out of CI
       # and the standard drifts away from the implementation with nobody noticing.

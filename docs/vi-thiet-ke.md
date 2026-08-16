@@ -520,3 +520,64 @@ là trung thực; tách ra là bịa ra thứ mình không biết.
 `cargo test --workspace` trơn **không** biên dịch mã sau cờ. Đã thêm bước riêng
 chạy clippy và phép thử với `--features import-web-wallet` trên cả ba nền. Mã
 không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
+
+
+## 14. Nối vào khung trình duyệt (16/08/2026)
+
+Ba mảnh của 3.1 giờ có chỗ đứng trong `tcc-shell`.
+
+### `wallet_store.rs` — và chỗ TỪ CHỐI cất
+
+`tcc-shell` khai `tcc-keystore` từ lâu nhưng **chưa hề dùng**. Giờ có `open()`,
+và luật của nó là: **không có kho khoá hệ điều hành thì trả LỖI**. Không ghi ra
+tệp, không mã hoá bằng mật khẩu tự nghĩ ra, không giữ trong bộ nhớ rồi hy vọng.
+
+Ghi khoá ra tệp *"tạm thời cho chạy được"* là đúng thứ trình duyệt này sinh ra
+để không làm. Ví web buộc phải làm thế vì trang web không có lựa chọn nào khác;
+trình duyệt thì có, và bỏ lựa chọn ấy đi để đỡ vướng là vứt luôn lý do người
+dùng đổi sang đây.
+
+> Một tính năng **không chạy** thì người dùng thấy ngay và đi tìm cách khác. Một
+> tính năng chạy mà bảo vệ kém hơn họ tưởng thì họ không thấy gì cả, cho tới lúc
+> mất tiền.
+
+`tcc_keystore::fake` có sẵn và tiện — chính vì tiện nên nguy hiểm. Tệp này không
+nhắc tới nó ở bất kỳ nhánh nào, và phép thử
+`khong_co_kho_khoa_thi_tu_choi_chu_khong_lui` đỏ ngày ai đó thêm đường lùi.
+
+Tên mục dẫn từ **địa chỉ**, không từ nhãn người dùng đặt: nhãn đổi được, mà đổi
+nhãn rồi mất khoá là cách hỏng không ai đoán ra.
+
+### `import_screen.rs` — tồn tại vì một câu
+
+Màn "xong" có mặt để nói: *"Trang web vẫn giữ một bản của ví này, vẫn khoá bằng
+đúng mã PIN cũ."* Câu ấy mang `Emphasis::Warning`, **cùng mức với câu "việc này
+chuyển tiền"** ở màn xác nhận giao dịch — và kèm một câu nữa nói người dùng
+**làm gì** với bản ấy, chứ không chỉ báo là nó còn đó.
+
+Hai đột biến, cả hai đỏ:
+
+| Đổi gì | Bắt được? |
+|---|---|
+| hạ câu ấy xuống chữ thường | ✅ |
+| bỏ hẳn câu ấy | ✅ |
+
+Màn chọn ví **không cần PIN**: người dùng thấy mình có mấy ví, nhãn gì, địa chỉ
+nào, rồi mới quyết định gõ PIN cho cái nào. Bắt gõ PIN trước khi biết mình đang
+mở cái gì là dạy người ta gõ PIN vào mọi ô hỏi PIN.
+
+Lỗi được **dịch**, không hiện nguyên văn. `match` toàn phần nên thêm nhánh
+`ImportError` mà quên dịch thì không biên dịch được. Bốn nhánh "tệp không đọc
+được" gộp làm một câu: người dùng không làm gì khác nhau được với chúng.
+
+### Hai lint được gỡ, có ghi lý do
+
+`label()` dài 147 dòng và có hai nhánh trùng nội dung (`"Cancel"`). Cả hai đều
+**cố ý**: cắt bảng dịch nhỏ ra thì trình biên dịch không còn ép phủ hết mọi
+nhánh — mà đó là cả lý do khoá là `enum`; và gộp hai nhánh trùng lại thì ngày
+một trong hai đổi lời, chuỗi kia đổi theo mà không ai để ý.
+
+### CI biên dịch cả hai cờ
+
+Thêm bước chạy clippy + phép thử cho `tcc-shell` với `import-web-wallet` (cả ba
+nền) và với `os-keystore` (chỉ macOS).

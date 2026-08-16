@@ -41,6 +41,25 @@ pub enum TextKey {
     GdGhiNho,
     GdNutKy,
     GdNutHuy,
+    // ── màn nhập ví cũ từ ví web ──
+    NhapTieuDe,
+    NhapGiaiThich,
+    NhapTrong,
+    NhapNhan,
+    NhapCoCumTu,
+    NhapKhongCumTu,
+    NhapNutChon,
+    NhapNutHuy,
+    NhapXongTieuDe,
+    /// ⚠️ Câu bắt buộc sau khi nhập xong — xem `import_screen`.
+    NhapBanCuVanCon,
+    NhapBanCuLamGi,
+    NhapCumTuDaMangSang,
+    NhapNutXong,
+    NhapLoiSaiPin,
+    NhapLoiKhoaCu,
+    NhapLoiLechDiaChi,
+    NhapLoiDocKhongDuoc,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -72,6 +91,17 @@ pub enum TextKey {
 /// ai cũng tự sinh khoá được. Chừng nào chưa có sổ đăng ký khoá, giao diện
 /// **không bao giờ** được viết "nhà phát hành đã xác minh". Có phép thử chốt.
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "bảng dịch là MỘT `match` có chủ ý: cắt nhỏ ra thì trình biên dịch \
+              không còn ép phủ hết mọi nhánh nữa, mà đó là cả lý do khoá là enum"
+)]
+#[allow(
+    clippy::match_same_arms,
+    reason = "hai chuỗi khác nhau tình cờ trùng bản tiếng Anh hôm nay \
+              (\"Cancel\") — gộp arm lại là ngày một trong hai đổi lời thì \
+              chuỗi kia đổi theo mà không ai để ý"
+)]
 pub const fn label(k: TextKey, n: Language) -> &'static str {
     match (k, n) {
         (TextKey::QuyenTieuDe, Language::En) => "This app is asking for permission",
@@ -122,6 +152,64 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::GdNutKy, Language::Vi) => "Ký và gửi",
         (TextKey::GdNutHuy, Language::En) => "Cancel",
         (TextKey::GdNutHuy, Language::Vi) => "Huỷ",
+
+        (TextKey::NhapTieuDe, Language::En) => "Import a wallet from the web wallet",
+        (TextKey::NhapTieuDe, Language::Vi) => "Nhập ví từ ví web",
+        (TextKey::NhapGiaiThich, Language::En) => {
+            "These wallets were found. Pick one, then enter the PIN you use on the website."
+        }
+        (TextKey::NhapGiaiThich, Language::Vi) => {
+            "Tìm thấy những ví này. Chọn một ví, rồi nhập mã PIN bạn dùng ở trang web."
+        }
+        (TextKey::NhapTrong, Language::En) => "No wallet found in that file.",
+        (TextKey::NhapTrong, Language::Vi) => "Không tìm thấy ví nào trong tệp đó.",
+        (TextKey::NhapNhan, Language::En) => "Label",
+        (TextKey::NhapNhan, Language::Vi) => "Nhãn",
+        (TextKey::NhapCoCumTu, Language::En) => "Recovery phrase included",
+        (TextKey::NhapCoCumTu, Language::Vi) => "Có kèm cụm từ khôi phục",
+        (TextKey::NhapKhongCumTu, Language::En) => "No recovery phrase stored",
+        (TextKey::NhapKhongCumTu, Language::Vi) => "Không có cụm từ khôi phục",
+        (TextKey::NhapNutChon, Language::En) => "Import this wallet",
+        (TextKey::NhapNutChon, Language::Vi) => "Nhập ví này",
+        (TextKey::NhapNutHuy, Language::En) => "Cancel",
+        (TextKey::NhapNutHuy, Language::Vi) => "Huỷ",
+        (TextKey::NhapXongTieuDe, Language::En) => "Wallet imported",
+        (TextKey::NhapXongTieuDe, Language::Vi) => "Đã nhập ví",
+        // ⚠️ Câu này KHÔNG được bỏ đi và KHÔNG được viết nhẹ hơn. Người dùng
+        // tưởng đã dọn sạch trong khi bản yếu vẫn nằm ở trang web là tình
+        // huống xấu nhất: mất cảnh giác mà rủi ro không giảm.
+        (TextKey::NhapBanCuVanCon, Language::En) => {
+            "The website still has its own copy of this wallet, still locked with the same PIN."
+        }
+        (TextKey::NhapBanCuVanCon, Language::Vi) => {
+            "Trang web vẫn giữ một bản của ví này, vẫn khoá bằng đúng mã PIN cũ."
+        }
+        (TextKey::NhapBanCuLamGi, Language::En) => {
+            "Nothing here touched it. Remove it on the website itself when you are sure this copy works."
+        }
+        (TextKey::NhapBanCuLamGi, Language::Vi) => {
+            "Ở đây không đụng vào bản ấy. Khi nào chắc bản này chạy được thì tự xoá nó ngay trên trang web."
+        }
+        (TextKey::NhapCumTuDaMangSang, Language::En) => "Your recovery phrase came across too.",
+        (TextKey::NhapCumTuDaMangSang, Language::Vi) => "Cụm từ khôi phục cũng đã mang sang.",
+        (TextKey::NhapNutXong, Language::En) => "Done",
+        (TextKey::NhapNutXong, Language::Vi) => "Xong",
+        (TextKey::NhapLoiSaiPin, Language::En) => "Wrong PIN, or the data is damaged.",
+        (TextKey::NhapLoiSaiPin, Language::Vi) => "Sai PIN, hoặc dữ liệu đã hỏng.",
+        (TextKey::NhapLoiKhoaCu, Language::En) => {
+            "This wallet is older than the ML-DSA change and cannot be imported here."
+        }
+        (TextKey::NhapLoiKhoaCu, Language::Vi) => {
+            "Ví này cũ hơn bản ML-DSA, không nhập được ở đây."
+        }
+        (TextKey::NhapLoiLechDiaChi, Language::En) => {
+            "The key does not match the address in that record. Nothing was imported."
+        }
+        (TextKey::NhapLoiLechDiaChi, Language::Vi) => {
+            "Khoá không khớp địa chỉ ghi trong bản ghi ấy. Không nhập gì cả."
+        }
+        (TextKey::NhapLoiDocKhongDuoc, Language::En) => "That file is not a wallet export.",
+        (TextKey::NhapLoiDocKhongDuoc, Language::Vi) => "Tệp đó không phải bản kết xuất ví.",
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",
 
         (TextKey::ViDuocXinChuKy, Language::En) => {

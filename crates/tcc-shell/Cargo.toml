@@ -9,6 +9,12 @@ license.workspace = true
 # Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
 # tcc-render-webview trực tiếp.
 window = ["tcc-render-webview/window"]
+# Nhập ví cũ từ ví web. Chuyển tiếp xuống tcc-chain — tầng trên không bao giờ
+# khai thẳng cờ của crate dưới.
+import-web-wallet = ["tcc-chain/import-web-wallet"]
+# Kho khoá THẬT của hệ điều hành. Tắt cờ này thì ví KHÔNG dùng được — cố ý,
+# xem src/wallet_store.rs.
+os-keystore = ["tcc-keystore/os-keystore"]
 # Đường ra ngoài thật. Tách cờ riêng để dựng được bản KHÔNG có mạng.
 network = ["dep:tcc-net"]
 

@@ -11,11 +11,14 @@
 //! Tầng 3 là thứ khiến cả chiến lược khả thi: không có nó, ta bị buộc phải đuổi
 //! theo Chromium mãi mãi.
 
+#[cfg(feature = "import-web-wallet")]
+pub mod import_screen;
 pub mod permission_dialog;
 pub mod permission_screen;
 pub mod permission_store;
 pub mod text;
 pub mod transaction_screen;
+pub mod wallet_store;
 
 pub use tcc_ui::AccessNode;
 pub use text::Language;
