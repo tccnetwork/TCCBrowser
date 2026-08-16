@@ -1,4 +1,9 @@
 [workspace]
+# `dam-thu/` là ĐÂM THỬ khả thi của Giai đoạn 0, không phải mã sản xuất. Để
+# ngoài workspace là cố ý: `cosmic-text` kéo theo cả một cây phụ thuộc mà bản
+# dựng thật không được phép mang, và `cargo test --workspace` không phải trả giá
+# cho một thí nghiệm.
+exclude = ["dam-thu/chu-viet"]
 resolver = "3"
 members = [
   # ---- Nền: không phụ thuộc gì trong workspace ----

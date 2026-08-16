@@ -1,0 +1,9 @@
+[package]
+name = "dam-thu-chu-viet"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+cosmic-text = "0.19"
+png = "0.18"

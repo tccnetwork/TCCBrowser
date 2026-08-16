@@ -7,3 +7,4 @@
 fuzz/corpus/
 fuzz/artifacts/
 fuzz/target/
+.claude/settings.local.json

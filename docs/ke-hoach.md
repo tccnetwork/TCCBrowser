@@ -27,6 +27,18 @@ này rồi kết luận cho cả dự án.
 
 **Cổng ra:** ba câu trả lời, và quyết định có đi tiếp không.
 
+### Trạng thái (17/08/2026) — [`../dam-thu/BAO-CAO.md`](../dam-thu/BAO-CAO.md)
+
+| | Câu | Kết quả |
+|---|---|---|
+| 0.1 | Chữ tiếng Việt dựng bằng Rust | ✅ **ĐẠT** — 0 `.notdef`, dựng sẵn ≡ tổ hợp (0/2560 pixel lệch), mực 17 px trong dòng 21 px |
+| 0.2 | Sandbox WASM có đủ nhanh không | ⊘ **câu hỏi đã tan** — kiến trúc bỏ WASM, workspace không phụ thuộc `wasmtime` |
+| 0.3 | Cô lập tiến trình trên macOS | ❌ **chưa đo** — nên làm SAU khi có hồ sơ cấp phép |
+
+Giai đoạn 0 chạy **sau** Giai đoạn 1–2, không phải trước. Đó là một sai lệch so
+với kế hoạch, và nó có giá: Giai đoạn 4 đã bị chặn suốt thời gian ấy bởi một câu
+hỏi chưa ai mở ra xem.
+
 ---
 
 ## Giai đoạn 1 — Lát cắt mỏng chạy thông suốt
