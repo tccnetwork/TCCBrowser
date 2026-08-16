@@ -2598,6 +2598,7 @@ name = "tcc-browser"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "tcc-crypto",
  "tcc-runtime",
  "tcc-shell",
  "tcc-spec",

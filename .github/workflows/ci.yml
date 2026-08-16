@@ -27,6 +27,12 @@ jobs:
       - name: Tests
         run: cargo test --workspace
 
+      # Số phép thử và số vector ghi trong tài liệu phải khớp số THẬT. Cần bản
+      # dựng nên không nằm trong `kiem-luat-phu-thuoc.sh` (chạy trước biên dịch).
+      - name: Documented counts are real
+        if: runner.os == 'Linux'
+        run: tools/kiem-so-lieu.sh
+
       # Đường nhập ví cũ nằm sau cờ, nên `--workspace` trơn KHÔNG biên dịch nó.
       # Mã không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
       - name: Web-wallet import path

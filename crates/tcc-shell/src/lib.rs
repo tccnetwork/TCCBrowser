@@ -1,15 +1,22 @@
-//! Khung trình duyệt: thẻ, thanh địa chỉ, cài đặt, ba tầng nội dung.
+//! Khung trình duyệt — **ĐIỂM LẮP RÁP**, nơi duy nhất được chọn bộ dựng cụ thể.
+//! Mọi crate khác chỉ thấy trừu tượng.
 //!
-//! VIỆC CỦA CRATE NÀY: đây là ĐIỂM LẮP RÁP (composition root) — nơi duy nhất
-//! được chọn bộ dựng cụ thể. Mọi crate khác chỉ thấy trừu tượng.
+//! # Crate này HIỆN có gì
 //!
-//! BA TẦNG NỘI DUNG:
-//!   1. Ứng dụng TCC   — WASM + quyền năng, chạy qua `tcc-runtime`
-//!   2. Web hiện đại   — WebView, cho trang viết theo chuẩn đã công bố
-//!   3. Lối thoát      — mở bằng trình duyệt hệ thống. Không giấu, không xin lỗi.
+//! Hộp thoại hỏi quyền, màn quản lý quyền đã cấp, kho quyền trên đĩa, bảng chữ
+//! song ngữ, màn xác nhận giao dịch, màn nhập ví, chỗ mở kho khoá, và khung
+//! cửa sổ. Hết.
 //!
-//! Tầng 3 là thứ khiến cả chiến lược khả thi: không có nó, ta bị buộc phải đuổi
-//! theo Chromium mãi mãi.
+//! # Những gì dòng đầu tệp này TỪNG hứa mà chưa có
+//!
+//! Trước 16/08/2026 dòng ấy ghi *"thẻ, thanh địa chỉ, cài đặt, ba tầng nội
+//! dung"* và liệt kê cả ba tầng như thể chúng tồn tại. Không có thẻ, không có
+//! thanh địa chỉ, không có cài đặt, và **tầng 2–3 có 0 dòng mã** — chúng thuộc
+//! Giai đoạn 5, xem `docs/ke-hoach.md`.
+//!
+//! Người soát độc lập bắt được (F4, 16/08/2026). Một dòng tài liệu nói quá là
+//! một dòng người đọc mã tin rồi đi tìm thứ không có — và ở tệp đầu tiên người
+//! ta mở thì nó tốn nhiều thời gian nhất.
 
 #[cfg(feature = "import-web-wallet")]
 pub mod import_screen;

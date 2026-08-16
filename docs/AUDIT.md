@@ -13,22 +13,47 @@ the rest.
 | 2 | [`../spec/GOVERNANCE.md`](../spec/GOVERNANCE.md) §1 — who wrote this and who has reviewed it. The answer is one party for all of it |
 | 3 | [`../SECURITY.md`](../SECURITY.md) §1 — the 40 invariants, each naming the test that holds it |
 | 4 | [`../spec/0.1/`](../spec/0.1/) — the standard. English is normative |
-| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 17 machine-enforced rules |
+| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 18 machine-enforced rules |
+
+## The wallet is on another branch
+
+`main` does **not** contain the wallet. `crates/tcc-chain`, `crates/tcc-keystore`,
+key derivation, 24-word recovery phrases, the web-wallet import path, the
+transaction-confirmation screen and the real macOS Keychain all live on
+`giai-doan-3.1`, and `SECURITY.md` on `main` has no invariants covering them.
+
+That means a review of `main` alone skips the riskiest part of the project. This
+was raised by an outside reviewer on 2026-08-16 (finding F2) and is stated here
+rather than fixed by merging, because merging an unaudited wallet into the branch
+people are told to read would trade one problem for a worse one.
+
+```bash
+git checkout giai-doan-3.1     # the wallet, and the parts most worth attacking
+```
 
 ## Reproduce every claim in about five minutes
 
+The two Python cross-checks need two packages that are **not** in any
+requirements file, and without them both commands fail with a missing-import
+error rather than a useful message (finding F5):
+
 ```bash
-cargo test --workspace                              # 238 tests
-cargo test --workspace --features tcc-shell/window  # 241, three need a window
+pip install dilithium-py blake3
+```
+
+```bash
+cargo test --workspace                              # 293 tests
+cargo test --workspace --features tcc-shell/window  # 296, three need a window
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 tools/kiem-luat-phu-thuoc.sh                        # 18 architecture rules
-cargo run -p tcc-conformance                        # 136 vectors, eight groups
+cargo run -p tcc-conformance                        # 138 conformance vectors, eight groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py
 python3 conformance/dung-goi-doc-lap.py             # package built in Python, verified by Rust
 cargo audit                                         # 0 vulnerabilities, 14 known warnings
+tools/kiem-so-lieu.sh                               # the two numbers above must be real
 ```
 
 The commands above run on **macOS, Linux and Windows** in CI. Windows was added

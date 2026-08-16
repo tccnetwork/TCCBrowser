@@ -165,9 +165,17 @@ echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật
 # Con số này trôi nhiều nhất và im lặng nhất: tài liệu ghi 6, rồi 10, rồi 12,
 # trong khi kịch bản đã có 16. Người đọc tin con số, không đếm lại.
 #
-# Chỉ kiểm SỐ LUẬT, không kiểm số phép thử hay số vector: luật chạy TRƯỚC bước
-# biên dịch, nên nó không biết hai con số kia. Và quan trọng hơn — số trong VĂN
-# KỂ là sự thật lịch sử ("211 phép thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ.
+# Chỉ kiểm SỐ LUẬT ở đây. Số phép thử VÀ số vector đều nằm ở `kiem-so-lieu.sh`,
+# chạy trong CI sau bước dựng.
+#
+# Tôi đã thử canh số vector ngay tại đây bằng cách đếm `cases` trong JSON. Đếm
+# ra 122 trong khi bộ kiểm định báo 138 — vì `signature.json` không dùng khoá
+# `cases`, và nhóm ACVP chạy thêm một phép ngoài danh sách. Một phép đếm gần
+# đúng còn tệ hơn không đếm: nó báo động giả rồi bị người ta tắt đi.
+#
+# Và quan trọng hơn — số trong VĂN KỂ là sự thật lịch sử ("211 phép
+# thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ, nên cả ba luật chỉ soi những
+# tài liệu và cụm từ nêu đích danh.
 that=$(grep -c '^echo "--- Luật' "$0")
 lech=""
 for f in README.md SECURITY.md ARCHITECTURE.md CLAUDE.md docs/ke-hoach.md docs/dang-lam-gi.md docs/AUDIT.md; do

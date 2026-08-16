@@ -14,33 +14,6 @@ use std::process::ExitCode;
 use tcc_shell::Language;
 use tcc_spec::Manifest;
 
-/// Bản kê khai mẫu để xem thử hộp thoại hỏi quyền.
-///
-/// TẠM THỜI: Giai đoạn 2 sẽ thay bằng gói thật nạp qua `tcc-runtime`, và lúc đó
-/// hộp thoại chỉ được dựng SAU khi chữ ký đã hợp lệ.
-const KE_KHAI_MAU: &str = r#"{
-  "spec_version": "0.1",
-  "id": "com.tcc.cua-hang",
-  "name": "TCC Store",
-  "version": "1.0.0",
-  "publisher": "",
-  "scheme": "hybrid-ed25519-mldsa65-v1",
-  "content_hash": "",
-  "entry": "index.html",
-  "capabilities": [
-    {
-      "name": "network",
-      "scope": { "kind": "network", "hosts": ["shop.tcc-coin.com"] },
-      "reason": "Load the product list"
-    },
-    {
-      "name": "wallet",
-      "scope": { "kind": "wallet", "may_request_signature": true },
-      "reason": "Pay for your order"
-    }
-  ]
-}"#;
-
 fn main() -> ExitCode {
     let doi = std::env::args().skip(1).collect::<Vec<_>>();
     let ngon_ngu = if doi.iter().any(|a| a == "vi") {
@@ -67,21 +40,24 @@ fn main() -> ExitCode {
         return mo_goi_that(std::path::Path::new(duong_dan), ngon_ngu);
     }
 
-    let m: Manifest = match serde_json::from_str(KE_KHAI_MAU) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("✗ bản kê khai mẫu hỏng: {e}");
-            return ExitCode::FAILURE;
-        }
-    };
-
-    match run_loop(&m, ngon_ngu) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            eprintln!("✗ {e}");
-            ExitCode::FAILURE
-        }
-    }
+    // KHÔNG có nhánh "chạy thử bằng dữ liệu tự bịa".
+    //
+    // Trước 16/08/2026 chỗ này dựng hộp thoại hỏi quyền từ một bản kê khai
+    // nhúng cứng — `publisher: ""`, `content_hash: ""`, `entry: "index.html"`
+    // và một quyền `wallet`. Chạy binary không tham số là rơi vào đó.
+    //
+    // Ba thứ hỏng chồng lên nhau, và người soát độc lập bắt được cả ba (F1,
+    // 16/08/2026): `entry: "index.html"` mâu thuẫn thẳng với bất biến B15 —
+    // "ứng dụng không mang mã, điểm vào là ui.json"; dữ liệu giả nằm trên
+    // đường chạy sản phẩm chứ không nằm trong `examples/`; và chú thích ngay
+    // tại chỗ hứa "Giai đoạn 2 sẽ thay" trong khi Giai đoạn 2 đã tuyên bố đóng.
+    //
+    // Bản demo giờ là một GÓI THẬT ĐÃ KÝ. Nó vừa demo tốt hơn, vừa không bao
+    // giờ trôi khỏi tiêu chuẩn — vì nếu nó trôi thì `tcc verify` từ chối nó.
+    eprintln!("cần một thư mục gói đã ký:");
+    eprintln!("    cargo run -p tcc-browser -- examples/hello-tcc");
+    eprintln!("    cargo run -p tcc-browser -- quyen <thư-mục-gói>");
+    ExitCode::FAILURE
 }
 
 #[cfg(feature = "window")]
@@ -94,6 +70,9 @@ fn quan_ly(goi: &std::path::Path, ngon_ngu: Language) -> ExitCode {
         }
     }
 }
+
+#[cfg(not(feature = "window"))]
+use tcc_crypto::HybridEd25519MlDsa;
 
 #[cfg(not(feature = "window"))]
 fn quan_ly(_g: &std::path::Path, _n: Language) -> ExitCode {
@@ -135,10 +114,31 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     }
 }
 
+/// Bản không cửa sổ: kiểm gói THẬT rồi in cây hộp thoại ra chữ.
+///
+/// Trước 16/08/2026 nhánh này chỉ báo "cần --features window", còn cây hộp
+/// thoại thì dựng từ một bản kê khai tự bịa. Đảo lại: bản kê khai đến từ gói
+/// đã ký, và bản không cửa sổ vẫn xem được — đó mới là cách xem hộp thoại trên
+/// máy chủ không màn hình.
 #[cfg(not(feature = "window"))]
-fn mo_goi_that(_d: &std::path::Path, _n: Language) -> ExitCode {
-    eprintln!("✗ mở gói cần bản dựng có cửa sổ: --features window");
-    ExitCode::FAILURE
+fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
+    // `verify_package` chạy TRƯỚC mọi thứ khác. Không có đường nào dựng được
+    // hộp thoại từ một gói chưa kiểm chữ ký.
+    let (app, _) = match tcc_runtime::verify_from_dir(duong_dan, &HybridEd25519MlDsa) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("✗ gói không hợp lệ: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    println!("✓ chữ ký hợp lệ — \"{}\"", app.manifest().name);
+    match run_loop(app.manifest(), ngon_ngu) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("✗ {e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 #[cfg(feature = "window")]

@@ -1049,7 +1049,7 @@ one half does not propagate to the other, and that is precisely why the signatur
 is hybrid.**
 
 ```sh
-cargo run -p tcc-conformance                 # 104 cases
+cargo run -p tcc-conformance                 # 138 conformance vectors
 cargo run -p tcc-conformance -- --chi-tiet
 ```
 
@@ -1058,9 +1058,9 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 234 tests
-cargo test --workspace --features tcc-shell/window  # 237 — three more that need a window
-cargo run -p tcc-conformance                        # 135 conformance vectors
+cargo test --workspace                              # 293 tests
+cargo test --workspace --features tcc-shell/window  # 296 — three more that need a window
+cargo run -p tcc-conformance                        # 138 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh                        # 18 architecture rules
