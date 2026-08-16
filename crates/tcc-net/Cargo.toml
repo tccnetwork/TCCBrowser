@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 tcc-runtime = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 # `ureq` + rustls: 22 crate, đồng bộ, thuần Rust. Đã đo so với `reqwest` (86
 # crate, kéo theo cả runtime async). Rustls chứ không phải OpenSSL: hợp với

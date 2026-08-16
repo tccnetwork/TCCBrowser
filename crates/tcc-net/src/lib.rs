@@ -34,6 +34,8 @@
 //!
 //! Lớp 2 kiểm thử được mà không cần máy chủ thật, nên nó không bao giờ mục.
 
+pub mod rpc;
+
 use std::time::Duration;
 
 use tcc_runtime::Network;
@@ -67,6 +69,10 @@ pub enum NetError {
 
     #[error("gọi thất bại: {0}")]
     Goi(String),
+
+    /// Điểm cuối không phải HTTPS. Bắt ngay lúc dựng, không đợi tới lúc gọi.
+    #[error("điểm cuối \"{0}\" không phải https:// — ví không nói chuyện trên đường trần")]
+    KhongPhaiHttps(String),
 }
 
 /// Xét mã trạng thái. **Hàm thuần** — kiểm thử được mà không cần máy chủ.

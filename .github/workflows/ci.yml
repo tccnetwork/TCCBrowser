@@ -51,6 +51,9 @@ jobs:
           cargo test -p tcc-keystore --features os-keystore
           cargo clippy -p tcc-shell --features os-keystore --all-targets -- -D warnings
           cargo test -p tcc-shell --features os-keystore
+          # Đường gửi giao dịch chỉ dựng được khi có CẢ HAI cờ. Chỉ biên dịch,
+          # không chạy: nó cần mạng, cần Touch ID, và cần một con người bấm.
+          cargo clippy -p tcc-shell --features "network,os-keystore" --all-targets -- -D warnings
 
       # This is what turns the specification into a STANDARD. Leave it out of CI
       # and the standard drifts away from the implementation with nobody noticing.

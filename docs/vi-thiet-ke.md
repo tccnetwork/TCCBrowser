@@ -697,3 +697,58 @@ khai 1952 byte ở đuôi, đòi nó giải ra cùng các trường và cùng b�
 `signing_message_hex` của một phản hồi bất kỳ. Toàn bộ phép kiểm chạy xong
 **trước khi khoá được dùng tới** — đó là điểm của thiết kế, và nó cũng có nghĩa
 là người soát chạy được phép kiểm này mà không cần ví nào.
+
+
+## 17. Cả vòng, với chuỗi thật (16/08/2026)
+
+`crates/tcc-shell/examples/gui-giao-dich.rs`, sau **cả hai** cờ
+`network,os-keystore`.
+
+```
+✓ băm tự tính KHỚP băm máy chủ đưa
+
+  người nhận: 0x266346046c9d284e8598a2ed52ac73e31b095da31d16cf1738c96ee3eb5e9a71
+  số tiền   : 1 TCC
+  phí tối đa: 0.00100000000002 TCC
+  mạng      : 91338 (testnet)
+  thứ tự    : 174
+
+Việc này CHUYỂN TIỀN và không hoàn tác được.
+Gõ đúng chữ `ky` để ký, bất cứ thứ gì khác là huỷ:
+```
+
+### Khoá không đi qua dòng lệnh, và không đi qua phiên làm việc
+
+Không có tham số nào nhận hạt giống, cụm từ khôi phục hay mã PIN. Khoá lấy từ
+kho khoá hệ điều hành, và hệ điều hành hỏi Touch ID ngay lúc lấy.
+
+Đưa khoá qua tham số dòng lệnh là đưa nó vào lịch sử shell, vào `ps`, và vào
+mọi bản ghi terminal — ba chỗ không ai nhớ dọn.
+
+### Thứ tự không đảo được, và không phải vì tôi xếp thế
+
+Bước "kiểm khớp" xong trước bước "ký" vì `sign` đòi một `PendingTransaction`,
+và **chỉ `review` sinh ra được nó**. Bước ký nằm ở một hàm riêng nhận đúng kiểu
+ấy — đọc chữ ký hàm là thấy ranh giới; đọc một `main` dài trăm dòng thì không.
+
+### `POST` nằm ngoài trait mà ứng dụng thấy
+
+`tcc_runtime::Network` vẫn chỉ có `get`. Một quyền mạng chỉ-`get` yếu hơn hẳn
+quyền cho phép đẩy dữ liệu ra ngoài: ứng dụng lấy được thứ nó xin, nhưng không
+dựng được một kênh gửi tuỳ ý.
+
+Ví cần `POST`, nên `POST` nằm ở `tcc_net::rpc` — khung trình duyệt gọi được,
+ứng dụng không có đường chạm tới. **Thêm `post` vào `Network` cho tiện là âm
+thầm nới rộng nghĩa của mọi quyền mạng đã cấp từ trước.**
+
+### Cổng chặn cứng nằm trong mã, không nằm trong lời dặn
+
+Ví dụ này **từ chối chạy trên mọi mạng khác testnet 91338**. Không giao dịch
+mainnet nào trước kiểm định an ninh độc lập.
+
+### Còn thiếu đúng một bước
+
+Chưa có giao dịch nào được ký và gửi thật — cần hạt giống nằm sẵn trong
+Keychain, và việc cất nó vào là việc của người dùng trên máy của họ. Đường chạy
+đã kiểm tới sát chỗ đó: dừng đúng ở `unlock`, với câu chỉ rõ phải cất khoá dưới
+tên nào.

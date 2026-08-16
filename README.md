@@ -36,7 +36,7 @@ implementation **must not** display "verified publisher".
 ## Run it
 
 ```bash
-cargo test --workspace              # 306 tests
+cargo test --workspace              # 308 tests
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh        # 18 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 138 conformance vectors
