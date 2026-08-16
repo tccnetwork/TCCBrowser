@@ -1,0 +1,18 @@
+{
+  "v": 4,
+  "active_address": "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549",
+  "wallets": {
+    "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549": {
+      "address": "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549",
+      "label": "Ví thử nghiệm",
+      "pubkeyHex": "(bỏ qua — trình duyệt tự dẫn xuất lại)",
+      "encryptedPrivkey": "aRG7XXNKpLY1+/CN/bvTBAXDs1dC+OBxtXgA/PQx6Daboa5SMGtslueoKuWxJJjl",
+      "salt": "paWlpaWlpaWlpaWlpaWlpQ==",
+      "iv": "WlpaWlpaWlpaWlpa",
+      "encryptedSeed": "bU0tpl2zQZb7niDa8DbOeXSt040Ewo4FxndWplyTYhAqNwTngv2/H50e7+4ZYQhc5xiORc+kg2p6oJSZZTS68NrpCIyCJ5yKLJaC+fmo7iSHc67LcFc/TSJFpqktQDsTNlQqWcpUm04poHAMQ5HCL9arWSLci2ElhI6p9/X5OvWVI+lZZBwudgTRCxkShIii4SRUIBdpKRnequ8U8PgKYdhoTBacFvD5AHgJ6bCowpmhe0Un1yugEyAoxPyKtojHXfkoCaPofwznRFM=",
+      "seedSalt": "paWlpaWlpaWlpaWlpaWlpQ==",
+      "seedIv": "WlpaWlpaWlpaWlpa",
+      "seedKind": "bip39"
+    }
+  }
+}

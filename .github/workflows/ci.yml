@@ -27,6 +27,13 @@ jobs:
       - name: Tests
         run: cargo test --workspace
 
+      # Đường nhập ví cũ nằm sau cờ, nên `--workspace` trơn KHÔNG biên dịch nó.
+      # Mã không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
+      - name: Web-wallet import path
+        run: |
+          cargo clippy -p tcc-chain --features import-web-wallet --all-targets -- -D warnings
+          cargo test -p tcc-chain --features import-web-wallet
+
       # Kho khoá THẬT chỉ dựng được trên macOS. Không chạy `unlock` ở đây: nó
       # hỏi Touch ID, mà runner thì không có ai chạm vào — cùng lý do cổng gõ
       # tiếng Việt cần một con người.

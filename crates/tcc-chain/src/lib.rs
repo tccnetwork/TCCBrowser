@@ -23,6 +23,8 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(feature = "import-web-wallet")]
+pub mod import;
 pub mod mnemonic;
 pub mod wallet;
 

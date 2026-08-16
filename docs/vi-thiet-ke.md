@@ -448,3 +448,75 @@ một nhánh hoảng loạn không bao giờ chạy, nằm trong mã đụng t�
 
 Lần nữa, phép thử neo ngoài là thứ chịu lực. Tám phép thử "hợp lý" quanh nó vẫn
 xanh khi hex viết hoa.
+
+
+## 13. Nhập ví cũ từ ví web (16/08/2026)
+
+`crates/tcc-chain/src/import.rs`, sau cờ `import-web-wallet`. Giá: **14 crate**
+thêm vào cả workspace (103 → 117). Đắt cho một việc người dùng làm đúng một lần
+trong đời, nên nó nằm sau cờ chứ không nằm trong bản dựng của mọi người.
+
+```text
+PIN → PBKDF2-SHA256 100.000 vòng (muối 16 byte) → khoá AES-256
+    → AES-GCM (IV 12 byte) → 32 byte hạt giống ML-DSA
+```
+
+Không vi phạm luật *"không viết lại phần mật mã đã có"*: `pbkdf2` và `aes-gcm`
+là crate của RustCrypto, ta chỉ gọi. Thứ phải viết là **bộ đọc một định dạng**.
+
+### Neo bằng bản ghi ví web THẬT
+
+`data/vi-web-mau.json` dựng bằng đúng WebCrypto mà trang web gọi (`node:crypto`,
+cùng tham số), không phải do tôi bịa ra từ việc đọc mã. Phép thử đi hết đường:
+JSON → PIN → hạt giống → **địa chỉ khớp `tcc-keygen`**. Cụm từ khôi phục giải ra
+cũng phải mở đúng ví ấy.
+
+Muối và IV trong tệp mẫu **cố định** để bản dựng lặp lại được; bản ghi thật dùng
+`crypto.getRandomValues`. Dùng lại muối/IV chỉ chấp nhận được trong một tệp mẫu
+công khai không giữ tiền của ai.
+
+### Giải mã được KHÔNG có nghĩa là đúng ví
+
+Hạt giống lấy ra được dẫn xuất lại thành địa chỉ và **so với địa chỉ ghi trong
+bản ghi**; lệch là từ chối. Cùng nguyên tắc với màn xác nhận giao dịch: kiểm
+trước, tin sau.
+
+### Kiểm đột biến tìm ra một lỗ thật
+
+| Đổi gì | Bắt được? |
+|---|---|
+| bỏ phép kiểm địa chỉ | ✅ |
+| lệch một vòng PBKDF2 (100.000 → 99.999) | ✅ (4 phép thử đỏ) |
+| **bỏ phép kiểm độ dài khoá** | ❌ **KHÔNG** |
+
+Cái thứ ba là lỗ thật. Ví sinh **trước** lần chuyển sang ML-DSA giữ khoá đã bung
+4032 byte; không có phép kiểm ấy thì `copy_from_slice` **hoảng loạn** thay vì
+báo lỗi sạch — và không phép thử nào chạm tới. Đã dựng bản ghi mẫu thứ hai
+(`vi-web-mau-khoa-cu.json`, khoá 4032 byte, cùng WebCrypto) và phép thử mới giết
+được đột biến ấy, đúng ở dòng `copy_from_slice`.
+
+Câu lỗi cũng phải nói được **vì sao**: *"ví này cũ hơn bản ML-DSA"*, không phải
+*"hỏng"*.
+
+### ⚠️ Nhập KHÔNG làm bản cũ biến mất
+
+Ví web vẫn giữ nguyên bản của nó trong `localStorage`, vẫn khoá bằng PIN, vẫn
+yếu đúng như trước. Trình duyệt **không đụng vào dữ liệu ấy** — xoá hộ người
+dùng thứ họ chưa bảo xoá là một cách hỏng riêng, và tệ hơn nếu bản nhập sang có
+vấn đề.
+
+Nên giao diện **phải nói ra** sau khi nhập xong: *"ví vẫn còn một bản ở trang
+web, vẫn khoá bằng PIN"*. Người dùng tưởng mình đã dọn sạch trong khi bản yếu
+vẫn nằm đó là tình huống xấu nhất — mất cảnh giác mà rủi ro không giảm. Đây là
+việc của giao diện, **chưa làm**.
+
+### Sai PIN và dữ liệu hỏng là MỘT lỗi
+
+AES-GCM không phân biệt được: thẻ xác thực hỏng theo cùng một cách. Gộp làm một
+là trung thực; tách ra là bịa ra thứ mình không biết.
+
+### Mã sau cờ phải được CI biên dịch
+
+`cargo test --workspace` trơn **không** biên dịch mã sau cờ. Đã thêm bước riêng
+chạy clippy và phép thử với `--features import-web-wallet` trên cả ba nền. Mã
+không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
