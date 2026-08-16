@@ -36,6 +36,8 @@ use crate::text::{Language, TextKey, label};
 pub const ACTION_CANCEL: &str = "huy-nhap-vi";
 /// Mã nút đóng màn "xong".
 pub const ACTION_DONE: &str = "xong-nhap-vi";
+/// Mã nút mở khoá bằng PIN.
+pub const ACTION_UNLOCK: &str = "mo-khoa-vi";
 
 /// Mã nút chọn một ví. Địa chỉ đã là hex `0x…` nên ghép vào là mã hợp lệ.
 #[must_use]
@@ -104,6 +106,53 @@ fn muc_vi(v: &WebWallet, ngon_ngu: Language) -> Result<Node, UiError> {
             &choose_id(&v.address),
             Tone::Neutral,
         )?)
+}
+
+/// Màn hỏi PIN.
+///
+/// # Ô che chữ ở đây là ô của KHUNG TRÌNH DUYỆT
+///
+/// Từ 16/08/2026 gói ứng dụng **không** dựng được ô che chữ nữa
+/// (`secret-field-from-app`, `spec/0.1/05-interface.md`). Ô này dựng bằng mã
+/// Rust của khung, không đi qua đường đọc từ đĩa, nên nó là ô che chữ **duy
+/// nhất** người dùng gặp — và hàng chấm tròn lấy lại được nghĩa của nó.
+///
+/// # Hỏi bí mật thì phải nói VÌ SAO
+///
+/// Câu giải thích đứng **ngay trên** ô nhập, không nằm dưới, không nằm ở màn
+/// trước. Hỏi bí mật mà không nói vì sao là dạy người dùng gõ bí mật vào bất kỳ
+/// ô nào hỏi — đúng thói quen mà kẻ lừa đảo sống nhờ.
+///
+/// # Errors
+/// Chuỗi không dùng được trên giao diện.
+pub fn build_pin(dia_chi: &str, ngon_ngu: Language) -> Result<Node, UiError> {
+    let t = |k: TextKey| label(k, ngon_ngu);
+
+    Node::group(Flow::Column, Gap::Large)
+        .child(Node::text_with(t(TextKey::NhapPinTieuDe), Emphasis::Title)?)?
+        // Địa chỉ ĐỦ: người dùng phải thấy mình đang mở ví NÀO trước khi gõ.
+        .child(Node::text_with(dia_chi.to_owned(), Emphasis::Normal)?)?
+        .child(Node::text(t(TextKey::NhapPinViSao))?)?
+        .child(Node::text_with(
+            t(TextKey::NhapPinChiDungMotLan),
+            Emphasis::Subtle,
+        )?)?
+        // `secret: true` — và đây là chỗ DUY NHẤT trong cả trình duyệt mà nó
+        // hợp lệ ngoài mã của khung.
+        .child(Node::field(t(TextKey::NhapPinNhan), "", true)?)?
+        .child(
+            Node::group(Flow::Row, Gap::Medium)
+                .child(Node::button(
+                    t(TextKey::NhapNutMoKhoa),
+                    ACTION_UNLOCK,
+                    Tone::Neutral,
+                )?)?
+                .child(Node::button(
+                    t(TextKey::NhapNutHuy),
+                    ACTION_CANCEL,
+                    Tone::Neutral,
+                )?)?,
+        )
 }
 
 /// Màn "xong" — **và câu về bản cũ**.
@@ -279,12 +328,54 @@ mod kiem_thu {
         );
     }
 
+    /// Ô PIN phải là ô CHE CHỮ thật, không phải ô thường.
+    #[test]
+    fn o_pin_la_o_che_chu() {
+        let cay = build_pin(DIA_CHI, Language::Vi).unwrap();
+        let mut co = false;
+        gom_o_nhap(&cay, &mut co);
+        assert!(co, "ô PIN không che chữ — chữ hiện ra màn hình khi gõ");
+    }
+
+    fn gom_o_nhap(n: &Node, ra: &mut bool) {
+        if let tcc_ui::NodeKind::Field { secret, .. } = n.kind() {
+            *ra = *secret;
+        }
+        for c in n.children() {
+            gom_o_nhap(c, ra);
+        }
+    }
+
+    /// **Phải nói VÌ SAO đang hỏi PIN**, và nói ngay trên màn ấy.
+    #[test]
+    fn man_pin_noi_vi_sao_va_dia_chi_nao() {
+        for ngon_ngu in [Language::En, Language::Vi] {
+            let s = ve(&build_pin(DIA_CHI, ngon_ngu).unwrap());
+            assert!(
+                s.contains(label(TextKey::NhapPinViSao, ngon_ngu)),
+                "màn hỏi PIN không nói vì sao ({ngon_ngu:?}):\n{s}"
+            );
+            assert!(s.contains(DIA_CHI), "không nói đang mở ví nào:\n{s}");
+        }
+    }
+
+    /// Và phải nói PIN không bị lưu lại.
+    #[test]
+    fn man_pin_noi_khong_luu_lai() {
+        let s = ve(&build_pin(DIA_CHI, Language::Vi).unwrap());
+        assert!(
+            s.contains(label(TextKey::NhapPinChiDungMotLan, Language::Vi)),
+            "{s}"
+        );
+    }
+
     /// Cả hai màn phải qua được kiểm định trợ năng của bộ dựng thật.
     #[test]
     fn qua_duoc_kiem_dinh_tro_nang() {
         let ds = read_export(MAU).unwrap();
         for cay in [
             build_choice(&ds, Language::Vi).unwrap(),
+            build_pin(DIA_CHI, Language::Vi).unwrap(),
             build_done(&da_nhap(), Language::Vi).unwrap(),
         ] {
             let mut bd = WebViewRenderer::new();

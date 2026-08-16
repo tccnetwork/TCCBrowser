@@ -68,6 +68,7 @@ suite.
 |---|---|
 | `ui-too-large` | The interface file is over 1 MiB |
 | `external-image` | An image `source` points at the network |
+| `secret-field-from-app` | A package asked for `"secret": true` on a `field` |
 | `text-too-long` | String over 4,096 characters |
 | `too-deep` | Tree over 32 levels |
 | `too-many-nodes` | Tree over 10,000 nodes |

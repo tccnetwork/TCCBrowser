@@ -450,19 +450,13 @@ fn chay_ui(chi_tiet: bool) -> Ket {
             ),
             (false, Ok(_)) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
             (false, Err(e)) => {
-                // `Json` và `TooLarge` ĐÃ có mã chuẩn. Chỉ `Tree` là gói thông báo
-                // chứ không gói mã, nên riêng nó mới phải dựng lại cây để lấy mã
-                // của nguyên nhân gốc.
+                // Từ 16/08/2026 `DecodeError::Tree` mang NGUYÊN lỗi bên dưới,
+                // nên `ma()` trả mã thật và chỗ này không phải đoán gì.
                 //
-                // Bản đầu tôi viết nhánh này chạy cho MỌI lỗi khác `bad-json`, và
-                // nó ghi đè mất mã đúng: ca "tệp giao diện quá 1 MiB" báo
-                // `text-too-long` vì cây được dựng lại mà bỏ qua trần kích thước.
-                let ma = match &e {
-                    tcc_ui::wire::DecodeError::Tree(s) => {
-                        ma_cay(&byte).unwrap_or_else(|| s.clone())
-                    }
-                    khac => khac.ma().to_owned(),
-                };
+                // Trước đó nó gói một `String`, và đoạn đoán lại mã ở đây từng
+                // ghi đè nhầm: ca "tệp giao diện quá 1 MiB" báo `text-too-long`
+                // vì cây được dựng lại mà bỏ qua trần kích thước.
+                let ma = e.ma().to_owned();
                 let khop = cho_ma.is_none_or(|c| ma == c);
                 k.ghi(
                     ten,
@@ -474,15 +468,6 @@ fn chay_ui(chi_tiet: bool) -> Ket {
         }
     }
     k
-}
-
-/// Lấy mã lỗi của tiêu chuẩn cho một cây giao diện hỏng.
-fn ma_cay(byte: &[u8]) -> Option<String> {
-    let tho: tcc_ui::wire::UiNode = serde_json::from_slice(byte).ok()?;
-    match tcc_ui::Node::try_from(tho) {
-        Ok(_) => None,
-        Err(e) => Some(e.ma().to_owned()),
-    }
 }
 
 // ───────────────────────────── Quyền năng ───────────────────────────────────

@@ -22,7 +22,7 @@ Giàn giáo hoá thành nhà.
     { "kind": "text", "content": "Xin chào từ TCC", "emphasis": "title" },
     { "kind": "image", "source": "anh/logo.png",
       "alt": { "kind": "text", "text": "Biểu trưng TCC" } },
-    { "kind": "field", "label": "Mật khẩu", "secret": true },
+    { "kind": "field", "label": "Tìm kiếm" },
     { "kind": "button", "label": "Xoá dữ liệu", "action": "xoa", "tone": "danger" }
   ]
 }
@@ -34,7 +34,7 @@ Giàn giáo hoá thành nhà.
 |---|---|---|
 | `text` | `content` PHẢI · `emphasis` (`title`/`normal`/`subtle`/`warning`, mặc định `normal`) | Đoạn chữ; CHO xuống dòng |
 | `button` | `label` PHẢI · `action` PHẢI · `tone` (`neutral`/`primary`/`danger`, mặc định `neutral`) | |
-| `field` | `label` PHẢI · `value` (mặc định rỗng) · `secret` (mặc định `false`) | Ô nhập |
+| `field` | `label` PHẢI · `value` (mặc định rỗng) | Ô nhập. `secret` bị **từ chối** — xem bên dưới |
 | `toggle` | `label` PHẢI · `action` PHẢI · `on` (mặc định **`false`**) | Công tắc |
 | `image` | `source` PHẢI · `alt` **PHẢI** | Ảnh trong gói |
 | `group` | `flow` (`row`/`column`, mặc định `column`) · `gap` (`none`/`small`/`medium`/`large`, mặc định `medium`) · `children` | Loại DUY NHẤT nhận nút con |
@@ -84,7 +84,8 @@ Bản cài đặt **PHẢI**:
 
 - Hiện **nhãn nhìn thấy được** cho `field` và `toggle`. Chỉ đặt nhãn cho trình
   đọc màn hình là để người sáng mắt thấy một ô trống không biết dùng làm gì.
-- Cho `secret: true` ra một ô nhập mật khẩu **thật** của nền tảng, để hệ điều
+- Cho `secret: true` **do khung trình duyệt dựng** ra một ô nhập mật khẩu **thật**
+  của nền tảng, để hệ điều
   hành che chữ và không đưa nội dung vào gợi ý gõ.
 - Báo cho trình đọc màn hình biết `tone: "danger"` là hành động **không hoàn tác
   được**, và giữ nguyên thông tin đó là một **nút**.
@@ -92,6 +93,29 @@ Bản cài đặt **PHẢI**:
 ⚠️ **Đừng thêm chú giải trợ năng khi thẻ gốc đã nói đúng.** Trên nền web, đặt
 `role="textbox"` lên một ô mật khẩu sẽ **đè** ngữ nghĩa gốc và kéo nó từ "ô bảo
 mật" tụt xuống "ô thường" — trình đọc màn hình khi đó đọc to từng ký tự mật khẩu.
+
+### Gói KHÔNG được dựng ô nhập che chữ
+
+`field` mang `"secret": true` **PHẢI** bị từ chối với mã `secret-field-from-app`.
+`field` thường vẫn được phép: ô tìm kiếm là việc bình thường, và cấm cả nó chỉ
+đẩy người viết ứng dụng đi vẽ một thứ *trông giống* ô nhập — lúc ấy không ai
+phân biệt được đâu là ô nhập thật nữa.
+
+Ô che chữ là **hình dạng người dùng được dạy để tin**. Một hàng chấm tròn nghĩa
+là "chỗ này an toàn, gõ bí mật vào đi", và nghĩa ấy không sống nổi nếu ai cũng
+dựng ra được: một gói đã ký có thể vẽ *"Nhập mã PIN ví của bạn"* trong một ô mật
+khẩu thật, không phân biệt được với ô của chính trình duyệt.
+
+**Điều này làm được trong 0.1 cho tới ngày 16/08/2026**, và ví dụ ngay trong
+chính tệp này từng ghi `{"kind": "field", "label": "Mật khẩu", "secret": true}`
+— tức là đặc tả đang dạy người ta làm việc ấy. Bỏ một giá trị từng được phép là
+**thay đổi phá vỡ** theo [VERSIONING.md](../../VERSIONING.md) §2, và được ghi
+lại đúng như thế.
+
+Điều này **không** vá được: gói vẫn vẽ được một ô thường gắn nhãn "PIN". Chắn ở
+đó là màn hình của trình duyệt vốn không do gói vẽ ra chút nào, và nó yếu hơn
+chắn này. Đừng đọc điều khoản này thành "lời mời gõ bí mật do gói vẽ giờ an
+toàn" — nó gỡ đi hình dạng mang niềm tin, không gỡ được câu chữ.
 
 ## Trần cây
 

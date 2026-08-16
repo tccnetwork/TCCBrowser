@@ -115,6 +115,20 @@ pub enum UiError {
 
     #[error("{0} là nút lá — chỉ nhóm mới chứa được nút con")]
     NotAContainer(&'static str),
+
+    /// Ô nhập che chữ là **thứ của khung trình duyệt**, không phải của ứng dụng.
+    ///
+    /// Ô che chữ chính là hình dạng người dùng được dạy để tin: thấy chấm tròn
+    /// là "chỗ này an toàn, gõ bí mật vào đi". Cho ứng dụng dựng ra nó là cho
+    /// mọi ứng dụng dựng một lời mời gõ mã PIN ví, trông y hệt lời mời thật.
+    ///
+    /// Ô nhập THƯỜNG thì ứng dụng vẫn dùng được — ô tìm kiếm là việc chính
+    /// đáng. Chỉ `secret: true` bị chặn.
+    #[error(
+        "ô nhập che chữ chỉ khung trình duyệt mới dựng được — ứng dụng dựng ô \
+         che chữ là dựng một lời mời gõ mã PIN trông y hệt lời mời thật"
+    )]
+    SecretFieldFromApp,
 }
 
 impl UiError {
@@ -134,6 +148,7 @@ impl UiError {
             Self::TooDeep { .. } => "too-deep",
             Self::TooManyNodes { .. } => "too-many-nodes",
             Self::NotAContainer { .. } => "not-a-container",
+            Self::SecretFieldFromApp => "secret-field-from-app",
         }
     }
 }

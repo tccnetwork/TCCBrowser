@@ -24,8 +24,7 @@
      },
      {
       "kind": "field",
-      "label": "Mật khẩu",
-      "secret": true
+      "label": "Search"
      },
      {
       "kind": "image",
@@ -591,6 +590,24 @@
     "emphasis": "warning"
    },
    "notes": "`warning` was added because 04 requires the signing-capable wallet capability to look different from every other one, and the vocabulary had no way to say that. An implementation must render it visibly differently, not merely accept it."
+  },
+  {
+   "case": "app tries to draw a masked input",
+   "expect_pass": false,
+   "code": "secret-field-from-app",
+   "tree": {
+    "kind": "field",
+    "label": "Enter your wallet PIN",
+    "secret": true
+   }
+  },
+  {
+   "case": "app may still draw a plain input",
+   "expect_pass": true,
+   "tree": {
+    "kind": "field",
+    "label": "Search"
+   }
   }
  ]
 }

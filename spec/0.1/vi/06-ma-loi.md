@@ -67,6 +67,7 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 |---|---|
 | `ui-too-large` | Tệp giao diện vượt 1 MiB |
 | `external-image` | `source` của ảnh trỏ ra mạng |
+| `secret-field-from-app` | Gói xin `"secret": true` trên một `field` |
 | `text-too-long` | Chuỗi vượt 4 096 ký tự |
 | `too-deep` | Cây vượt 32 tầng |
 | `too-many-nodes` | Cây vượt 10 000 nút |

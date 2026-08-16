@@ -22,7 +22,7 @@ renderers. The scaffolding becomes the building.
     { "kind": "text", "content": "Hello from TCC", "emphasis": "title" },
     { "kind": "image", "source": "img/logo.png",
       "alt": { "kind": "text", "text": "TCC logo" } },
-    { "kind": "field", "label": "Password", "secret": true },
+    { "kind": "field", "label": "Search" },
     { "kind": "button", "label": "Delete data", "action": "delete", "tone": "danger" }
   ]
 }
@@ -34,7 +34,7 @@ renderers. The scaffolding becomes the building.
 |---|---|---|
 | `text` | `content` MUST · `emphasis` (`title`/`normal`/`subtle`/`warning`, default `normal`) | A paragraph; newlines ARE allowed |
 | `button` | `label` MUST · `action` MUST · `tone` (`neutral`/`primary`/`danger`, default `neutral`) | |
-| `field` | `label` MUST · `value` (default empty) · `secret` (default `false`) | Text input |
+| `field` | `label` MUST · `value` (default empty) | Text input. `secret` is **rejected** — see below |
 | `toggle` | `label` MUST · `action` MUST · `on` (default **`false`**) | Switch |
 | `image` | `source` MUST · `alt` **MUST** | An image from the package |
 | `group` | `flow` (`row`/`column`, default `column`) · `gap` (`none`/`small`/`medium`/`large`, default `medium`) · `children` | The ONLY kind that takes children |
@@ -86,8 +86,9 @@ An implementation **MUST**:
 
 - Show a **visible label** for `field` and `toggle`. Providing a label only to
   screen readers leaves sighted users looking at an unlabelled box.
-- Render `secret: true` as the platform's **real** password input, so the OS masks
-  the text and keeps it out of typing suggestions.
+- Render a chrome-drawn `secret: true` field as the platform's **real** password
+  input, so the OS masks the text and keeps it out of typing suggestions. A
+  package may never ask for one — see below.
 - Tell screen readers that `tone: "danger"` is an action that **cannot be undone**,
   while preserving the fact that it is a **button**.
 
@@ -95,6 +96,31 @@ An implementation **MUST**:
 right thing.** On the web, putting `role="textbox"` on a password input **overrides**
 the native semantics and downgrades it from "secure text field" to "text field" —
 at which point screen readers read the password aloud, character by character.
+
+### A package may not draw a masked input
+
+A `field` carrying `"secret": true` **MUST** be rejected with
+`secret-field-from-app`. Plain `field` nodes stay allowed: a search box is
+ordinary, and forbidding those would only push authors into drawing something
+that *looks* like an input, at which point nobody can tell where the real ones
+are.
+
+The masked box is the shape people are taught to trust. A row of dots means
+"this is safe, type your secret here", and that meaning does not survive being
+available to everyone: a signed package could draw *"Enter your wallet PIN"* in
+a real password field, indistinguishable from the browser's own.
+
+**This was reachable in 0.1 until 2026-08-16**, and the example in this very
+file used to show `{"kind": "field", "label": "Password", "secret": true}` — the
+specification was teaching authors to do it. Removing a previously-allowed value
+is a breaking change under [VERSIONING.md](../VERSIONING.md) §2 and is recorded
+as one.
+
+What this does **not** fix: a package can still draw a plain field labelled
+"PIN". The defence there is that the browser's own screens are not drawn by the
+package at all, and it is weaker than this one. Do not read this clause as
+making package-drawn credential prompts safe — it removes the shape that carries
+the trust, not the words.
 
 ## Tree limits
 

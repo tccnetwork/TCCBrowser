@@ -142,11 +142,22 @@ impl TryFrom<UiNode> for Node {
                 action,
                 tone,
             } => Self::button(label, &action, tone),
+            // ⚠️ Chỗ này là một phép CHẶN, không phải một phép đổi kiểu.
+            //
+            // `Node::field` vẫn dựng được ô che chữ — khung trình duyệt cần nó
+            // để hỏi mã PIN. Nhưng đường từ ĐĨA vào thì không: byte ở đây đến
+            // từ gói của ứng dụng, và ứng dụng không được dựng ra hình dạng mà
+            // người dùng đã được dạy để tin.
             UiNode::Field {
                 label,
                 value,
                 secret,
-            } => Self::field(label, value, secret),
+            } => {
+                if secret {
+                    return Err(UiError::SecretFieldFromApp);
+                }
+                Self::field(label, value, false)
+            }
             UiNode::Toggle { label, on, action } => Self::toggle(label, on, &action),
             UiNode::Image { source, alt } => Self::image(source, alt.into()),
             UiNode::Group {
@@ -176,7 +187,7 @@ pub fn decode(byte: &[u8]) -> Result<Node, DecodeError> {
         return Err(DecodeError::TooLarge(byte.len()));
     }
     let tho: UiNode = serde_json::from_slice(byte).map_err(|e| DecodeError::Json(e.to_string()))?;
-    Node::try_from(tho).map_err(|e| DecodeError::Tree(e.to_string()))
+    Node::try_from(tho).map_err(DecodeError::Tree)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -187,8 +198,15 @@ pub enum DecodeError {
     #[error("tệp giao diện không phải JSON hợp lệ: {0}")]
     Json(String),
 
+    /// Mang NGUYÊN lỗi bên dưới, không mang chuỗi của nó.
+    ///
+    /// Trước 16/08/2026 nhánh này giữ một `String`, nên mã lỗi thật bị mất và
+    /// `ma()` trả về `spec` — một mã không nói lên điều gì. Bộ kiểm định phải
+    /// dựng LẠI cả cây từ byte chỉ để đoán lại mã, và bản đầu của đoạn đoán ấy
+    /// còn ghi đè nhầm mã của ca "tệp quá lớn". Giữ nguyên lỗi thì không ai
+    /// phải đoán gì.
     #[error("cây giao diện không hợp lệ: {0}")]
-    Tree(String),
+    Tree(#[from] UiError),
 }
 
 impl DecodeError {
@@ -199,14 +217,13 @@ impl DecodeError {
     /// không có trong `06-ma-loi.md`. Bịa mã ở bộ kiểm định là làm hỏng đúng
     /// thứ bộ kiểm định sinh ra để bảo vệ.
     ///
-    /// `Tree` mang mã của NGUYÊN NHÂN GỐC nên phải để bên gọi lấy từ lỗi bên
-    /// dưới; ở đây nó chỉ trả về `spec` như một mã bao ngoài.
+    /// `Tree` trả mã của NGUYÊN NHÂN GỐC, không trả mã lớp vỏ.
     #[must_use]
     pub const fn ma(&self) -> &'static str {
         match self {
             Self::TooLarge(_) => "ui-too-large",
             Self::Json(_) => "bad-json",
-            Self::Tree(_) => "spec",
+            Self::Tree(e) => e.ma(),
         }
     }
 }
@@ -225,7 +242,7 @@ mod kiem_thu {
       "kind": "group", "flow": "column", "gap": "medium",
       "children": [
         { "kind": "text", "content": "Ví TCC", "emphasis": "title" },
-        { "kind": "field", "label": "Mật khẩu", "secret": true },
+        { "kind": "field", "label": "Tìm trong ví" },
         { "kind": "image", "source": "anh/logo.png",
           "alt": { "kind": "text", "text": "Biểu trưng" } },
         { "kind": "button", "label": "Gửi tiền", "action": "gui-tien", "tone": "danger" }
@@ -244,6 +261,40 @@ mod kiem_thu {
                 .iter()
                 .any(|c| c.role == Role::Button { destructive: true })
         );
+    }
+
+    /// **Ứng dụng KHÔNG dựng được ô che chữ.**
+    ///
+    /// Trước ngày 16/08/2026 nó dựng được, và cây mẫu ngay trên đây từng có
+    /// đúng một ô như thế với nhãn "Mật khẩu" — tức là ta đang coi việc ấy là
+    /// bình thường. Một ứng dụng đã ký có thể vẽ ra "Nhập mã PIN ví của bạn"
+    /// trong một ô che chữ thật, không phân biệt được với ô của khung trình
+    /// duyệt.
+    #[test]
+    fn ung_dung_khong_dung_duoc_o_che_chu() {
+        let json = r#"{"kind":"field","label":"Nhập mã PIN ví của bạn","secret":true}"#;
+        let loi = decode(json.as_bytes()).unwrap_err();
+        assert_eq!(loi.ma(), "secret-field-from-app", "{loi}");
+    }
+
+    /// Ô nhập THƯỜNG thì vẫn dùng được — ô tìm kiếm là việc chính đáng.
+    ///
+    /// Chặn cả ô nhập thường là chặn nhầm: khi đó ứng dụng nào cần một ô chữ
+    /// sẽ tự vẽ lấy một cái trông giống ô nhập, và ta mất luôn khả năng biết
+    /// chỗ nào là ô nhập.
+    #[test]
+    fn o_nhap_thuong_van_dung_duoc() {
+        let json = r#"{"kind":"field","label":"Tìm kiếm","value":"xin chào"}"#;
+        let n = decode(json.as_bytes()).unwrap();
+        assert!(matches!(n.kind(), NodeKind::Field { secret: false, .. }));
+    }
+
+    /// Khung trình duyệt VẪN dựng được ô che chữ — nếu không thì không hỏi
+    /// được mã PIN, và cả phép chặn trên thành vô nghĩa.
+    #[test]
+    fn khung_trinh_duyet_van_dung_duoc_o_che_chu() {
+        let n = Node::field("Mã PIN", "", true).unwrap();
+        assert!(matches!(n.kind(), NodeKind::Field { secret: true, .. }));
     }
 
     /// Công tắc thiếu `on` phải mặc định TẮT.

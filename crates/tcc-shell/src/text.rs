@@ -50,6 +50,12 @@ pub enum TextKey {
     NhapKhongCumTu,
     NhapNutChon,
     NhapNutHuy,
+    NhapPinTieuDe,
+    NhapPinNhan,
+    /// ⚠️ Câu nói VÌ SAO đang hỏi PIN — xem `import_screen::build_pin`.
+    NhapPinViSao,
+    NhapPinChiDungMotLan,
+    NhapNutMoKhoa,
     NhapXongTieuDe,
     /// ⚠️ Câu bắt buộc sau khi nhập xong — xem `import_screen`.
     NhapBanCuVanCon,
@@ -173,6 +179,26 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::NhapNutChon, Language::Vi) => "Nhập ví này",
         (TextKey::NhapNutHuy, Language::En) => "Cancel",
         (TextKey::NhapNutHuy, Language::Vi) => "Huỷ",
+        (TextKey::NhapPinTieuDe, Language::En) => "Enter the PIN for this wallet",
+        (TextKey::NhapPinTieuDe, Language::Vi) => "Nhập mã PIN của ví này",
+        (TextKey::NhapPinNhan, Language::En) => "PIN",
+        (TextKey::NhapPinNhan, Language::Vi) => "Mã PIN",
+        // Hỏi bí mật mà không nói vì sao là dạy người dùng gõ bí mật vào bất
+        // kỳ ô nào hỏi. Câu này phải đứng NGAY TRÊN ô nhập.
+        (TextKey::NhapPinViSao, Language::En) => {
+            "This is the PIN you use on the website. It unlocks the copy of the key stored there."
+        }
+        (TextKey::NhapPinViSao, Language::Vi) => {
+            "Đây là mã PIN bạn dùng ở trang web. Nó mở bản khoá đang cất ở đó."
+        }
+        (TextKey::NhapPinChiDungMotLan, Language::En) => {
+            "It is used once, here, and is not stored."
+        }
+        (TextKey::NhapPinChiDungMotLan, Language::Vi) => {
+            "Mã này chỉ dùng một lần ở đây, và không được lưu lại."
+        }
+        (TextKey::NhapNutMoKhoa, Language::En) => "Unlock",
+        (TextKey::NhapNutMoKhoa, Language::Vi) => "Mở khoá",
         (TextKey::NhapXongTieuDe, Language::En) => "Wallet imported",
         (TextKey::NhapXongTieuDe, Language::Vi) => "Đã nhập ví",
         // ⚠️ Câu này KHÔNG được bỏ đi và KHÔNG được viết nhẹ hơn. Người dùng
