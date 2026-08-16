@@ -806,3 +806,55 @@ kèm bảo vệ rồi đòi đúng lỗi ấy.
 > Ba lỗi hôm nay đều cùng một hình dạng: **mã đúng theo cách tôi đọc tài liệu,
 > và sai theo cách hệ thống thật cư xử.** 49 byte thừa, entitlement, và bộ lọc
 > này. Không phép thử nào tôi tự viết bắt được cả ba.
+
+
+## 19. Ví bị chặn ở ĐÓNG GÓI, không phải ở mã (17/08/2026)
+
+Ba lần thử để `USER_PRESENCE` chạy được:
+
+| Thử | Kết quả |
+|---|---|
+| Không ký (`cargo run`) | hỏng NGAY: *"A required entitlement isn't present"* |
+| Ký ad-hoc `-s -` kèm entitlements | qua cửa quyền, rồi **treo** |
+| Ký bằng **chứng thư thật**, nhóm truy cập đúng mã đội `ZN2UMA7H7A` | vẫn **treo** |
+
+### Cái bẫy nằm ở lần thứ ba
+
+Tiến trình **không báo lỗi gì cả**. Nó nạp lên rồi treo trong bộ nạp: 8 KiB bộ
+nhớ, trạng thái `UE`, `kill -9` không gỡ được. Không một dòng nào ra `stderr`,
+**kể cả dòng in trước lệnh chạm Keychain đầu tiên** — nên nhìn từ ngoài thì
+giống hệt "chương trình treo ở lệnh Keychain", mà thật ra nó chưa chạy dòng nào.
+
+Tôi mất ba vòng đo mới thấy, vì `println!` bị đệm khi chuyển hướng ra tệp: bản
+đầu tưởng là "treo ở `store`", đổi sang `eprintln!` mới thấy **không có gì in ra
+cả**.
+
+Nguyên nhân: quyền khai một nhóm truy cập Keychain mà **không hồ sơ cấp phép nào
+cho phép**. macOS không từ chối bằng lỗi; nó treo tiến trình trong lúc thẩm định
+chữ ký.
+
+Và một chi tiết nhỏ tốn cả một vòng: `"Apple Development: … (V8KBARY5VT)"` —
+chuỗi trong ngoặc **không phải mã đội**. Mã đội thật là `ZN2UMA7H7A`, chỉ thấy
+được qua `codesign -dv`.
+
+### Kết luận, và nó không phải việc của tôi
+
+Cần một **hồ sơ cấp phép macOS** gắn với App ID `com.tcc.browser` có bật Keychain
+Sharing, nhúng vào `Contents/embedded.provisionprofile`. Tạo nó là việc trên tài
+khoản Apple Developer của tổ chức.
+
+`tools/dong-goi-macos.sh` ráp gói xong và **dừng đúng trước bước ký**, in ra ba
+việc cần làm. Nó cố ý không tự ký kèm entitlements khi thiếu hồ sơ — làm thế là
+tạo ra một gói treo im lặng.
+
+### Vì sao không hạ tiêu chuẩn cho xong
+
+Cất khoá không kèm `USER_PRESENCE` thì mọi thứ chạy được ngay hôm nay — và
+`unlock` của ta **từ chối** đúng trường hợp ấy (`UnprotectedKey`, §18). Giữ
+nguyên sự từ chối đó:
+
+> Ví chạy mà bảo vệ kém hơn mức nó hứa thì người dùng không thấy gì cả, cho tới
+> lúc mất tiền. Ví **không chạy** thì họ thấy ngay.
+
+Nên trạng thái đúng của dự án lúc này là: **phần ví xong về mã, bị chặn ở đóng
+gói.** Đó là một câu khác hẳn "sắp xong".
