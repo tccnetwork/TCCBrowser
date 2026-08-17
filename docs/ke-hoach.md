@@ -160,7 +160,7 @@ thật.
 |---|---|
 | 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** — ✅ **xong ở `tcc-render-raster`** (17/08/2026): đo bề rộng thật, ngắt dòng, dấu chồng đúng |
-| 4.3 | Bố cục, hợp thành — 🔶 hàng/cột, xuống dòng, ngắt giữa từ, **căn giữa theo dọc** đã có (17/08). Còn **co giãn theo chỗ trống**, và xem [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 về việc "căn lề" có nên vào tiêu chuẩn hay không |
+| 4.3 | Bố cục, hợp thành — ✅ **xong** (17/08): hàng/cột, xuống dòng, ngắt giữa từ, căn giữa dọc, nút cùng hàng rộng bằng nhau, và **bất biến KHÔNG vẽ đè**. "Căn lề" cố ý không vào tiêu chuẩn — [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 |
 | 4.4 | Trợ năng qua AccessKit — ✅ **ánh xạ xong** (17/08/2026), sau cờ `accesskit`; còn nối adapter của nền tảng vào cửa sổ thật |
 
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.

@@ -1251,3 +1251,44 @@ mã tính toán. Luật rút ra:
 
 > Mỗi nhánh kết thúc của một luồng — xong, hỏng, huỷ — **phải có một màn hình**.
 > Đóng cửa sổ không phải một câu trả lời.
+
+
+## 28. Hợp thành: **không vẽ đè** — 4.3 xong (17/08/2026)
+
+Với dự án này, câu hỏi của "hợp thành" không phải *"chồng lớp thế nào"* mà là:
+
+> **Ứng dụng có vẽ đè lên thứ khác được không?**
+
+Đè được thì che được câu *"việc này chuyển tiền"* — người dùng xác nhận một thứ
+họ không đọc được. Trên web đó là đòn cũ mèm: `position:absolute`, `z-index`,
+lề âm.
+
+### Hai bộ dựng, hai cách chốt
+
+**Bộ dựng pixel** khai ra nó đặt cái gì ở đâu (`placed_boxes`), và phép thử tự
+tính xem có cặp nào chồng nhau — **80 cây sinh tự động**, kể cả cây lồng bốn
+tầng trộn hàng/cột/khe ngẫu nhiên. Luôn phải là 0.
+
+**WebView** không đếm được, nên chốt ở nguồn: định kiểu của ta **không được
+chứa** `position:absolute`, `position:fixed`, `z-index`, lề âm, `transform`.
+Ứng dụng không gửi CSS — nhưng nếu chính định kiểu của ta mở cửa thì một cây
+khéo sắp vẫn che được.
+
+Kèm một phép thử nữa: không `overflow:hidden`, không `text-overflow`, không
+`nowrap` — **cắt im lặng giấu đi phần giao diện người dùng đáng ra phải thấy,
+và phần bị giấu có thể là nút "Huỷ"**.
+
+### Bản đầu của phép thử này VÔ NGHĨA, và đột biến chỉ ra
+
+Tôi cho bộ dựng **tự đếm** số ô chồng nhau, rồi phép thử đọc con số ấy. Đột
+biến đặt bộ đếm về 0 → phép thử xanh ngay, kể cả khi bố cục chồng thật.
+
+> **Phép thử đang hỏi chính bị cáo.**
+
+Sửa: bộ dựng chỉ khai hình học thô; phép tính "có chồng không" chuyển hẳn sang
+phép thử. Làm hỏng bố cục thì không còn chỗ nào để giấu. Chạy lại đột biến —
+đỏ.
+
+Đây là lần thứ ba trong dự án cùng một hình dạng lỗi, và lần này tôi dẫm dù đã
+viết nó vào `CLAUDE.md`: *"một phép thử chưa từng thấy đỏ không phải bằng
+chứng"*.

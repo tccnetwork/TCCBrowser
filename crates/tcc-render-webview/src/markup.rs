@@ -625,3 +625,59 @@ mod kiem_thu {
         assert_eq!(ra.matches("<div ").count(), 1);
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_hop_thanh {
+    use super::*;
+
+    /// **Định kiểu của ta KHÔNG được cho phép vẽ đè.**
+    ///
+    /// Vẽ đè là đòn che chữ: đặt một thứ lên trên câu "việc này chuyển tiền"
+    /// thì người dùng xác nhận một thứ họ không đọc được. Ứng dụng không gửi
+    /// CSS — nhưng nếu CHÍNH định kiểu của ta mở cửa cho chồng lớp thì một cây
+    /// khéo sắp vẫn che được.
+    ///
+    /// Bộ dựng ra pixel chốt điều này bằng phép đếm ô chồng nhau. WebView thì
+    /// không đếm được, nên chốt ở nguồn: những thứ tạo ra chồng lớp phải KHÔNG
+    /// có trong định kiểu.
+    #[test]
+    fn dinh_kieu_khong_mo_cua_cho_ve_de() {
+        let doc = document(&Node::text("x").unwrap());
+        for cam in [
+            "position:absolute",
+            "position: absolute",
+            "position:fixed",
+            "position: fixed",
+            "z-index",
+            "margin:-",
+            "margin: -",
+            "margin-top:-",
+            "margin-left:-",
+            "transform:translate",
+        ] {
+            assert!(
+                !doc.contains(cam),
+                "định kiểu chứa {cam:?} — mở cửa cho vẽ đè lên câu cảnh báo"
+            );
+        }
+    }
+
+    /// Và không có `overflow:hidden` nào cắt mất nội dung trong im lặng.
+    ///
+    /// Cắt im lặng giấu đi phần giao diện người dùng đáng ra phải thấy — và
+    /// phần bị giấu có thể là nút "Huỷ".
+    #[test]
+    fn khong_cat_noi_dung_trong_im_lang() {
+        let doc = document(&Node::text("x").unwrap());
+        assert!(!doc.contains("overflow:hidden"), "{doc}");
+        assert!(!doc.contains("overflow: hidden"));
+        assert!(!doc.contains("text-overflow"));
+        // `white-space:nowrap` cũng đẩy chữ ra ngoài thay vì xuống dòng.
+        assert!(!doc.contains("nowrap"));
+    }
+}

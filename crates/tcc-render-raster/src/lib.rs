@@ -71,6 +71,8 @@ pub struct RasterRenderer {
     /// Ảnh xám, 1 byte/pixel. 255 = trắng.
     pixel: Vec<u8>,
     height: usize,
+    /// Ô đã đặt ở lần vẽ gần nhất — xem [`RasterRenderer::placed_boxes`].
+    da_dat: Vec<DaDat>,
     /// Cây trợ năng ghi lại TRONG LÚC VẼ — xem ghi chú đầu tệp.
     published: Option<AccessNode>,
 }
@@ -89,6 +91,7 @@ impl RasterRenderer {
             cache: SwashCache::new(),
             pixel: Vec::new(),
             height: 0,
+            da_dat: Vec::new(),
             published: None,
         }
     }
@@ -102,6 +105,24 @@ impl RasterRenderer {
     #[must_use]
     pub const fn height(&self) -> usize {
         self.height
+    }
+
+    /// Các ô ĐÃ ĐẶT ở lần vẽ gần nhất: `(trái, trên, rộng, cao)`.
+    ///
+    /// # Vì sao trả về hình học thô thay vì một con số "có chồng không"
+    ///
+    /// Bản đầu tôi để bộ dựng **tự đếm** số ô chồng nhau và phép thử đọc con số
+    /// ấy. Kiểm đột biến cho thấy nó vô nghĩa: đặt bộ đếm về 0 là phép thử xanh
+    /// ngay, kể cả khi bố cục chồng thật. **Phép thử đang hỏi chính bị cáo.**
+    ///
+    /// Giờ bộ dựng chỉ khai ra nó đặt cái gì ở đâu; phép tính "có chồng không"
+    /// nằm ở phép thử. Làm hỏng bố cục thì không có chỗ nào để giấu.
+    #[must_use]
+    pub fn placed_boxes(&self) -> Vec<(f32, f32, f32, f32)> {
+        self.da_dat
+            .iter()
+            .map(|d| (d.trai, d.tren, d.o.rong, d.o.cao))
+            .collect()
     }
 
     /// Đếm pixel có mực. Dùng để chốt "có vẽ ra gì đó" mà không cần so ảnh.
@@ -212,6 +233,9 @@ impl Renderer for RasterRenderer {
         for mot in &dat {
             self.ve_o(mot);
         }
+        // Giữ lại hình học để bên ngoài KIỂM ĐƯỢC. Sau khi vẽ thì hai ô chồng
+        // nhau chỉ còn là mực trên mực, không phân biệt được với chữ đậm.
+        self.da_dat = dat;
 
         debug_assert_eq!(access.len(), 1, "gốc phải ra đúng một nút trợ năng");
         self.published = access.into_iter().next();
@@ -966,5 +990,154 @@ mod kiem_thu_hich {
         let mut bd = RasterRenderer::new();
         bd.render(&cay).unwrap();
         assert_eq!(be_rong_cac_khung(&bd).len(), 1, "nhãn bị vẽ khung");
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_hop_thanh {
+    use super::*;
+
+    /// Sinh một cây từ một hạt giống — đủ lộn xộn để chạm các nhánh bố cục.
+    ///
+    /// Không dùng bộ sinh ngẫu nhiên: phép thử phải lặp lại được, và một lần
+    /// đỏ phải dựng lại được bằng đúng con số ấy.
+    fn cay_tu_hat(hat: u64) -> Node {
+        fn dung(sau: usize, tiep: &mut impl FnMut() -> usize) -> Node {
+            let huong = if tiep().is_multiple_of(2) {
+                Flow::Column
+            } else {
+                Flow::Row
+            };
+            let khe = match tiep() % 4 {
+                0 => Gap::None,
+                1 => Gap::Small,
+                2 => Gap::Medium,
+                _ => Gap::Large,
+            };
+            let mut g = Node::group(huong, khe);
+            for _ in 0..=(tiep() % 5) {
+                let con = if sau > 0 && tiep().is_multiple_of(3) {
+                    dung(sau - 1, tiep)
+                } else {
+                    match tiep() % 5 {
+                        0 => Node::text_with(
+                            "Tiêu đề dài vừa phải để có lúc phải ngắt dòng",
+                            Emphasis::Title,
+                        )
+                        .unwrap(),
+                        1 => Node::button("Một nút", "mot-nut", Tone::Danger).unwrap(),
+                        2 => Node::field("Ô nhập", "chào bạn", false).unwrap(),
+                        3 => Node::toggle("Công tắc", true, "ct").unwrap(),
+                        _ => Node::text("Chữ thường, có dấu: ế ữ ợ, và dài ra một chút").unwrap(),
+                    }
+                };
+                g = g.child(con).unwrap();
+            }
+            g
+        }
+        let mut r = hat.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        let mut tiep = move || {
+            r = r.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            (r >> 33) as usize
+        };
+        dung(3, &mut tiep)
+    }
+
+    /// **KHÔNG ô nào chồng lên ô nào — với mọi cây.**
+    ///
+    /// Vẽ đè là đòn che chữ: đặt một ô lên trên câu "việc này chuyển tiền" thì
+    /// người dùng xác nhận một thứ họ không đọc được. Bố cục ở đây xếp chỗ chứ
+    /// không chồng chỗ, và đây là chỗ chốt điều đó.
+    #[test]
+    fn khong_bao_gio_co_o_chong_len_nhau() {
+        for hat in 0..80u64 {
+            let cay = cay_tu_hat(hat);
+            let mut bd = RasterRenderer::new();
+            bd.render(&cay).unwrap();
+            let so = dem_chong(&bd.placed_boxes());
+            assert_eq!(
+                so, 0,
+                "hạt {hat}: có {so} cặp ô chồng nhau — một ô đang che ô khác"
+            );
+        }
+    }
+
+    /// Và không ô nào tràn khỏi mép phải.
+    #[test]
+    fn khong_o_nao_tran_mep_voi_moi_cay() {
+        for hat in 0..80u64 {
+            let cay = cay_tu_hat(hat);
+            let mut bd = RasterRenderer::new();
+            bd.render(&cay).unwrap();
+            let cham = (0..bd.height()).any(|y| bd.image()[y * WIDTH + WIDTH - 1] < 250);
+            assert!(!cham, "hạt {hat}: có thứ tràn tới sát mép phải");
+        }
+    }
+
+    /// Cây quá cao thì **báo lỗi**, không cắt im lặng.
+    ///
+    /// Cắt im lặng là giấu mất phần giao diện người dùng đáng ra phải thấy — và
+    /// phần bị giấu có thể là nút "Huỷ".
+    #[test]
+    fn cay_qua_cao_thi_bao_loi_chu_khong_cat() {
+        let mut g = Node::group(Flow::Column, Gap::Large);
+        for _ in 0..300 {
+            g = g
+                .child(Node::text_with("Một dòng tiêu đề", Emphasis::Title).unwrap())
+                .unwrap();
+        }
+        let mut bd = RasterRenderer::new();
+        let loi = bd.render(&g).unwrap_err();
+        assert!(matches!(loi, RasterError::TooTall(_)), "{loi}");
+    }
+
+    /// Phép đếm chồng phải THẬT SỰ đếm được — nếu không nó chỉ là số 0 vô nghĩa.
+    /// Phép đếm chồng nằm Ở ĐÂY, không nằm trong bộ dựng.
+    ///
+    /// Bản đầu để bộ dựng tự đếm và phép thử đọc con số ấy — kiểm đột biến cho
+    /// thấy đặt bộ đếm về 0 là xanh ngay. **Phép thử đang hỏi chính bị cáo.**
+    fn dem_chong(o: &[(f32, f32, f32, f32)]) -> usize {
+        let mut so = 0;
+        for (i, a) in o.iter().enumerate() {
+            for b in o.iter().skip(i + 1) {
+                let ngang = a.0 < b.0 + b.2 && b.0 < a.0 + a.2;
+                let doc = a.1 < b.1 + b.3 && b.1 < a.1 + a.3;
+                if ngang && doc {
+                    so += 1;
+                }
+            }
+        }
+        so
+    }
+
+    /// Phép đếm chồng phải THẬT SỰ đếm được — nếu không nó chỉ là số 0 vô nghĩa.
+    #[test]
+    fn phep_dem_chong_bat_duoc_cho_chong() {
+        assert_eq!(
+            dem_chong(&[(0.0, 0.0, 40.0, 20.0), (20.0, 10.0, 40.0, 20.0)]),
+            1
+        );
+        assert_eq!(
+            dem_chong(&[(0.0, 0.0, 40.0, 20.0), (40.0, 0.0, 40.0, 20.0)]),
+            0,
+            "chạm mép không phải chồng"
+        );
+        assert_eq!(
+            dem_chong(&[(0.0, 0.0, 40.0, 20.0), (0.0, 20.0, 40.0, 20.0)]),
+            0
+        );
+        assert_eq!(
+            dem_chong(&[
+                (0.0, 0.0, 9.0, 9.0),
+                (1.0, 1.0, 9.0, 9.0),
+                (2.0, 2.0, 9.0, 9.0)
+            ]),
+            3
+        );
     }
 }
