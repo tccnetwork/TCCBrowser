@@ -1047,3 +1047,37 @@ chứ không phải mô hình.
 
 Ai thấy cần `align` thật thì phải trả lời trước: *ứng dụng nào cần nó, và vì sao
 bộ dựng không tự quyết được?* Chưa có ứng dụng nào để hỏi câu ấy.
+
+
+## 24. Bề rộng cũng là một cái hích (17/08/2026)
+
+Phần co giãn của 4.3 hoá ra không phải chuyện bố cục, mà là chuyện **chống đẩy
+người dùng**.
+
+`SECURITY.md` và `transaction_screen` đã chốt: hai nút ở màn xác nhận giao dịch
+mang **cùng sắc thái**, vì làm nút *"Ký"* nổi hơn là đẩy người dùng về một phía
+đúng lúc nguy hiểm nhất. Có phép thử canh điều đó.
+
+Nhưng **bề rộng cũng đẩy**, và không ai canh: *"Ký giao dịch này"* rộng gấp ba
+*"Huỷ"*. Cùng màu, cùng viền, mà mắt vẫn bị kéo về nút to. Một cái hích bằng
+hình học thay vì bằng màu.
+
+### Sửa ở CẢ HAI bộ dựng, bằng hai đường khác nhau
+
+| Bộ dựng | Cách |
+|---|---|
+| Pixel | Hàng toàn nút → kéo mọi nút về bề rộng lớn nhất, ngay trong bố cục |
+| WebView | Đánh dấu `data-hang-nut` → CSS `flex:1 1 0` |
+
+**Chỉ áp cho hàng TOÀN nút.** Một nút cạnh một nhãn thì kéo giãn ra là vô nghĩa,
+và CSS không hỏi được *"hàng này có toàn nút không"* — nên bộ dựng đánh dấu, chứ
+không viết CSS đoán mò.
+
+Bốn đột biến, bốn lần đỏ: bỏ kéo bằng ở bộ dựng pixel, bỏ đánh dấu ở WebView, bỏ
+luật CSS, và (đã kiểm trước đó) bỏ căn giữa dọc.
+
+### Vì sao phải kiểm CẢ HAI
+
+Bộ dựng người dùng thật nhìn thấy là **WebView**. Chữa mỗi bộ dựng pixel thì
+phép thử xanh mà cái hích vẫn còn nguyên trên màn hình thật — đúng loại "xanh
+nhưng không đúng" mà phép kiểm chéo sinh ra để chặn.

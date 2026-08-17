@@ -247,11 +247,28 @@ fn ve(n: &Node, chu: &RendererText, ra: &mut String) {
             }
         },
         NodeKind::Group { flow, gap } => {
+            // ⚠️ Hàng TOÀN NÚT được đánh dấu, để CSS kéo chúng rộng BẰNG NHAU.
+            //
+            // Không phải thẩm mỹ. Màn xác nhận giao dịch cố ý cho hai nút cùng
+            // sắc thái, vì làm nút "Ký" nổi hơn là đẩy người dùng về một phía
+            // đúng lúc nguy hiểm nhất. Bề rộng cũng đẩy: "Ký giao dịch này"
+            // rộng gấp ba "Huỷ" vẫn là một cái hích, chỉ bằng hình học thay vì
+            // bằng màu.
+            //
+            // Đánh dấu ở đây chứ không viết CSS đoán mò: CSS không hỏi được
+            // "hàng này có toàn nút không", mà một nút đứng cạnh nhãn thì kéo
+            // giãn ra là vô nghĩa.
+            let hang_nut = *flow == Flow::Row
+                && n.children().len() > 1
+                && n.children()
+                    .iter()
+                    .all(|c| matches!(c.kind(), NodeKind::Button { .. }));
             let _ = write!(
                 ra,
-                "<div role=\"group\" data-huong=\"{}\" data-cach=\"{}\">",
+                "<div role=\"group\" data-huong=\"{}\" data-cach=\"{}\"{}>",
                 ten_huong(*flow),
-                ten_cach(*gap)
+                ten_cach(*gap),
+                if hang_nut { " data-hang-nut=\"\"" } else { "" }
             );
             for c in n.children() {
                 ve(c, chu, ra);
@@ -287,6 +304,7 @@ padding:4px 9px;border-radius:4px;font-weight:600}\
 label{display:flex;align-items:center;gap:8px}\
 input[type=text],input[type=password]{flex:1;padding:6px 9px;border:1px solid #c3c7cf;border-radius:6px;font:inherit}\
 \
+[data-hang-nut]>button{flex:1 1 0;align-self:auto}\
 button{align-self:start;padding:7px 15px;border-radius:7px;border:1px solid #c3c7cf;background:#f6f7f9;font:inherit;cursor:pointer}\
 [data-sac-thai=chinh]{border-color:#ff8a3d;background:#fff3ea}\
 [data-sac-thai=mat-mat]{border-color:#c0392b;color:#c0392b;background:#fdf0ee;font-weight:600}\

@@ -136,6 +136,23 @@ fn xa_dong(dong: &mut Vec<O>, trai: f32, tren: f32, khe: f32, ra: &mut Vec<DaDat
         return 0.0;
     }
     let cao_dong = dong.iter().fold(0.0f32, |a, o| a.max(o.cao));
+
+    // ⚠️ **Nút trên cùng một hàng phải RỘNG BẰNG NHAU.**
+    //
+    // Đây không phải chuyện thẩm mỹ. Màn xác nhận giao dịch cố ý cho hai nút
+    // CÙNG sắc thái, vì làm nút "Ký" nổi hơn là đẩy người dùng về một phía đúng
+    // lúc nguy hiểm nhất. Nhưng bề rộng cũng đẩy: một nút to hơn hẳn nút kia
+    // vẫn là một cái hích, chỉ bằng hình học thay vì bằng màu.
+    //
+    // Chỉ áp cho hàng TOÀN nút. Một nút cạnh một nhãn thì kéo bằng nhau là
+    // vô nghĩa.
+    if dong.len() > 1 && dong.iter().all(|o| o.khung) {
+        let rong_nhat = dong.iter().fold(0.0f32, |a, o| a.max(o.rong));
+        for o in dong.iter_mut() {
+            o.rong = rong_nhat;
+        }
+    }
+
     let mut x = trai;
     for o in dong.drain(..) {
         let rong = o.rong;
@@ -872,5 +889,82 @@ mod kiem_thu_43 {
         bd.render(&Node::text(&dai).unwrap()).unwrap();
         assert!(!tran_mep_phai(&bd), "từ dài tràn khỏi mép phải");
         assert!(bd.height() > 40, "không xuống dòng: cao {}", bd.height());
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_hich {
+    use super::*;
+
+    /// Bề rộng khung (pixel xám 150) của từng nút, từ trái sang phải.
+    fn be_rong_cac_khung(bd: &RasterRenderer) -> Vec<usize> {
+        // Hàng ngang trên cùng của khung là một dải pixel 150 liền nhau.
+        let hang = (0..bd.height())
+            .find(|y| {
+                (0..WIDTH)
+                    .filter(|x| bd.image()[y * WIDTH + x] == 150)
+                    .count()
+                    > 4
+            })
+            .expect("phải có ít nhất một khung");
+        let mut ra = Vec::new();
+        let mut dai = 0usize;
+        for x in 0..WIDTH {
+            if bd.image()[hang * WIDTH + x] == 150 {
+                dai += 1;
+            } else if dai > 4 {
+                ra.push(dai);
+                dai = 0;
+            } else {
+                dai = 0;
+            }
+        }
+        if dai > 4 {
+            ra.push(dai);
+        }
+        ra
+    }
+
+    /// **Hai nút trên một hàng phải RỘNG BẰNG NHAU.**
+    ///
+    /// Cùng luật với "hai nút cùng sắc thái": một nút to hơn hẳn nút kia vẫn là
+    /// một cái hích, chỉ bằng hình học thay vì bằng màu. Và ở màn xác nhận giao
+    /// dịch thì cái hích ấy đẩy về phía KÝ.
+    #[test]
+    fn hai_nut_cung_hang_rong_bang_nhau() {
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::button("Ký giao dịch này", "ky", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Huỷ", "huy", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let rong = be_rong_cac_khung(&bd);
+        assert_eq!(rong.len(), 2, "cần đúng hai khung, thấy {rong:?}");
+        assert!(
+            rong[0].abs_diff(rong[1]) <= 1,
+            "hai nút rộng {} và {} — nút dài hơn đang hích người dùng",
+            rong[0],
+            rong[1]
+        );
+    }
+
+    /// Nhưng nút cạnh NHÃN thì không kéo bằng nhau — vô nghĩa.
+    #[test]
+    fn nut_canh_nhan_khong_bi_keo_bang() {
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::text("Một nhãn khá dài để so").unwrap())
+            .unwrap()
+            .child(Node::button("OK", "ok", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        assert_eq!(be_rong_cac_khung(&bd).len(), 1, "nhãn bị vẽ khung");
     }
 }

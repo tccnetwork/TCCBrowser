@@ -153,3 +153,50 @@ fn hai_bo_dung_doc_cung_cau_mat_mat() {
         );
     }
 }
+
+/// **Hai nút cạnh nhau phải rộng BẰNG NHAU — ở CẢ HAI bộ dựng.**
+///
+/// Cùng luật với "hai nút cùng sắc thái" của màn xác nhận giao dịch: một nút
+/// rộng gấp ba nút kia vẫn là một cái hích, chỉ bằng hình học thay vì bằng màu.
+/// Và ở màn ấy, cái hích đẩy về phía KÝ.
+///
+/// Bộ dựng pixel kéo bằng trong bố cục; WebView đánh dấu hàng rồi để CSS kéo.
+/// Hai đường khác nhau, một tính chất — nên phải kiểm cả hai, không kiểm một.
+#[test]
+fn hai_nut_canh_nhau_khong_hich_nguoi_dung() {
+    use tcc_ui::{Flow, Gap, Node, Tone, UiError};
+
+    let cay = (|| -> Result<Node, UiError> {
+        Node::group(Flow::Row, Gap::Medium)
+            .child(Node::button("Ký giao dịch này", "ky", Tone::Neutral)?)?
+            .child(Node::button("Huỷ", "huy", Tone::Neutral)?)
+    })()
+    .expect("dựng hàng hai nút");
+
+    let mut web = tcc_render_webview::WebViewRenderer::new();
+    web.render(&cay).unwrap();
+    let than = web.body().to_owned();
+    assert!(
+        than.contains("data-hang-nut"),
+        "WebView không đánh dấu hàng toàn nút:\n{than}"
+    );
+    let dinh_kieu = tcc_render_webview::markup::document(&cay);
+    assert!(
+        dinh_kieu.contains("[data-hang-nut]>button{flex:1 1 0"),
+        "thiếu luật CSS kéo hai nút bằng nhau"
+    );
+
+    // Và hàng KHÔNG toàn nút thì không đánh dấu.
+    let lan = (|| -> Result<Node, UiError> {
+        Node::group(Flow::Row, Gap::Medium)
+            .child(Node::text("Nhãn")?)?
+            .child(Node::button("OK", "ok", Tone::Neutral)?)
+    })()
+    .expect("dựng hàng lẫn");
+    let mut web2 = tcc_render_webview::WebViewRenderer::new();
+    web2.render(&lan).unwrap();
+    assert!(
+        !web2.body().contains("data-hang-nut"),
+        "hàng lẫn nhãn bị đánh dấu là hàng nút"
+    );
+}
