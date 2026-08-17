@@ -1081,3 +1081,57 @@ luật CSS, và (đã kiểm trước đó) bỏ căn giữa dọc.
 Bộ dựng người dùng thật nhìn thấy là **WebView**. Chữa mỗi bộ dựng pixel thì
 phép thử xanh mà cái hích vẫn còn nguyên trên màn hình thật — đúng loại "xanh
 nhưng không đúng" mà phép kiểm chéo sinh ra để chặn.
+
+
+## 25. Đọc được chữ người dùng gõ — mắt xích cuối của màn nhập ví (17/08/2026)
+
+Câu hỏi *"ví có tích hợp vào trình duyệt để cấu hình sau không"* vướng đúng một
+chỗ: **vẽ ra ô PIN thì dễ, nhận lại thứ người ta gõ mới là đường dữ liệu mới**.
+Trước hôm nay nó cố ý chưa mở.
+
+### Mở, nhưng CHỈ cho màn hình của khung
+
+Hai kịch bản nối sự kiện, không phải một kịch bản với một cờ:
+
+| Kịch bản | Dùng ở đâu | Đọc ô nhập |
+|---|---|---|
+| `KICH_BAN_KHUNG` | hộp thoại quyền, màn nhập ví | **có** |
+| `KICH_BAN_NOI_SU_KIEN` | màn hình ứng dụng | **không** |
+
+Ứng dụng TCC **không mang mã**, nên không có ai bên trong nhận giá trị ấy cả.
+Thu thập thứ không ai cần là mở rộng bề mặt mà không đổi lấy gì.
+
+Tách hằng số chứ không đặt cờ `bool`: một cờ đặt sai vẫn biên dịch, còn gọi
+nhầm hằng số thì đọc mã là thấy. Phép thử
+`kich_ban_ung_dung_khong_doc_o_nhap` chốt rằng kịch bản của ứng dụng không chứa
+chữ `.value`.
+
+### `Debug` giấu giá trị, chỉ để lộ nhãn
+
+`DialogAnswer` giờ mang mã PIN. Một `{:?}` trên nó rất dễ rơi vào nhật ký lỗi,
+nên `Debug` được viết tay:
+
+```
+DialogAnswer { hanh_dong: "cho-phep", bat: [], o_nhap: ["Mã PIN: <9 ký tự>"] }
+```
+
+Giữ nhãn và độ dài — đủ để gỡ lỗi, không đủ để lộ.
+
+### Có phép kiểm đi hết đường, qua WebKit thật
+
+`kiem-bam-nut o-nhap`: đặt giá trị vào ô rồi **phát sự kiện `input` như bộ gõ
+thật**, sau đó mới bấm. Đặt giá trị mà không phát sự kiện là bỏ qua đúng đoạn
+mà trang thật chạy.
+
+Chạy trong CI trên cả ba nền. Một đường dữ liệu mới mà không có phép kiểm đi
+hết thì hỏng lúc nào không ai biết — ô nhập vẫn vẽ ra đẹp, chỉ là không ai nhận
+thứ gõ vào.
+
+`simulate_click` và `simulate_typing` dùng CHUNG một hàm chạy. Viết hai bản là
+để chúng trôi dạt khỏi nhau, và lúc đó một bên xanh trong khi đường thật đã hỏng.
+
+### Còn lại gì để ví vào được trình duyệt
+
+1. Một cửa vào trong `tcc-browser` (lệnh con hoặc mục cài đặt)
+2. Bật cờ `os-keystore` cho binary
+3. **Hồ sơ cấp phép Apple** — §19, không phải việc của mã

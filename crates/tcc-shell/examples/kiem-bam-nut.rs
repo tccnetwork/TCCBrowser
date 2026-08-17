@@ -73,6 +73,11 @@ fn main() -> ExitCode {
     if doi == "ct-ma" {
         return kiem_cong_tac_ma(bd.document(), &hop_le);
     }
+    // Chế độ "o-nhap": gõ vào ô nhập THẬT trong WebKit rồi bấm, xem chữ có về
+    // tới Rust không. Đây là mắt xích cuối để màn nhập ví chạy được.
+    if doi == "o-nhap" {
+        return kiem_o_nhap();
+    }
 
     let can_bam = doi;
     let mong_doi = if can_bam == ACTION_ALLOW {
@@ -273,3 +278,75 @@ fn kiem_danh_sach_trang(document: &str, hop_le: &[String]) -> ExitCode {
 
 // Giữ tham chiếu để đổi tên hằng số là phải sửa cả ví dụ này.
 const _: &str = ACTION_DENY;
+
+/// **Chữ người dùng gõ có về tới Rust không?**
+///
+/// Mắt xích này mở ngày 17/08/2026, và nó là thứ duy nhất còn thiếu để màn
+/// nhập ví chạy được trong trình duyệt: vẽ ra ô PIN thì dễ, nhận lại thứ người
+/// ta gõ mới là đường dữ liệu mới.
+///
+/// Chỉ màn hình của KHUNG mới đọc được — xem `KICH_BAN_KHUNG`. Ví dụ này dựng
+/// một cây của khung, không phải một gói ứng dụng.
+fn kiem_o_nhap() -> ExitCode {
+    const NHAN: &str = "Mã PIN";
+    const GO: &str = "chào 1234";
+    let cay = match (|| -> Result<tcc_ui::Node, tcc_ui::UiError> {
+        tcc_ui::Node::group(tcc_ui::Flow::Column, tcc_ui::Gap::Medium)
+            .child(tcc_ui::Node::field(NHAN, "", true)?)?
+            .child(tcc_ui::Node::button(
+                "Mở khoá",
+                ACTION_ALLOW,
+                tcc_ui::Tone::Neutral,
+            )?)
+    })() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("✗ {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut bd = WebViewRenderer::new();
+    if let Err(e) = bd.render(&cay) {
+        eprintln!("✗ {e}");
+        return ExitCode::FAILURE;
+    }
+
+    println!("Gõ {GO:?} vào ô {NHAN:?} trong WebKit thật rồi bấm…");
+    let ra = window::simulate_typing(
+        bd.document(),
+        &[ACTION_ALLOW.to_owned()],
+        NHAN,
+        GO,
+        ACTION_ALLOW,
+        Duration::from_secs(20),
+    );
+    match ra {
+        Ok(Some(t)) => {
+            println!("  nhận về  : {t:?}");
+            let thay = t.o_nhap.iter().find(|(n, _)| n == NHAN);
+            match thay {
+                Some((_, gia_tri)) if gia_tri == GO => {
+                    println!("✓ Chữ gõ vào ô che chữ VỀ TỚI Rust, nguyên vẹn.");
+                    println!("  (và `Debug` ở trên đã giấu giá trị — đó là chủ ý)");
+                    ExitCode::SUCCESS
+                }
+                Some((_, gia_tri)) => {
+                    println!("✗ về tới nhưng SAI: {} ký tự", gia_tri.chars().count());
+                    ExitCode::FAILURE
+                }
+                None => {
+                    println!("✗ không có ô nhập nào trong thông điệp");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Ok(None) => {
+            println!("✗ không nhận được gì");
+            ExitCode::FAILURE
+        }
+        Err(e) => {
+            eprintln!("✗ {e}");
+            ExitCode::FAILURE
+        }
+    }
+}

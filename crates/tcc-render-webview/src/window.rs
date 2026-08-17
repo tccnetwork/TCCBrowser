@@ -339,6 +339,48 @@ const KICH_BAN_DO_BO_GO: &str = r"
 ///
 /// Nhờ vậy "ứng dụng chạy mã khi người dùng bấm nút" là chuyện không xảy ra
 /// được — người dùng bấm, BỘ DỰNG nhận, rồi bộ dựng quyết định làm gì.
+/// Kịch bản nối sự kiện cho **MÀN HÌNH CỦA KHUNG** — đọc thêm nội dung ô nhập.
+///
+/// # ⚠️ Vì sao là một kịch bản RIÊNG, không phải một cờ
+///
+/// Đọc ngược nội dung ô nhập từ WebView về Rust là **một đường dữ liệu mới**.
+/// Nó cần thiết cho màn nhập ví (ô PIN), và **không cần** cho màn hình ứng
+/// dụng: ứng dụng TCC không mang mã, nên không có ai bên trong nhận giá trị ấy
+/// cả. Thu thập thứ không ai cần là mở rộng bề mặt mà không đổi lấy gì.
+///
+/// Tách thành hai hằng số chứ không một cờ `bool`: một cờ đặt sai vẫn biên
+/// dịch, còn gọi nhầm hằng số thì đọc mã là thấy. Có phép thử chốt rằng kịch
+/// bản của ỨNG DỤNG không chứa chữ `.value`.
+const KICH_BAN_KHUNG: &str = r"
+document.addEventListener('click', function (e) {
+  var n = e.target;
+  while (n) {
+    if (n.getAttribute) {
+      var a = n.getAttribute('data-hanh-dong');
+      if (a) {
+        if (n.getAttribute('role') === 'switch') { return; }
+        var ct = document.querySelectorAll('[role=switch][data-hanh-dong]');
+        var bat = [];
+        for (var i = 0; i < ct.length; i++) {
+          if (ct[i].checked) { bat.push(ct[i].getAttribute('data-hanh-dong')); }
+        }
+        // Ô nhập: gửi kèm NHÃN và nội dung. Nhãn là thứ khung dùng để biết ô
+        // nào là ô nào — mã hành động thì ô nhập không có.
+        var o = document.querySelectorAll('input[aria-label]');
+        var oo = [];
+        for (var j = 0; j < o.length; j++) {
+          oo.push([o[j].getAttribute('aria-label'), o[j].value]);
+        }
+        window.ipc.postMessage(JSON.stringify({ a: a, bat: bat, o: oo }));
+        return;
+      }
+    }
+    n = n.parentElement;
+  }
+});
+";
+
+/// Kịch bản nối sự kiện cho **MÀN HÌNH ỨNG DỤNG** — KHÔNG đọc ô nhập.
 const KICH_BAN_NOI_SU_KIEN: &str = r"
 document.addEventListener('click', function (e) {
   var n = e.target;
@@ -366,12 +408,41 @@ document.addEventListener('click', function (e) {
 ";
 
 /// Người dùng đã chốt cái gì.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DialogAnswer {
     /// Nút đã bấm.
     pub hanh_dong: String,
     /// Mã của các công tắc đang BẬT lúc bấm. Công tắc không có ở đây là tắt.
     pub bat: Vec<String>,
+    /// Nội dung các ô nhập, theo `(nhãn, giá trị)`.
+    ///
+    /// **Chỉ có khi màn hình do KHUNG dựng.** Màn hình ứng dụng luôn để rỗng —
+    /// xem [`KICH_BAN_KHUNG`].
+    ///
+    /// Trường này có thể chứa **mã PIN**. Đừng ghi nó ra nhật ký; `Debug` của
+    /// kiểu này đã giấu sẵn giá trị.
+    pub o_nhap: Vec<(String, String)>,
+}
+
+/// `Debug` che GIÁ TRỊ ô nhập, chỉ để lộ nhãn.
+///
+/// Một `{:?}` trên cấu trúc này rất dễ rơi vào nhật ký lỗi, và ở màn nhập ví
+/// thì giá trị ấy là mã PIN của người dùng.
+impl core::fmt::Debug for DialogAnswer {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("DialogAnswer")
+            .field("hanh_dong", &self.hanh_dong)
+            .field("bat", &self.bat)
+            .field(
+                "o_nhap",
+                &self
+                    .o_nhap
+                    .iter()
+                    .map(|(nhan, gia_tri)| format!("{nhan}: <{} ký tự>", gia_tri.chars().count()))
+                    .collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 /// Hiện tài liệu và CHỜ người dùng kích hoạt một hành động.
@@ -406,7 +477,8 @@ pub fn ask_dialog(
 
     let _webview = WebViewBuilder::new()
         .with_html(document)
-        .with_initialization_script(KICH_BAN_NOI_SU_KIEN)
+        // Màn hình của KHUNG: đọc cả nội dung ô nhập — xem `KICH_BAN_KHUNG`.
+        .with_initialization_script(KICH_BAN_KHUNG)
         .with_ipc_handler(move |yeu_cau| {
             let Some(t) = doc_tra_loi(yeu_cau.body(), &hop_le) else {
                 // Vứt LẶNG LẼ. Báo ngược ra trang là nói cho kẻ tấn công biết
@@ -593,7 +665,136 @@ fn doc_tra_loi(body: &str, hop_le: &[String]) -> Option<DialogAnswer> {
         }
         bat.push(s);
     }
-    Some(DialogAnswer { hanh_dong, bat })
+    // Ô nhập chỉ có ở màn hình của khung; thiếu trường `o` là chuyện bình
+    // thường, không phải lỗi.
+    let mut o_nhap = Vec::new();
+    if let Some(ds) = v["o"].as_array() {
+        for x in ds {
+            let cap = x.as_array()?;
+            let nhan = cap.first()?.as_str()?.to_owned();
+            let gia_tri = cap.get(1)?.as_str()?.to_owned();
+            o_nhap.push((nhan, gia_tri));
+        }
+    }
+    Some(DialogAnswer {
+        hanh_dong,
+        bat,
+        o_nhap,
+    })
+}
+
+/// Chạy MỘT lần: nạp tài liệu, chạy một kịch bản tự thao tác, chờ một thông điệp.
+///
+/// Dùng chung cho [`simulate_click`] và [`simulate_typing`]. Viết hai bản là để
+/// chúng trôi dạt khỏi nhau, và lúc đó một bên xanh trong khi đường thật đã hỏng.
+fn chay_mot_lan(
+    document: &str,
+    hanh_dong_hop_le: &[String],
+    kich_ban: &str,
+    cho_toi_da: Duration,
+) -> Result<Option<DialogAnswer>, String> {
+    let mut vong = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_visible(false)
+        .build(&vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+
+    let hop: Arc<Mutex<Option<DialogAnswer>>> = Arc::new(Mutex::new(None));
+    let hop_ipc = Arc::clone(&hop);
+    let hop_le: Vec<String> = hanh_dong_hop_le.to_vec();
+
+    let _webview = WebViewBuilder::new()
+        .with_html(document)
+        // Kịch bản của KHUNG: phép kiểm cú bấm phải đi đúng đường mà hộp thoại
+        // thật đi, kể cả phần đọc ô nhập.
+        .with_initialization_script(KICH_BAN_KHUNG)
+        .with_initialization_script(kich_ban)
+        .with_ipc_handler(move |yeu_cau| {
+            let body = yeu_cau.body();
+            // Dùng ĐÚNG hàm lọc của `ask_dialog`. Viết một hàm lọc riêng cho phép thử
+            // là để hai bên trôi dạt khỏi nhau, và lúc đó phép thử xanh trong
+            // khi đường thật đã hỏng.
+            let t = if body == "KHONG-TIM-THAY-NUT" {
+                Some(DialogAnswer {
+                    hanh_dong: body.clone(),
+                    bat: Vec::new(),
+                    o_nhap: Vec::new(),
+                })
+            } else {
+                doc_tra_loi(body, &hop_le)
+            };
+            // Không có nhánh `else`: mã lạ bị vứt LẶNG LẼ, cố ý.
+            // QUYẾT ĐỊNH ĐẦU TIÊN THẮNG. Thông điệp sau không ghi đè được.
+            //
+            // Ghi đè thì một trang gửi liên tiếp hai thông điệp sẽ khiến cái sau
+            // che mất cái trước — và với `ask_dialog` thì cái trước mới là quyết định
+            // thật của người dùng. Nó cũng che luôn lỗi: một đột biến làm công
+            // tắc tự gửi tin đã lọt qua phép thử đúng vì lý do này.
+            if let Some(t) = t
+                && let Ok(mut o) = hop_ipc.lock()
+                && o.is_none()
+            {
+                *o = Some(t);
+            }
+        })
+        .build(&window)
+        .map_err(|e| format!("không dựng được WebView: {e}"))?;
+
+    let han = Instant::now() + cho_toi_da;
+    vong.run_return(|_su_kien, _, dieu_khien| {
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
+        if hop.lock().is_ok_and(|o| o.is_some()) || Instant::now() >= han {
+            *dieu_khien = ControlFlow::Exit;
+        }
+    });
+
+    Ok(hop.lock().map_err(|_| "khoá hỏng".to_owned())?.clone())
+}
+
+/// Kiểm mắt xích **GÕ CHỮ**: gõ hộ vào một ô nhập rồi bấm, xem chữ có về không.
+///
+/// # Vì sao cần một hàm riêng
+///
+/// [`simulate_click`] chỉ bấm. Đường "người dùng gõ → WebKit → IPC → Rust" là
+/// một đường dữ liệu KHÁC, và nó vừa được mở (17/08/2026) để màn nhập ví nhận
+/// được mã PIN. Đường mới mà không có phép kiểm đi hết thì hỏng lúc nào không
+/// ai biết — vẽ ra ô nhập vẫn đẹp, chỉ là không ai nhận thứ gõ vào.
+///
+/// Hàm này chỉ dùng để kiểm thử, và nó **không làm được gì mà một người gõ
+/// thật không làm được** — nó chỉ thay ngón tay.
+///
+/// # Errors
+/// Không dựng được cửa sổ, hoặc hết giờ chờ.
+pub fn simulate_typing(
+    document: &str,
+    hanh_dong_hop_le: &[String],
+    nhan_o: &str,
+    chu: &str,
+    can_bam: &str,
+    cho_toi_da: Duration,
+) -> Result<Option<DialogAnswer>, String> {
+    // Đặt giá trị rồi phát `input` như bộ gõ thật, sau đó mới bấm. Đặt giá trị
+    // mà không phát sự kiện là bỏ qua đúng đoạn mà trang thật chạy.
+    let tu_go = format!(
+        r"
+document.addEventListener('DOMContentLoaded', function () {{
+  var o = document.querySelector('input[aria-label={nhan}]');
+  if (o) {{
+    o.value = {chu};
+    o.dispatchEvent(new Event('input', {{ bubbles: true }}));
+  }}
+  var ds = document.querySelectorAll('[data-hanh-dong]');
+  for (var i = 0; i < ds.length; i++) {{
+    if (ds[i].getAttribute('data-hanh-dong') === {nut}) {{ ds[i].click(); return; }}
+  }}
+  window.ipc.postMessage('KHONG-TIM-THAY-NUT');
+}});
+",
+        nhan = serde_json::Value::from(nhan_o),
+        chu = serde_json::Value::from(chu),
+        nut = serde_json::Value::from(can_bam),
+    );
+    chay_mot_lan(document, hanh_dong_hop_le, &tu_go, cho_toi_da)
 }
 
 /// Kiểm mắt xích CÚ BẤM: tự bấm hộ một nút rồi xem nhận về mã nào.
@@ -618,16 +819,6 @@ pub fn simulate_click(
     kieu: MessageKind,
     cho_toi_da: Duration,
 ) -> Result<Option<DialogAnswer>, String> {
-    let mut vong = EventLoopBuilder::new().build();
-    let window = WindowBuilder::new()
-        .with_visible(false)
-        .build(&vong)
-        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
-
-    let hop: Arc<Mutex<Option<DialogAnswer>>> = Arc::new(Mutex::new(None));
-    let hop_ipc = Arc::clone(&hop);
-    let hop_le: Vec<String> = hanh_dong_hop_le.to_vec();
-
     // Bấm bằng `click()` thật trên phần tử, KHÔNG gọi thẳng `postMessage`. Gọi
     // thẳng thì ta chỉ kiểm được IPC còn kịch bản nối sự kiện thì không — mà
     // kịch bản nối sự kiện mới đúng là thứ dễ hỏng.
@@ -668,49 +859,7 @@ pub fn simulate_click(
         ),
     };
 
-    let _webview = WebViewBuilder::new()
-        .with_html(document)
-        .with_initialization_script(KICH_BAN_NOI_SU_KIEN)
-        .with_initialization_script(&tu_bam)
-        .with_ipc_handler(move |yeu_cau| {
-            let body = yeu_cau.body();
-            // Dùng ĐÚNG hàm lọc của `ask_dialog`. Viết một hàm lọc riêng cho phép thử
-            // là để hai bên trôi dạt khỏi nhau, và lúc đó phép thử xanh trong
-            // khi đường thật đã hỏng.
-            let t = if body == "KHONG-TIM-THAY-NUT" {
-                Some(DialogAnswer {
-                    hanh_dong: body.clone(),
-                    bat: Vec::new(),
-                })
-            } else {
-                doc_tra_loi(body, &hop_le)
-            };
-            // Không có nhánh `else`: mã lạ bị vứt LẶNG LẼ, cố ý.
-            // QUYẾT ĐỊNH ĐẦU TIÊN THẮNG. Thông điệp sau không ghi đè được.
-            //
-            // Ghi đè thì một trang gửi liên tiếp hai thông điệp sẽ khiến cái sau
-            // che mất cái trước — và với `ask_dialog` thì cái trước mới là quyết định
-            // thật của người dùng. Nó cũng che luôn lỗi: một đột biến làm công
-            // tắc tự gửi tin đã lọt qua phép thử đúng vì lý do này.
-            if let Some(t) = t
-                && let Ok(mut o) = hop_ipc.lock()
-                && o.is_none()
-            {
-                *o = Some(t);
-            }
-        })
-        .build(&window)
-        .map_err(|e| format!("không dựng được WebView: {e}"))?;
-
-    let han = Instant::now() + cho_toi_da;
-    vong.run_return(|_su_kien, _, dieu_khien| {
-        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
-        if hop.lock().is_ok_and(|o| o.is_some()) || Instant::now() >= han {
-            *dieu_khien = ControlFlow::Exit;
-        }
-    });
-
-    Ok(hop.lock().map_err(|_| "khoá hỏng".to_owned())?.clone())
+    chay_mot_lan(document, hanh_dong_hop_le, &tu_bam, cho_toi_da)
 }
 
 /// Trả lời một yêu cầu `tcc-goi:` từ WebView.
@@ -739,5 +888,90 @@ fn serve(
                 .body(Cow::Borrowed(&[][..]))
                 .unwrap_or_else(|_| wry::http::Response::new(Cow::Borrowed(&[][..])))
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_o_nhap {
+    use super::*;
+
+    /// **Kịch bản của ỨNG DỤNG không được đọc ô nhập.**
+    ///
+    /// Ứng dụng TCC không mang mã, nên không có ai bên trong nhận giá trị ấy.
+    /// Thu thập thứ không ai cần là mở rộng bề mặt mà không đổi lấy gì.
+    #[test]
+    fn kich_ban_ung_dung_khong_doc_o_nhap() {
+        assert!(
+            !KICH_BAN_NOI_SU_KIEN.contains(".value"),
+            "kịch bản của ứng dụng đang đọc nội dung ô nhập"
+        );
+        assert!(
+            !KICH_BAN_NOI_SU_KIEN.contains("aria-label"),
+            "kịch bản của ứng dụng đang quét ô nhập theo nhãn"
+        );
+        // Còn kịch bản của khung thì PHẢI đọc — nếu không, ô PIN không ai nhận.
+        assert!(KICH_BAN_KHUNG.contains(".value"));
+    }
+
+    /// Thiếu trường `o` là bình thường — thông điệp của ứng dụng không có nó.
+    #[test]
+    fn thieu_truong_o_van_doc_duoc() {
+        let t = doc_tra_loi(r#"{"a":"ok","bat":[]}"#, &["ok".to_owned()]).unwrap();
+        assert!(t.o_nhap.is_empty());
+    }
+
+    /// Ô nhập đọc được đúng nhãn và giá trị.
+    #[test]
+    fn doc_duoc_nhan_va_gia_tri() {
+        let t = doc_tra_loi(
+            r#"{"a":"ok","bat":[],"o":[["Mã PIN","1234"],["Tìm","xin chào"]]}"#,
+            &["ok".to_owned()],
+        )
+        .unwrap();
+        assert_eq!(
+            t.o_nhap,
+            vec![
+                ("Mã PIN".to_owned(), "1234".to_owned()),
+                ("Tìm".to_owned(), "xin chào".to_owned())
+            ]
+        );
+    }
+
+    /// **`Debug` KHÔNG được in giá trị ô nhập** — ở màn nhập ví đó là mã PIN.
+    #[test]
+    fn debug_khong_in_gia_tri_o_nhap() {
+        let t = DialogAnswer {
+            hanh_dong: "ok".to_owned(),
+            bat: Vec::new(),
+            o_nhap: vec![("Mã PIN".to_owned(), "bi-mat-that".to_owned())],
+        };
+        let s = format!("{t:?}");
+        assert!(
+            !s.contains("bi-mat-that"),
+            "giá trị ô nhập lọt vào Debug: {s}"
+        );
+        assert!(
+            s.contains("Mã PIN"),
+            "mất cả nhãn thì không gỡ lỗi được: {s}"
+        );
+        assert!(s.contains("11 ký tự"), "{s}");
+    }
+
+    /// Thông điệp pha tạp bị vứt CẢ, không phải chỉ phần hỏng.
+    #[test]
+    fn o_nhap_hong_thi_vut_ca_thong_diep() {
+        assert!(
+            doc_tra_loi(
+                r#"{"a":"ok","bat":[],"o":[["chỉ-một"]]}"#,
+                &["ok".to_owned()]
+            )
+            .is_none()
+        );
+        assert!(doc_tra_loi(r#"{"a":"ok","bat":[],"o":[[1,2]]}"#, &["ok".to_owned()]).is_none());
     }
 }

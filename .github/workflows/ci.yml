@@ -147,6 +147,7 @@ jobs:
           cargo run -p tcc-shell --features window --example kiem-bam-nut bat
           cargo run -p tcc-shell --features window --example kiem-bam-nut ma
           cargo run -p tcc-shell --features window --example kiem-bam-nut ct-ma
+          cargo run -p tcc-shell --features window --example kiem-bam-nut o-nhap
       - name: App screen through real WebKit
         run: cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
       - name: Three-way capability gate
