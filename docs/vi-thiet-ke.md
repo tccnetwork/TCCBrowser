@@ -913,3 +913,43 @@ nhãn) đều đỏ.
 Bộ dựng này xếp `Flow::Row` theo chiều dọc. Nói thẳng trong mã chứ không giả vờ:
 bố cục hàng cần đo bề rộng từng phần tử, và crate này sinh ra để **kiểm** bố cục
 dọc + trợ năng, không phải để thay WebView hôm nay.
+
+
+## 21. Bố cục thật cho bộ dựng thứ hai — 4.2 (17/08/2026)
+
+Bản 4.1 xếp mọi thứ thành một cột và ghi chú *"hàng ngang chưa làm"*. Giờ nó
+làm rồi, và cách làm mới là chỗ đáng nói: **đo → đặt → vẽ**, ba lượt tách bạch.
+
+Bản cũ gộp đo vào vẽ — và đó chính là lý do nó không xếp hàng ngang được: không
+có kích thước thì không có gì để đặt cạnh nhau.
+
+### Ba điều mới, ba đột biến, ba lần đỏ
+
+| Điều | Đột biến để kiểm | Kết quả |
+|---|---|---|
+| Hàng ngang đặt cạnh nhau | đổi `dat_hang` → `dat_cot` | ✅ đỏ |
+| Hàng hết chỗ thì xuống dòng | bỏ phép so bề rộng | ✅ đỏ |
+| Chữ dài thì ngắt dòng | đặt bề rộng = 100 000 px | ✅ đỏ |
+
+**Xuống dòng chứ không tràn ra ngoài.** Một nút bị đẩy khỏi mép là một nút người
+dùng *không bấm được và không biết là có* — nên hai phép thử đều đòi thêm: không
+một pixel nào chạm cột cuối cùng của ảnh.
+
+### Một phép thử suýt vô nghĩa
+
+Bản đầu của `chu_dai_thi_ngat_dong` viết `cao_dai > cao_ngan * 2`. Sai: lề trên
+dưới cộng vào **cả hai** vế và làm phép nhân mất nghĩa — câu dài ngắt đúng hai
+dòng mà phép thử vẫn đỏ. Sửa thành `cao_dai >= cao_ngan + 2 dòng`, và viết câu
+thử dài hẳn ra ba dòng, vì hai dòng thì phép thử vẫn xanh **kể cả khi ngắt dòng
+chỉ chạy đúng một nửa**.
+
+### Bốn tham số hình học gom thành một kiểu
+
+`dat_cot`/`dat_hang` từng nhận `(trai, tren, rong, khe)` rời. Bốn `f32` cạnh
+nhau, đổi chỗ hai cái vẫn biên dịch, vẫn chạy, chỉ **vẽ sai** — và tôi suýt vấp
+đúng thế lúc tách hàm. Giờ chúng là `struct Cho`, và trình biên dịch giữ hộ.
+
+### Còn thiếu gì của 4.3
+
+Căn lề, co giãn theo chỗ trống, hợp thành (chồng lớp, cắt xén). Hàng/cột và
+xuống dòng chỉ là phần xương.
