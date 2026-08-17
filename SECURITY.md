@@ -550,6 +550,17 @@ never surfaced. This is why CI runs `clippy -D warnings` **before** the test ste
 
 ## 3. ⚠️ What has NOT been examined — read this section carefully
 
+**The product binary's window path is exercised by hand only.** Until
+2026-08-17 `tcc-browser <package>` verified the signature, asked for
+permissions, printed three lines and exited — it never called `run_app`, so
+no application screen was ever shown. The first run looked right because the
+permission dialog appeared; every run after that had a stored answer, showed
+nothing, and gave no clue why. Nothing caught it, because opening a window
+needs a display and CI has none. `tcc-browser hop-thoai <package>` with
+`TCC_KIEM_KHOI=1` is the closest automated substitute and only covers the
+permission dialog.
+
+
 ### 3.1 A signature proves INTEGRITY, not IDENTITY
 
 The public key sits inside the manifest — packages are **self-signed**. Anyone can

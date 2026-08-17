@@ -6,7 +6,7 @@
     { "kind": "text", "content": "Xin chào từ TCC", "emphasis": "title" },
 
     { "kind": "image", "source": "anh/logo.png",
-      "alt": { "kind": "text", "text": "Biểu trưng TCC — hình vuông màu cam" } },
+      "alt": { "kind": "text", "text": "Biểu trưng TCC — chữ T trên nền cam" } },
 
     { "kind": "text",
       "content": "Ứng dụng này khai báo có gì trên màn hình. Nó không gửi kèm một dòng mã nào — bộ dựng quyết định vẽ ra sao." },

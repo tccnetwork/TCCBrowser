@@ -22,6 +22,19 @@ fn main() -> ExitCode {
         Language::En
     };
 
+    // `hop-thoai <thư-mục-gói>` — chỉ xem HỘP THOẠI HỎI QUYỀN, không mở ứng dụng.
+    //
+    // Giữ đường này sau khi `mo_goi_that` chuyển sang mở màn hình ứng dụng:
+    // nó là chỗ duy nhất chạy được `TCC_KIEM_KHOI` (bảo WebKit kể lại nó nhìn
+    // thấy gì) và `TCC_TU_DONG_DONG` (tự đóng để kiểm khói không treo).
+    if doi.first().map(String::as_str) == Some("hop-thoai") {
+        let Some(d) = doi.get(1) else {
+            eprintln!("cần đường dẫn thư mục gói: tcc-browser hop-thoai <thư-mục>");
+            return ExitCode::FAILURE;
+        };
+        return xem_hop_thoai(std::path::Path::new(d), ngon_ngu);
+    }
+
     // `quyen <thư-mục-gói>` — mở màn hình quản lý quyền đã cấp.
     if doi.first().map(String::as_str) == Some("quyen") {
         let Some(d) = doi.get(1) else {
@@ -35,7 +48,7 @@ fn main() -> ExitCode {
     // người dùng → cấp quyền → nội dung điểm vào.
     if let Some(duong_dan) = doi
         .iter()
-        .find(|a| !a.starts_with('-') && *a != "vi" && *a != "quyen")
+        .find(|a| !a.starts_with('-') && *a != "vi" && *a != "quyen" && *a != "hop-thoai")
     {
         return mo_goi_that(std::path::Path::new(duong_dan), ngon_ngu);
     }
@@ -71,7 +84,6 @@ fn quan_ly(goi: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     }
 }
 
-#[cfg(not(feature = "window"))]
 use tcc_crypto::HybridEd25519MlDsa;
 
 #[cfg(not(feature = "window"))]
@@ -88,30 +100,81 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     } else {
         Some(duong_dan.join(".tcc-quyen.json"))
     };
-    match tcc_shell::window::open_package(duong_dan, ngon_ngu, kho.as_deref()) {
-        Ok(app) => {
-            let m = app.manifest();
-            println!("✓ Đã nạp \"{}\" ({})", m.name, m.id.as_str());
-            println!(
-                "  điểm vào : {} ({} byte)",
-                m.entry,
-                app.entry_content().len()
-            );
-            println!(
-                "  quyền mạng: {}",
-                if app.capabilities().network().is_some() {
-                    "ĐƯỢC CẤP"
-                } else {
-                    "không"
-                }
-            );
-            ExitCode::SUCCESS
+    let app = match tcc_shell::window::open_package(duong_dan, ngon_ngu, kho.as_deref()) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("✗ {e}");
+            return ExitCode::FAILURE;
         }
+    };
+
+    let m = app.manifest();
+    println!("✓ Đã nạp \"{}\" ({})", m.name, m.id.as_str());
+    println!(
+        "  điểm vào : {} ({} byte)",
+        m.entry,
+        app.entry_content().len()
+    );
+    println!(
+        "  quyền mạng: {}",
+        if app.capabilities().network().is_some() {
+            "ĐƯỢC CẤP"
+        } else {
+            "không"
+        }
+    );
+
+    // ⚠️ MÀN HÌNH ỨNG DỤNG — thiếu đúng lời gọi này cho tới 17/08/2026.
+    //
+    // `open_package` chỉ kiểm chữ ký và hỏi quyền. Trước đây `main` dừng ngay
+    // sau đó, nên trình duyệt nạp gói, hỏi quyền, in ba dòng rồi THOÁT: lần đầu
+    // chạy thì thấy hộp thoại quyền và tưởng là xong, lần sau có kho quyền rồi
+    // thì cửa sổ không hiện ra nữa và không ai hiểu vì sao.
+    //
+    // `run_app` chứ không `show_app`: người dùng bấm được nút, và mỗi cú bấm đi
+    // qua đúng cổng quyền năng ở `tcc-runtime`.
+    let mang = mang_that();
+    if let Err(e) = tcc_shell::window::run_app(&app, ngon_ngu, mang.as_ref()) {
+        eprintln!("✗ {e}");
+        return ExitCode::FAILURE;
+    }
+    ExitCode::SUCCESS
+}
+
+/// Đường ra ngoài thật.
+///
+/// Cờ `window` của crate này kéo theo `tcc-shell/network` (xem `Cargo.toml`),
+/// nên có cửa sổ là có mạng — không có nhánh "cửa sổ nhưng không mạng".
+///
+/// Bản đầu tôi viết hai nhánh `cfg` cho hai trường hợp, và clippy chỉ ra rằng
+/// crate này **không có** cờ `network` nào để mà hỏi. Một nhánh `cfg` hỏi về
+/// một cờ không tồn tại thì im lặng không bao giờ chạy — đúng loại mã trông như
+/// có phòng bị mà không phòng gì.
+/// Xem hộp thoại hỏi quyền của một gói, không mở ứng dụng.
+///
+/// # Errors
+/// Gói không hợp lệ, hoặc bộ dựng hỏng.
+fn xem_hop_thoai(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
+    // Kiểm chữ ký TRƯỚC. Không có đường nào dựng hộp thoại từ gói chưa kiểm.
+    let (app, _) = match tcc_runtime::verify_from_dir(duong_dan, &HybridEd25519MlDsa) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("✗ gói không hợp lệ: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match run_loop(app.manifest(), ngon_ngu) {
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("✗ {e}");
             ExitCode::FAILURE
         }
     }
+}
+
+#[cfg(feature = "window")]
+fn mang_that() -> Box<dyn tcc_runtime::Network> {
+    Box::new(tcc_shell::HttpNetwork::new())
 }
 
 /// Bản không cửa sổ: kiểm gói THẬT rồi in cây hộp thoại ra chữ.

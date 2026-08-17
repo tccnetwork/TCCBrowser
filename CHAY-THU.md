@@ -16,6 +16,13 @@ Trong đó có một ô để **gõ thử tiếng Việt** (Telex của macOS). 
 nhất cần một con người: mọi cách giả lập đều bơm chuỗi đã hoàn chỉnh vào ô nhập,
 tức là bỏ qua đúng cái cần đo.
 
+## Chỉ xem hộp thoại hỏi quyền
+
+```bash
+./target/release/tcc-browser hop-thoai examples/hello-tcc
+TCC_KIEM_KHOI=1 ./target/release/tcc-browser hop-thoai examples/hello-tcc  # WebKit tự kể
+```
+
 ## Xem quyền đã cấp
 
 ```bash
