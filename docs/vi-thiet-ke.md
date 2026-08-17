@@ -1458,3 +1458,48 @@ một ví giàu nào đó là **mọi người đều "sở hữu"**.
 `0x01` và `0x1` là cùng một mã. Không chuẩn hoá thì một bên viết cách này, một
 bên viết cách kia, và **chủ sở hữu thật bị báo là không sở hữu**. Đột biến bỏ
 phép bỏ số 0 ở đầu → đỏ.
+
+
+## 32. Nền tảng web: ĐO, không liệt kê — 5.1 (18/08/2026)
+
+Mục 5.1 là *"công bố chính xác những gì hỗ trợ"*. Một danh sách viết tay là một
+**lời hứa**: đúng vào ngày viết, trôi ngay hôm sau, và không ai biết nó đã trôi.
+
+Nên nền tảng là thứ **đo được** — `examples/do-nen-tang.rs` nạp tài liệu vào bộ
+máy THẬT, hỏi nó có gì, in ra bảng. Chạy trong CI trên cả ba nền, vì ba nền là
+**ba bộ máy khác nhau** (WKWebView, WebKitGTK, WebView2) và nền tảng công bố
+được là **phần giao**, không phải phần hợp. Công bố phần hợp là hứa một thứ mà
+một phần ba người dùng không có.
+
+### Phép đo đầu tiên đã đổi cách nghĩ
+
+macOS: **18/20**. Hai mục vắng — và lý do mới là phần đáng giá:
+
+| Vắng | Vì sao |
+|---|---|
+| `crypto.subtle` | cần **ngữ cảnh an toàn** |
+| `localStorage` | cần **nguồn gốc** thật |
+
+Cả hai **không phải do bộ máy thiếu**. Chúng vắng vì tài liệu nạp qua
+`with_html` chạy trong **nguồn gốc mờ** — không `https://`, không tên miền.
+
+> **Nền tảng phụ thuộc vào CÁCH NẠP nội dung, không chỉ vào bộ máy.**
+
+Hệ quả cho hai tầng thì ngược nhau:
+
+- **Tầng 1** — tin tốt. `localStorage` và `crypto.subtle` **không tồn tại** để
+  mà phải chặn: một lớp phòng thủ có sẵn, không phải viết dòng nào.
+- **Tầng 2** — rào chắn. Trang web thật cần nguồn gốc thật, nên tầng 2 **không
+  dùng chung cách nạp với tầng 1**. Nó cần giao thức riêng và mô hình nguồn gốc
+  riêng — đó là thiết kế, không phải cấu hình.
+
+### Ba mục cuối bảng KHÔNG phải thứ ta muốn có
+
+`localStorage`, `Notification`, `navigator.geolocation` nằm trong bảng để biết
+**phải tắt cái gì**. Một tính năng có mặt mà ta quên tắt là một tính năng người
+dùng bị lộ.
+
+### Và nhóm tiếng Việt đứng đầu bảng, có chủ ý
+
+`normalize`, `Intl.Collator('vi')`, `Intl.Segmenter`, `font-variation-settings`
+— chúng quyết định chữ hiện ra đúng hay sai, và là thứ ít ai kiểm.

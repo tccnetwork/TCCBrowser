@@ -307,6 +307,60 @@ pub fn probe_text_input(
     })
 }
 
+/// Nạp một tài liệu, chạy một kịch bản, **lấy về đúng một chuỗi**.
+///
+/// Dùng để ĐO bộ máy web: hỏi nó có những gì, và nhận lại câu trả lời thô.
+///
+/// # Vì sao không đi qua `doc_tra_loi`
+///
+/// [`ask_dialog`] lọc thông điệp qua danh sách trắng mã hành động, vì ở đó
+/// thông điệp là một **quyết định của người dùng**. Ở đây nó là một **phép đo
+/// của ta**, gửi bởi kịch bản của chính ta, và nội dung là một bảng JSON tự do
+/// — lọc bằng danh sách trắng thì không lọt được gì.
+///
+/// Đổi lại, hàm này **không** dùng cho tài liệu của ứng dụng: kịch bản đo là
+/// kịch bản ta viết, không phải kịch bản ai gửi tới.
+///
+/// # Errors
+/// Không dựng được cửa sổ hoặc `WebView`.
+pub fn probe_document(
+    document: &str,
+    kich_ban: &str,
+    cho_toi_da: Duration,
+) -> Result<Option<String>, String> {
+    let mut vong = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_visible(false)
+        .build(&vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+
+    let hop: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let hop_ipc = Arc::clone(&hop);
+
+    let _webview = WebViewBuilder::new()
+        .with_html(document)
+        .with_initialization_script(kich_ban)
+        .with_ipc_handler(move |yeu_cau| {
+            if let Ok(mut o) = hop_ipc.lock()
+                && o.is_none()
+            {
+                *o = Some(yeu_cau.body().clone());
+            }
+        })
+        .build(&window)
+        .map_err(|e| format!("không dựng được WebView: {e}"))?;
+
+    let het_gio = Instant::now() + cho_toi_da;
+    vong.run_return(|_su_kien, _, dieu_khien| {
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(30));
+        let xong = hop.lock().map_or(true, |o| o.is_some());
+        if xong || Instant::now() >= het_gio {
+            *dieu_khien = ControlFlow::Exit;
+        }
+    });
+    Ok(hop.lock().ok().and_then(|o| o.clone()))
+}
+
 /// Kịch bản CHẨN ĐOÁN bộ gõ — chỉ dùng cho `probe_text_input`.
 ///
 /// Nó KHÔNG nằm trong đường chạy thật: màn hình ứng dụng bình thường không đọc
