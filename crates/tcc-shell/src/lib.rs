@@ -18,6 +18,7 @@
 //! một dòng người đọc mã tin rồi đi tìm thứ không có — và ở tệp đầu tiên người
 //! ta mở thì nó tốn nhiều thời gian nhất.
 
+pub mod external_link;
 #[cfg(feature = "import-web-wallet")]
 pub mod import_screen;
 pub mod permission_dialog;

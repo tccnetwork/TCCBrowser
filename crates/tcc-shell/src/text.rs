@@ -97,6 +97,14 @@ pub enum TextKey {
     XongMaGiaoDich,
     XongConCho,
     XongNutDong,
+    // ── tầng 3: mở bằng trình duyệt hệ thống ──
+    RaNgoaiTieuDe,
+    /// ⚠️ Câu nói rõ ra khỏi TCC — xem `external_link`.
+    RaNgoaiRoiKhoiTcc,
+    RaNgoaiKhongConCheChan,
+    RaNgoaiNutMo,
+    RaNgoaiNutHuy,
+    RaNgoaiKhongPhaiWeb,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -357,6 +365,31 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         }
         (TextKey::XongNutDong, Language::En) => "Close",
         (TextKey::XongNutDong, Language::Vi) => "Đóng",
+        (TextKey::RaNgoaiTieuDe, Language::En) => "Open in your system browser?",
+        (TextKey::RaNgoaiTieuDe, Language::Vi) => "Mở bằng trình duyệt hệ thống?",
+        // "Không giấu, không xin lỗi" — docs/ke-hoach.md, tầng 3.
+        (TextKey::RaNgoaiRoiKhoiTcc, Language::En) => {
+            "This leaves TCC Browser. The page opens in your normal browser, as an ordinary web page."
+        }
+        (TextKey::RaNgoaiRoiKhoiTcc, Language::Vi) => {
+            "Việc này ra khỏi TCC Browser. Trang sẽ mở trong trình duyệt thường của bạn, như một trang web bình thường."
+        }
+        (TextKey::RaNgoaiKhongConCheChan, Language::En) => {
+            "Nothing here protects you there: no capability gate, no signature, no permission prompt."
+        }
+        (TextKey::RaNgoaiKhongConCheChan, Language::Vi) => {
+            "Ở đó không còn thứ gì của TCC che chắn: không cổng quyền năng, không chữ ký, không hỏi quyền."
+        }
+        (TextKey::RaNgoaiNutMo, Language::En) => "Open it",
+        (TextKey::RaNgoaiNutMo, Language::Vi) => "Mở ra",
+        (TextKey::RaNgoaiNutHuy, Language::En) => "Stay here",
+        (TextKey::RaNgoaiNutHuy, Language::Vi) => "Ở lại đây",
+        (TextKey::RaNgoaiKhongPhaiWeb, Language::En) => {
+            "Only http and https links can be opened. Anything else is refused."
+        }
+        (TextKey::RaNgoaiKhongPhaiWeb, Language::Vi) => {
+            "Chỉ mở được liên kết http và https. Thứ khác thì từ chối."
+        }
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",
 
         (TextKey::ViDuocXinChuKy, Language::En) => {

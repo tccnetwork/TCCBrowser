@@ -1292,3 +1292,53 @@ phép thử. Làm hỏng bố cục thì không còn chỗ nào để giấu. Ch
 Đây là lần thứ ba trong dự án cùng một hình dạng lỗi, và lần này tôi dẫm dù đã
 viết nó vào `CLAUDE.md`: *"một phép thử chưa từng thấy đỏ không phải bằng
 chứng"*.
+
+
+## 29. Tầng 3 — lối thoát ra trình duyệt hệ thống (17/08/2026)
+
+Người dùng hỏi: *"đã nhập URL và truy cập được website ngoài đời chưa?"* Chưa,
+và câu trả lời đầy đủ đáng viết ra.
+
+Dựng một ô nhập URL rồi gọi `load_url` vào WKWebView thì **làm trong một buổi**
+— nhưng nó sẽ là một thứ *trông như* trình duyệt mà không phải. Mọi thứ dự án
+này xây — cổng quyền năng, chống ký mù, không vẽ đè, ứng dụng không mang mã —
+**không áp dụng được cho một trang web bất kỳ**, vì trang web mang mã của nó và
+WebView chạy mã ấy.
+
+Nên làm **tầng 3** trước: `crates/tcc-shell/src/external_link.rs`.
+
+### Ba luật, mỗi luật chặn một đòn
+
+| Luật | Chặn cái gì |
+|---|---|
+| Chỉ `http`/`https` | `file://` đọc trộm đĩa, `javascript:` chạy mã, lược đồ lạ mở ứng dụng khác |
+| Không qua vỏ lệnh | Chèn lệnh — địa chỉ ở đây có thể đến từ một gói ứng dụng |
+| Hiện **ĐỦ** địa chỉ trước khi mở | Phần bị cắt là chỗ kẻ gian đặt tên miền thật của chúng |
+
+Ký tự điều khiển bị chặn **trước** khi xét lược đồ: `https://a.example\n; rm -rf /`
+có lược đồ hoàn toàn hợp lệ.
+
+Câu lỗi **không kể tên lược đồ nào bị chặn** — nói rõ *"`file://` bị chặn"* là
+dạy người thử biết cái gì đã được nghĩ tới và cái gì chưa.
+
+### Màn hình nói thẳng, không xin lỗi
+
+> *"Ở đó không còn thứ gì của TCC che chắn: không cổng quyền năng, không chữ ký,
+> không hỏi quyền."*
+
+Kế hoạch viết *"không giấu, không xin lỗi"*, và đây là chỗ thực hiện câu ấy.
+Hai nút cùng sắc thái — không đẩy người dùng ra ngoài, cũng không giữ họ lại
+bằng cách làm nút kia mờ đi.
+
+### Đột biến
+
+| Đổi gì | Bắt được? |
+|---|---|
+| nhận mọi lược đồ | ✅ 3 phép thử đỏ |
+| bỏ kiểm ký tự điều khiển | ✅ 2 đỏ |
+| bỏ kiểm địa chỉ trước khi mở | ✅ 1 đỏ |
+
+### Còn tầng 2 thì sao
+
+Vẫn 0 dòng, và nó là phần **lớn nhất còn lại của cả dự án**. Tầng 3 không thay
+thế nó — nó chỉ khiến việc chưa có tầng 2 **không phải một bế tắc**.

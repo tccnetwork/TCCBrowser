@@ -175,7 +175,7 @@ thật.
 | 5.1 | Công bố **TCC Modern Baseline** — chính xác những gì hỗ trợ |
 | 5.2 | Bộ 50 trang thật, so ảnh chụp hằng tuần |
 | 5.3 | Nhãn "TCC Ready" cho trang đạt chuẩn |
-| 5.4 | Tầng 3: nút mở bằng trình duyệt hệ thống |
+| 5.4 | Tầng 3: nút mở bằng trình duyệt hệ thống — ✅ **xong** (17/08/2026), `crates/tcc-shell/src/external_link.rs` |
 
 **Thước đo:** không đuổi theo tỷ lệ WPT tổng — nó vô nghĩa khi ta cố ý không nhắm
 tương thích đầy đủ. Đo phần trăm **trên đúng tập đã công bố**, cộng bộ 50 trang thật.
