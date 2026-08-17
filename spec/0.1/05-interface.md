@@ -122,6 +122,39 @@ package at all, and it is weaker than this one. Do not read this clause as
 making package-drawn credential prompts safe — it removes the shape that carries
 the trust, not the words.
 
+### The publisher fingerprint
+
+An implementation that shows the user who signed a package **MUST** derive the
+fingerprint as
+
+```text
+BLAKE3("tcc/v1/publisher-fingerprint" ‖ publisher_hex) → 32 bytes → lowercase hex
+```
+
+where `publisher_hex` is the `publisher` field exactly as it appears in the
+manifest. Grouping the 64 characters for readability is a presentation choice
+and is not part of the derivation.
+
+It is specified because **users compare fingerprints across implementations**.
+Two browsers showing different strings for the same publisher turns the one
+check a user can actually perform into noise.
+
+The context string matters. The same BLAKE3 also produces the package content
+hash and, on the TCC chain, wallet addresses; three purposes sharing one
+function is the easiest place to confuse them, and the separator makes a
+collision between them impossible rather than unlikely.
+
+⚠️ **Do not truncate it.** Showing the first and last few characters is the
+same prefix-suffix grinding hole described for addresses. And do not build a
+fingerprint from a slice of the key itself: that leaves the middle
+unconstrained, so two keys agreeing at both ends display identically while
+differing everywhere a user cannot see. This implementation did exactly that
+until 2026-08-18.
+
+A fingerprint still says **nothing about who the publisher is** — see
+[02](02-manifest.md) on `publisher`. It only lets a user notice that the key
+changed.
+
 ## Tree limits
 
 | | |

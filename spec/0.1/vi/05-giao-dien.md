@@ -117,6 +117,34 @@ lại đúng như thế.
 chắn này. Đừng đọc điều khoản này thành "lời mời gõ bí mật do gói vẽ giờ an
 toàn" — nó gỡ đi hình dạng mang niềm tin, không gỡ được câu chữ.
 
+### Vân tay người ký
+
+Bản cài đặt nào hiện cho người dùng biết ai ký gói thì **PHẢI** dẫn vân tay như
+sau:
+
+```text
+BLAKE3("tcc/v1/publisher-fingerprint" ‖ publisher_hex) → 32 byte → hex chữ thường
+```
+
+`publisher_hex` là trường `publisher` **đúng như nó nằm trong bản kê khai**.
+Chia nhóm 64 ký tự cho dễ đọc là việc của giao diện, không thuộc phép dẫn.
+
+Đưa vào tiêu chuẩn vì **người dùng so vân tay giữa các bản cài đặt**. Hai trình
+duyệt hiện hai chuỗi khác nhau cho cùng một người ký là biến phép kiểm duy nhất
+người dùng làm được thành tiếng ồn.
+
+Bối cảnh tách miền là bắt buộc. Cùng BLAKE3 ấy còn sinh ra băm nội dung gói và,
+trên chuỗi TCC, địa chỉ ví — ba mục đích đi qua một hàm băm là chỗ dễ lẫn nhất.
+
+⚠️ **Không cắt ngắn.** Hiện vài ký tự đầu và cuối là đúng cái lỗ dò trùng
+đầu-đuôi đã nói ở phần địa chỉ. Và **đừng dựng vân tay từ một lát cắt của chính
+khoá**: làm thế thì khúc giữa không bị ràng buộc, hai khoá trùng hai đầu hiện ra
+y hệt nhau trong khi khác nhau ở mọi chỗ người dùng không nhìn. Bản triển khai
+này đã sai đúng như thế cho tới 18/08/2026.
+
+Vân tay vẫn **không nói gì về người ký là ai** — xem [02](02-ban-ke-khai.md).
+Nó chỉ giúp người dùng nhận ra khoá đã đổi.
+
 ## Trần cây
 
 | | |

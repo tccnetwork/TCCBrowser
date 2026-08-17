@@ -74,5 +74,5 @@ pub trait SignatureScheme {
 pub mod hash;
 pub mod hybrid;
 
-pub use hash::content_hash_hex;
+pub use hash::{PUBLISHER_FINGERPRINT_CONTEXT, content_hash_hex, publisher_fingerprint_hex};
 pub use hybrid::HybridEd25519MlDsa;

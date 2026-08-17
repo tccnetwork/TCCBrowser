@@ -163,15 +163,28 @@ pub enum SignerStatus {
 
 /// Vân tay ngắn của một khoá công khai, để người dùng đối chiếu.
 ///
-/// Khoá lai dài gần 4000 ký tự hex — hiện cả ra là không ai đọc. Lấy đầu và
-/// cuối: đủ để so bằng mắt, và kẻ gian muốn khớp cả hai đầu thì phải phá băm
-/// chứ không chỉ mò thêm vài byte.
+/// Khoá lai dài gần 4000 ký tự hex — hiện cả ra là không ai đọc.
+///
+/// # Bản cũ lấy hai đầu của khoá, và đó là một lỗ
+///
+/// Tới 18/08/2026 hàm này trả `10 ký tự đầu … 10 ký tự cuối` của khoá THÔ. Chi
+/// phí thì không sai — muốn khớp cả hai đầu phải mò 80 bit — nhưng **phạm vi**
+/// thì sai: nó không phủ khúc giữa. Hai khoá trùng hai đầu và khác ruột hiện ra
+/// **y hệt nhau**, và kẻ dựng ra cặp ấy chỉ cần đụng vào phần không ai nhìn.
+///
+/// Giờ là một BĂM phủ toàn bộ khoá, hiện ĐỦ 64 ký tự — cùng luật với địa chỉ
+/// ví: cắt ngắn là lỗ dò trùng đầu-đuôi.
+///
+/// Chia nhóm 8 ký tự cho dễ đọc. Chia nhóm là việc của giao diện, nên nó nằm ở
+/// đây chứ không nằm trong phép băm.
 #[must_use]
 pub fn key_fingerprint(hex: &str) -> String {
-    if hex.len() <= 20 {
-        return hex.to_owned();
-    }
-    format!("{}…{}", &hex[..10], &hex[hex.len() - 10..])
+    let v = tcc_crypto::publisher_fingerprint_hex(hex);
+    v.as_bytes()
+        .chunks(8)
+        .map(|c| String::from_utf8_lossy(c).into_owned())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Một ứng dụng trong danh sách quản lý quyền.
@@ -395,7 +408,7 @@ mod kiem_thu {
         match g.signer_status(&gia) {
             SignerStatus::DoiKhoa { van_tay_cu } => {
                 assert!(
-                    van_tay_cu.contains('…'),
+                    !van_tay_cu.contains('…'),
                     "vân tay phải rút gọn: {van_tay_cu}"
                 );
             }
@@ -407,12 +420,32 @@ mod kiem_thu {
     /// Vân tay lấy CẢ hai đầu. Chỉ lấy một đầu thì kẻ gian mò khoá khớp mười ký
     /// tự đầu là xong — rẻ hơn hẳn so với phải khớp cả hai đầu.
     #[test]
-    fn van_tay_khoa_lay_ca_hai_dau() {
-        let k = format!("{}{}", "a".repeat(10), "b".repeat(3990));
-        let v = key_fingerprint(&k);
-        assert!(v.starts_with("aaaaaaaaaa"), "{v}");
-        assert!(v.ends_with("bbbbbbbbbb"), "{v}");
-        assert!(v.len() < 30, "vân tay dài quá, không ai đọc: {v}");
+    fn van_tay_khoa_phu_toan_bo_khoa() {
+        // Hai khoá TRÙNG một khúc dài ở hai đầu, chỉ khác đúng ruột giữa.
+        //
+        // Trùng 64 ký tự mỗi đầu chứ không phải 10: bản đầu của phép thử chỉ
+        // cho trùng 10, nên một đột biến "lấy 32 ký tự mỗi đầu" vẫn thấy khác
+        // nhau và phép thử vẫn xanh. Phép thử phải chặn CẢ HỌ những cách cắt,
+        // không chặn đúng một cách.
+        let dau = "a".repeat(64);
+        let cuoi = "c".repeat(64);
+        let a = format!("{dau}{}{cuoi}", "b".repeat(3872));
+        let b = format!("{dau}{}{cuoi}", "d".repeat(3872));
+        assert_eq!(a.len(), b.len());
+        assert_eq!(a[..64], b[..64]);
+        assert_eq!(a[a.len() - 64..], b[b.len() - 64..]);
+        assert_ne!(
+            key_fingerprint(&a),
+            key_fingerprint(&b),
+            "hai khoá khác ruột hiện ra cùng một vân tay"
+        );
+
+        // Hiện ĐỦ, không cắt — cùng luật với địa chỉ ví.
+        let v = key_fingerprint(&a);
+        assert!(!v.contains('…'), "vân tay bị cắt ngắn: {v}");
+        assert_eq!(v.replace(' ', "").len(), 64, "{v}");
+        // Chia nhóm 8 để đọc được bằng mắt.
+        assert_eq!(v.split(' ').count(), 8, "{v}");
     }
 
     #[test]
@@ -589,7 +622,8 @@ mod kiem_thu {
             "danh sách nhảy chỗ giữa các lần mở là cách chắc chắn khiến người dùng bấm nhầm"
         );
         assert_eq!(ds[0].quyen[0].mo_ta, "shop.tcc-coin.com");
-        assert!(ds[0].key_fingerprint.contains('…'));
+        assert!(!ds[0].key_fingerprint.contains('…'));
+        assert_eq!(ds[0].key_fingerprint.replace(' ', "").len(), 64);
         let _ = std::fs::remove_file(&p);
     }
 

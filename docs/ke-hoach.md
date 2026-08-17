@@ -131,7 +131,7 @@ mà **không cần hỏi ai**. Đây là phép thử duy nhất chứng minh đ�
 |---|---|
 | 3.1 | Ví: khoá gắn kho khoá hệ điều hành (Keychain / DPAPI) |
 | 3.2 | Màn xác nhận giao dịch đọc được bằng tiếng người |
-| 3.3 | Danh tính + chứng thực |
+| 3.3 | Danh tính + chứng thực — 🔶 **vân tay người ký** đã đúng và đã vào tiêu chuẩn (18/08/2026). **Chứng thực chưa**: cần sổ khoá, thuộc 0.2 — xem [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §30 |
 | 3.4 | Bảo vệ nội dung TCC — quyền sở hữu chứng minh trên chuỗi |
 
 **Cổng chặn cứng:**

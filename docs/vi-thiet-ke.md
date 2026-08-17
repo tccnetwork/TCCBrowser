@@ -1342,3 +1342,62 @@ bằng cách làm nút kia mờ đi.
 
 Vẫn 0 dòng, và nó là phần **lớn nhất còn lại của cả dự án**. Tầng 3 không thay
 thế nó — nó chỉ khiến việc chưa có tầng 2 **không phải một bế tắc**.
+
+
+## 30. Danh tính — 3.3, và chỗ nó DỪNG LẠI (18/08/2026)
+
+Quyết định kiến trúc số 3 nói thẳng: *"Chữ ký chứng minh gói KHÔNG BỊ SỬA — nó
+KHÔNG chứng minh AI ký."* Nên 3.3 không phải chỗ thêm "đã xác minh nhà phát
+hành"; nó là chỗ làm cho **thứ danh tính duy nhất ta thật sự có** trở nên đúng.
+
+Thứ ấy là **tính liên tục của khoá**: lần đầu thấy khoá nào, và khoá có đổi
+không. Đã có sẵn (`SignerStatus`), nhưng cách hiện nó thì sai.
+
+### Vân tay cũ chỉ nhìn hai đầu khoá
+
+```
+10 ký tự đầu … 10 ký tự cuối     ← của khoá THÔ, không phải một băm
+```
+
+Chi phí không sai — muốn khớp cả hai đầu phải mò 80 bit. **Phạm vi** mới sai:
+nó không phủ khúc giữa. Hai khoá trùng hai đầu và khác ruột hiện ra **y hệt
+nhau**, và kẻ dựng ra cặp ấy chỉ cần đụng vào phần không ai nhìn.
+
+Giờ là một băm phủ **toàn bộ** khoá, hiện **đủ 64 ký tự**, chia nhóm 8 cho dễ
+đọc:
+
+```text
+BLAKE3("tcc/v1/publisher-fingerprint" ‖ publisher_hex) → 32 byte
+```
+
+Bối cảnh tách miền là bắt buộc: cùng BLAKE3 ấy còn sinh **băm nội dung gói** và
+**địa chỉ ví**. Ba mục đích qua một hàm băm là chỗ dễ lẫn nhất — và không có
+bối cảnh thì vân tay chính là **tiền tố** của băm nội dung, vì 32 byte đầu của
+XOF-48 trùng BLAKE3-256 chuẩn.
+
+### Vào TIÊU CHUẨN, vì người dùng so vân tay giữa các bản cài đặt
+
+Hai trình duyệt hiện hai chuỗi khác nhau cho cùng một người ký là **biến phép
+kiểm duy nhất người dùng làm được thành tiếng ồn**. Nên phép dẫn nằm ở
+`spec/0.1/05-interface.md`, không nằm trong mã của riêng ta.
+
+### Hai phép thử của tôi đều LỎNG, và đột biến chỉ ra cả hai
+
+**Phép thử tách miền vô nghĩa.** Nó so `assert_ne!` giữa vân tay (32 byte) và
+băm nội dung (48 byte) — hai chuỗi hex khác độ dài thì **không bao giờ bằng
+nhau**, có bối cảnh hay không. Gỡ bối cảnh đi vẫn xanh. Phép so đúng: đòi vân
+tay **không phải tiền tố** của băm nội dung.
+
+**Phép thử "phủ toàn bộ khoá" chỉ chặn đúng một cách cắt.** Hai khoá thử chỉ
+trùng 10 ký tự mỗi đầu, nên một đột biến *"lấy 32 ký tự mỗi đầu"* vẫn thấy chúng
+khác nhau và vẫn xanh. Sửa: cho trùng **64 ký tự mỗi đầu**, chặn cả họ những
+cách cắt thay vì một cách.
+
+### Chứng thực thì CHƯA, và nói rõ vì sao
+
+Chứng thực cần một bên thứ ba bảo lãnh cho một khoá — tức là **sổ khoá**, thứ
+0.1 cố ý không có. Làm nửa vời ở đây là đúng thứ quyết định số 3 cấm: hiện một
+dấu tích mà đằng sau nó không có ai chịu trách nhiệm.
+
+Nó thuộc 0.2, và trước đó phải trả lời: **ai vận hành sổ khoá, và người dùng
+dựa vào cái gì để tin bên ấy?**
