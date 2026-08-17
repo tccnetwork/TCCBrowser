@@ -550,6 +550,18 @@ never surfaced. This is why CI runs `clippy -D warnings` **before** the test ste
 
 ## 3. ⚠️ What has NOT been examined — read this section carefully
 
+**Vietnamese input was typed into the real application screen for the first
+time on 2026-08-17**, by a person, into `tcc-browser examples/hello-tcc`.
+Before that day the application screen was never drawn at all, so every
+earlier check of the input method went through the permission dialog or a
+diagnostic probe instead. The string was `chào buổi sáng bạn iu`, and the
+hard case in it is `ổ` — two stacked marks, circumflex then hook — which
+landed correctly, with no orphaned combining marks and the caret at the end.
+
+This still needs a human every time: every simulation pushes an already
+composed string into the field, which skips precisely what is being measured.
+
+
 **The product binary's window path is exercised by hand only.** Until
 2026-08-17 `tcc-browser <package>` verified the signature, asked for
 permissions, printed three lines and exited — it never called `run_app`, so

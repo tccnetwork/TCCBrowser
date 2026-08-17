@@ -5,7 +5,17 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **15/08/2026**.
+> Cập nhật lần cuối: **17/08/2026**.
+
+### ✅ Gõ tiếng Việt trên MÀN HÌNH ỨNG DỤNG THẬT (17/08/2026)
+
+Người dùng gõ `chào buổi sáng bạn iu` bằng Telex vào
+`tcc-browser examples/hello-tcc`. Ca khó nhất trong câu là **ổ** — hai tầng
+dấu, mũ rồi hỏi — và nó đúng chỗ, không có dấu rời, con trỏ ở cuối.
+
+Đáng ghi riêng vì tới hôm nay **màn hình ứng dụng mới được vẽ ra**: binary
+trước đó không bao giờ gọi `run_app`, nên mọi lần kiểm bộ gõ trước đây đều đi
+qua hộp thoại quyền hoặc một kịch bản chẩn đoán, không phải màn hình thật.
 
 > **v1 — trình duyệt Electron — KHÔNG nằm trong kho này.** Nó ở thư mục cha trên
 > máy của đội ngũ, đang tạm dừng, và có ghi chú riêng. Kho công khai chỉ có v2.
