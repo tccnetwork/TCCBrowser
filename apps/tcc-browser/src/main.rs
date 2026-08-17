@@ -22,6 +22,11 @@ fn main() -> ExitCode {
         Language::En
     };
 
+    // `vi nhap <tệp>` — nhập ví từ bản kết xuất của ví web, NGAY TRONG cửa sổ.
+    if doi.first().map(String::as_str) == Some("vi") {
+        return lenh_vi(&doi, ngon_ngu);
+    }
+
     // `hop-thoai <thư-mục-gói>` — chỉ xem HỘP THOẠI HỎI QUYỀN, không mở ứng dụng.
     //
     // Giữ đường này sau khi `mo_goi_that` chuyển sang mở màn hình ứng dụng:
@@ -150,6 +155,57 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
 /// crate này **không có** cờ `network` nào để mà hỏi. Một nhánh `cfg` hỏi về
 /// một cờ không tồn tại thì im lặng không bao giờ chạy — đúng loại mã trông như
 /// có phòng bị mà không phòng gì.
+/// `vi nhap <tệp>` — nhập ví trong cửa sổ.
+///
+/// Bản dựng KHÔNG có cờ `wallet` trả lời thẳng là không có ví, chứ không im
+/// lặng bỏ qua: một lệnh không làm gì mà cũng không nói gì là lệnh người dùng
+/// tưởng đã chạy.
+#[cfg(feature = "wallet")]
+fn lenh_vi(doi: &[String], ngon_ngu: Language) -> ExitCode {
+    let lenh = doi.get(1).map(String::as_str);
+
+    // `vi cum-tu` — gõ THẲNG 24 chữ hoặc hạt giống. Không cần tệp nào.
+    if lenh == Some("cum-tu") {
+        return match tcc_shell::wallet_flow::restore_from_phrase(ngon_ngu) {
+            Ok(dia_chi) => {
+                println!("✓ đã khôi phục ví {dia_chi}");
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("✗ {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
+    let (Some("nhap"), Some(tep)) = (lenh, doi.get(2)) else {
+        eprintln!("cần một trong hai:");
+        eprintln!("    tcc-browser vi cum-tu                  # gõ 24 chữ / hạt giống");
+        eprintln!("    tcc-browser vi nhap <tệp-ví-web.json>  # nhập từ ví web, hỏi PIN");
+        return ExitCode::FAILURE;
+    };
+    match tcc_shell::wallet_flow::import_from_file(std::path::Path::new(tep), ngon_ngu) {
+        Ok(dia_chi) => {
+            println!("✓ đã nhập ví {dia_chi}");
+            println!("⚠ Bản cũ ở ví web VẪN CÒN, vẫn khoá bằng đúng mã PIN cũ.");
+            println!("⚠ Và xoá {tep} đi — nó vẫn đang giữ khoá của bạn.");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("✗ {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(feature = "wallet"))]
+fn lenh_vi(_doi: &[String], _ngon_ngu: Language) -> ExitCode {
+    eprintln!("✗ bản dựng này KHÔNG có ví.");
+    eprintln!("  Dựng lại với: cargo build -p tcc-browser --features wallet");
+    eprintln!("  (và ví chỉ cất được khoá khi gói ứng dụng đã ký — docs/vi-thiet-ke.md §19)");
+    ExitCode::FAILURE
+}
+
 /// Xem hộp thoại hỏi quyền của một gói, không mở ứng dụng.
 ///
 /// # Errors

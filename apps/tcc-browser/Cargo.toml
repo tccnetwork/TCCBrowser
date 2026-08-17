@@ -8,6 +8,9 @@ license.workspace = true
 [features]
 # Mở cửa sổ thật. Không bật mặc định để `cargo test` không phải kéo wry+tao.
 window = ["tcc-shell/window", "tcc-shell/network"]
+# Ví trong trình duyệt. Tách riêng: bản dựng không có nó KHÔNG có mục ví nào,
+# và đó là bản dựng đúng cho tới khi có hồ sơ cấp phép Apple (vi-thiet-ke §19).
+wallet = ["window", "tcc-shell/wallet"]
 
 [dependencies]
 tcc-shell = { workspace = true }

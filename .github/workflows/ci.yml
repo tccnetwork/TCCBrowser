@@ -62,6 +62,8 @@ jobs:
           # Đường gửi giao dịch chỉ dựng được khi có CẢ HAI cờ. Chỉ biên dịch,
           # không chạy: nó cần mạng, cần Touch ID, và cần một con người bấm.
           cargo clippy -p tcc-shell --features "network,os-keystore" --all-targets -- -D warnings
+          cargo clippy -p tcc-shell --features wallet --all-targets -- -D warnings
+          cargo test -p tcc-shell --features wallet
 
       # This is what turns the specification into a STANDARD. Leave it out of CI
       # and the standard drifts away from the implementation with nobody noticing.
@@ -148,6 +150,7 @@ jobs:
           cargo run -p tcc-shell --features window --example kiem-bam-nut ma
           cargo run -p tcc-shell --features window --example kiem-bam-nut ct-ma
           cargo run -p tcc-shell --features window --example kiem-bam-nut o-nhap
+          cargo run -p tcc-shell --features wallet --example kiem-cum-tu-sai
       - name: App screen through real WebKit
         run: cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
       - name: Three-way capability gate

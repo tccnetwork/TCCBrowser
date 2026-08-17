@@ -66,6 +66,27 @@ pub enum TextKey {
     NhapLoiKhoaCu,
     NhapLoiLechDiaChi,
     NhapLoiDocKhongDuoc,
+    // ── màn gõ thẳng cụm từ khôi phục ──
+    CumTuTieuDe,
+    CumTuNhan,
+    CumTuGiaiThich,
+    /// ⚠️ Câu cảnh báo người xung quanh đọc được — xem `recovery_screen`.
+    CumTuAiNhinCungDoc,
+    CumTuNutTiep,
+    CumTuXacNhanTieuDe,
+    CumTuDayLaVi,
+    CumTuKiemKyTruocKhiCat,
+    CumTuNutCat,
+    CumTuLoiKhongHopLe,
+    // ── màn báo hỏng, hiện TRONG cửa sổ ──
+    HongTieuDe,
+    HongKhongCatDuoc,
+    HongNutDong,
+    /// Nút quay lại màn gõ — KHÔNG phải nút huỷ.
+    CumTuNutSuaLai,
+    /// ⚠️ Bản dựng chưa ký nên hệ điều hành không cho cất khoá.
+    HongChuaKyGoi,
+    HongKhongPhaiLoiCuaBan,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -236,6 +257,69 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         }
         (TextKey::NhapLoiDocKhongDuoc, Language::En) => "That file is not a wallet export.",
         (TextKey::NhapLoiDocKhongDuoc, Language::Vi) => "Tệp đó không phải bản kết xuất ví.",
+        (TextKey::CumTuTieuDe, Language::En) => "Restore a wallet from its recovery phrase",
+        (TextKey::CumTuTieuDe, Language::Vi) => "Khôi phục ví từ cụm từ khôi phục",
+        (TextKey::CumTuNhan, Language::En) => "Recovery phrase",
+        (TextKey::CumTuNhan, Language::Vi) => "Cụm từ khôi phục",
+        (TextKey::CumTuGiaiThich, Language::En) => {
+            "The 24 words, separated by spaces. A 64-character seed in hexadecimal works too."
+        }
+        (TextKey::CumTuGiaiThich, Language::Vi) => {
+            "24 chữ, cách nhau bằng dấu cách. Một hạt giống 64 ký tự hex cũng được."
+        }
+        // ⚠️ Chữ KHÔNG bị che, cố ý — xem `recovery_screen`. Nên phải nói ra.
+        (TextKey::CumTuAiNhinCungDoc, Language::En) => {
+            "These words are shown as you type, so anyone who can see this screen can take your wallet."
+        }
+        (TextKey::CumTuAiNhinCungDoc, Language::Vi) => {
+            "Chữ hiện ra khi bạn gõ, nên ai nhìn được màn hình này là lấy được ví của bạn."
+        }
+        (TextKey::CumTuNutTiep, Language::En) => "Continue",
+        (TextKey::CumTuNutTiep, Language::Vi) => "Tiếp tục",
+        (TextKey::CumTuXacNhanTieuDe, Language::En) => "Is this the right wallet?",
+        (TextKey::CumTuXacNhanTieuDe, Language::Vi) => "Đúng ví này chứ?",
+        (TextKey::CumTuDayLaVi, Language::En) => "These words open this wallet",
+        (TextKey::CumTuDayLaVi, Language::Vi) => "Cụm từ này mở ra ví",
+        (TextKey::CumTuKiemKyTruocKhiCat, Language::En) => {
+            "Check the address before saving. One mistyped word opens a different wallet that is just as valid."
+        }
+        (TextKey::CumTuKiemKyTruocKhiCat, Language::Vi) => {
+            "Đối chiếu địa chỉ trước khi lưu. Gõ nhầm một chữ là ra một ví khác, cũng hợp lệ y như thế."
+        }
+        (TextKey::CumTuNutCat, Language::En) => "Save this wallet",
+        (TextKey::CumTuNutCat, Language::Vi) => "Lưu ví này",
+        (TextKey::CumTuLoiKhongHopLe, Language::En) => {
+            "Not a valid recovery phrase: 24 words, or 64 hexadecimal characters."
+        }
+        (TextKey::CumTuLoiKhongHopLe, Language::Vi) => {
+            "Không phải cụm từ khôi phục hợp lệ: cần 24 chữ, hoặc 64 ký tự hex."
+        }
+        (TextKey::HongTieuDe, Language::En) => "That did not work",
+        (TextKey::HongTieuDe, Language::Vi) => "Việc này không xong",
+        (TextKey::HongKhongCatDuoc, Language::En) => {
+            "Nothing was saved. Your wallet is unchanged, and the words you typed were not stored anywhere."
+        }
+        (TextKey::HongKhongCatDuoc, Language::Vi) => {
+            "Không có gì được lưu. Ví của bạn nguyên như cũ, và cụm từ bạn vừa gõ không được cất ở đâu cả."
+        }
+        (TextKey::HongNutDong, Language::En) => "Close",
+        (TextKey::HongNutDong, Language::Vi) => "Đóng",
+        (TextKey::CumTuNutSuaLai, Language::En) => "Go back and fix it",
+        (TextKey::CumTuNutSuaLai, Language::Vi) => "Quay lại sửa",
+        // Câu của hệ điều hành ("A required entitlement isn't present") nói với
+        // LẬP TRÌNH VIÊN. Người dùng đọc nó chỉ tưởng mình vừa làm sai gì đó.
+        (TextKey::HongChuaKyGoi, Language::En) => {
+            "This build is not signed yet, so macOS will not let it store a key in the Keychain."
+        }
+        (TextKey::HongChuaKyGoi, Language::Vi) => {
+            "Bản dựng này chưa được ký, nên macOS không cho nó cất khoá vào Keychain."
+        }
+        (TextKey::HongKhongPhaiLoiCuaBan, Language::En) => {
+            "Nothing you typed was wrong. The wallet cannot be saved until the app is signed."
+        }
+        (TextKey::HongKhongPhaiLoiCuaBan, Language::Vi) => {
+            "Không phải bạn gõ sai. Ví chưa lưu được cho tới khi ứng dụng được ký."
+        }
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",
 
         (TextKey::ViDuocXinChuKy, Language::En) => {

@@ -1081,8 +1081,8 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 330 tests
-cargo test --workspace --features tcc-shell/window  # 333 — three more that need a window
+cargo test --workspace                              # 343 tests
+cargo test --workspace --features tcc-shell/window  # 346 — three more that need a window
 cargo run -p tcc-conformance                        # 138 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings

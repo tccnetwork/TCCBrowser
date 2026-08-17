@@ -1135,3 +1135,62 @@ thứ gõ vào.
 1. Một cửa vào trong `tcc-browser` (lệnh con hoặc mục cài đặt)
 2. Bật cờ `os-keystore` cho binary
 3. **Hồ sơ cấp phép Apple** — §19, không phải việc của mã
+
+
+## 26. Ví vào trong trình duyệt — và ba lỗi người dùng tìm ra (17/08/2026)
+
+```bash
+tcc-browser vi cum-tu                  # gõ 24 chữ / hạt giống
+tcc-browser vi nhap <tệp-ví-web.json>  # nhập từ ví web, hỏi PIN
+```
+
+### Hai đường nhập, và người dùng hỏi đúng câu
+
+*"Nhập PIN rồi thì sao, tôi tưởng phải nhập seed chứ?"* — câu ấy chỉ ra rằng tôi
+mới làm giao diện cho **một** trong hai đường. `vi nhap` hỏi PIN vì hạt giống đã
+nằm trong tệp; đường người ta hình dung khi nghe "nhập ví" là **gõ thẳng cụm
+từ**, và nó chưa có. Giờ có.
+
+### `tao` chỉ cho MỘT vòng lặp sự kiện mỗi tiến trình
+
+Ba màn hình = ba `ask_dialog` = hoảng loạn ở `app_state.rs`, và nhìn từ ngoài
+chỉ thấy **treo**. Đường hộp thoại hỏi quyền không lộ ra điều này vì nó chỉ mở
+một cửa sổ mỗi lần chạy — lỗi nằm đó chờ tới đúng tính năng đầu tiên cần hai màn.
+
+`dialog_sequence`: một cửa sổ, một `WebView`, mỗi màn là một lần `load_html`.
+**Danh sách trắng đổi theo màn** — mã của màn trước không dùng lại được ở màn sau.
+
+### Ba lỗi, không cái nào phép thử của tôi bắt được
+
+| Người dùng thấy | Thật ra |
+|---|---|
+| *"trình duyệt không hiện gì"* | `main` chưa bao giờ gọi `run_app` |
+| *"nhập sai thì tắt luôn"* | lỗi chỉ in ra **terminal**, cửa sổ đóng im lặng |
+| *"bấm huỷ mất luôn 24 chữ"* | màn xác nhận dùng chung mã với nút huỷ |
+
+Cả ba nằm ở **chỗ người dùng chạm vào**, không ở chỗ mã tính toán — nên không
+phép thử đơn vị nào chạm tới. Hai thứ tôi bù vào:
+
+**Kéo quyết định ra thành hàm thuần.** `phrase_step` kiểm được không cần cửa sổ.
+Trước đó toàn bộ quyết định nằm trong một bao đóng chạy giữa vòng lặp sự kiện,
+và một nhánh sai ở đó **trông y hệt "người dùng bấm huỷ"**.
+
+**Ví dụ tự lái qua WebKit thật.** `kiem-cum-tu-sai` tự gõ sai, tự bấm, rồi hỏi:
+màn lỗi có hiện lại không, hay cửa sổ đã đóng. Chạy trong CI.
+
+### "Quay lại sửa" tách khỏi "Huỷ"
+
+Màn xác nhận địa chỉ **sinh ra để bắt lỗi gõ**. Nút thứ hai của nó dùng chung mã
+với "huỷ" thì thấy địa chỉ sai bấm là mất cả 24 chữ — và lần sau người ta đi dán
+từ chỗ khác, mà **chỗ khác thường là một ô nhập trên web**. Hai mã riêng, để
+danh sách trắng từng màn nói đúng thứ màn ấy cho phép.
+
+### Câu lỗi của hệ điều hành được DỊCH
+
+`A required entitlement isn't present` là câu nói với lập trình viên. Người dùng
+đọc nó tưởng mình gõ sai cụm từ. Giờ màn hỏng nói: *"Bản dựng này chưa được ký…
+Không phải bạn gõ sai"* — và giữ câu gốc ở dưới dạng chữ mờ, vì người soát cần nó.
+
+Nhận dạng bằng chuỗi `entitlement` vì thư viện không cho mã riêng. Chuỗi đổi thì
+phép nhận dạng lặng lẽ hỏng — nên câu gốc **vẫn phải hiện**, và có phép thử ghim
+đúng chuỗi đang nhận.

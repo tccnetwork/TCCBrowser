@@ -24,6 +24,20 @@
 
 use tcc_keystore::{Keystore, Purpose};
 
+/// Câu lỗi này có phải chuyện "gói chưa ký" không?
+///
+/// macOS trả về `A required entitlement isn't present` khi bản dựng thiếu
+/// quyền `keychain-access-groups`. Đó là câu nói với LẬP TRÌNH VIÊN; người dùng
+/// đọc nó chỉ tưởng mình vừa gõ sai gì đó.
+///
+/// Nhận dạng bằng chuỗi vì thư viện không cho mã lỗi riêng cho trường hợp này.
+/// Chuỗi đổi thì phép nhận dạng lặng lẽ hỏng — nên bên gọi vẫn phải hiện câu
+/// gốc kèm theo, và có phép thử ghim đúng chuỗi đang nhận.
+#[must_use]
+pub fn is_unsigned_build(loi: &str) -> bool {
+    loi.contains("entitlement")
+}
+
 /// Vì sao không cất được. Chỉ có một lý do, và nó không sửa được bằng cách thử lại.
 #[derive(Debug, thiserror::Error)]
 pub enum WalletStoreError {
@@ -87,6 +101,18 @@ mod kiem_thu {
     fn ten_muc_dan_tu_dia_chi() {
         assert!(key_name(DIA_CHI).contains(DIA_CHI));
         assert_ne!(key_name(DIA_CHI), key_name("0xkhac"));
+    }
+
+    /// **Câu lỗi "chưa ký gói" phải nhận ra được.**
+    ///
+    /// Nếu không, người dùng đọc câu của macOS và tưởng mình gõ sai cụm từ.
+    #[test]
+    fn nhan_ra_duoc_loi_chua_ky_goi() {
+        assert!(is_unsigned_build(
+            "kho khoá của hệ điều hành báo lỗi: A required entitlement isn't present."
+        ));
+        assert!(!is_unsigned_build("sai PIN, hoặc dữ liệu đã hỏng"));
+        assert!(!is_unsigned_build("không có khoá nào tên \"wallet-0x…\""));
     }
 
     /// Lý do phải NÓI RA việc gì sắp xảy ra, không phải "cần xác thực".

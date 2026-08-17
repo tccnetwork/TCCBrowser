@@ -17,6 +17,8 @@ import-web-wallet = ["tcc-chain/import-web-wallet"]
 # Kho khoá THẬT của hệ điều hành. Tắt cờ này thì ví KHÔNG dùng được — cố ý,
 # xem src/wallet_store.rs.
 os-keystore = ["tcc-keystore/os-keystore"]
+# Nhập ví trong cửa sổ: cần cả ba mảnh.
+wallet = ["window", "import-web-wallet", "os-keystore"]
 # Đường ra ngoài thật. Tách cờ riêng để dựng được bản KHÔNG có mạng.
 network = ["dep:tcc-net"]
 
@@ -61,6 +63,10 @@ required-features = ["window"]
 [[example]]
 name = "kiem-man-hinh-ung-dung"
 required-features = ["window"]
+
+[[example]]
+name = "kiem-cum-tu-sai"
+required-features = ["wallet"]
 
 [[example]]
 name = "nhap-vi"

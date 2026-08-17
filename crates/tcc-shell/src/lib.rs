@@ -23,10 +23,19 @@ pub mod import_screen;
 pub mod permission_dialog;
 pub mod permission_screen;
 pub mod permission_store;
+pub mod recovery_screen;
 pub mod signing_flow;
 pub mod text;
 pub mod transaction_screen;
 pub mod wallet_store;
+
+/// Luồng nhập ví trong cửa sổ — cần cả ba: cửa sổ, đọc định dạng ví web, kho khoá.
+#[cfg(all(
+    feature = "window",
+    feature = "import-web-wallet",
+    feature = "os-keystore"
+))]
+pub mod wallet_flow;
 
 pub use tcc_ui::AccessNode;
 pub use text::Language;

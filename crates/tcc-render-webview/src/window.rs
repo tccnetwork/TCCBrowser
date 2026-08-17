@@ -445,6 +445,136 @@ impl core::fmt::Debug for DialogAnswer {
     }
 }
 
+/// Một màn hình trong chuỗi: tài liệu, tiêu đề, và danh sách trắng của nó.
+pub struct Screen {
+    pub document: String,
+    pub title: String,
+    pub allowed: Vec<String>,
+}
+
+/// Sau khi người dùng bấm: hiện màn tiếp, hay đóng lại.
+pub enum Next {
+    Show(Box<Screen>),
+    Done,
+}
+
+/// Nhiều màn hình nối nhau **trong MỘT cửa sổ và MỘT vòng lặp sự kiện**.
+///
+/// # ⚠️ Vì sao không gọi [`ask_dialog`] ba lần
+///
+/// `tao` chỉ cho dựng **một** vòng lặp sự kiện mỗi tiến trình. Gọi `ask_dialog`
+/// lần thứ hai làm nó hoảng loạn ở `app_state.rs`, và thông báo hoảng loạn ấy
+/// không nói gì về nguyên nhân — nhìn từ ngoài chỉ thấy chương trình treo.
+///
+/// Phát hiện ngày 17/08/2026, khi luồng nhập ví có ba màn hình. Đường hộp thoại
+/// hỏi quyền không lộ ra điều này vì nó chỉ mở **một** cửa sổ mỗi lần chạy.
+///
+/// Nên ở đây: một cửa sổ, một `WebView`, và mỗi màn hình là một lần
+/// `load_html`. Danh sách trắng đổi theo từng màn — mã của màn trước không
+/// dùng lại được ở màn sau.
+///
+/// # Errors
+/// Không dựng được cửa sổ hoặc `WebView`.
+pub fn dialog_sequence(
+    dau: &Screen,
+    tiep: impl FnMut(&DialogAnswer) -> Next + 'static,
+) -> Result<(), String> {
+    dialog_sequence_driven(dau, tiep, None)
+}
+
+/// Như [`dialog_sequence`] nhưng chạy thêm một kịch bản tự thao tác.
+///
+/// Chỉ dùng để KIỂM THỬ. Nó không làm được gì mà một người dùng thật không làm
+/// được — nó chỉ thay ngón tay, và nó chạy lại sau MỖI lần đổi màn hình, đúng
+/// như người dùng thật gõ tiếp trên màn mới.
+///
+/// # Errors
+/// Không dựng được cửa sổ hoặc `WebView`.
+pub fn dialog_sequence_driven(
+    dau: &Screen,
+    mut tiep: impl FnMut(&DialogAnswer) -> Next + 'static,
+    tu_lai: Option<&str>,
+) -> Result<(), String> {
+    let mut vong = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_title(&dau.title)
+        .with_inner_size(tao::dpi::LogicalSize::new(620.0, 660.0))
+        .build(&vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+
+    let hang: Arc<Mutex<Vec<DialogAnswer>>> = Arc::new(Mutex::new(Vec::new()));
+    let hang_ipc = Arc::clone(&hang);
+    // Danh sách trắng ĐỔI theo màn. Giữ trong `Mutex` chứ không chép vào bộ xử
+    // lý: chép thì màn sau vẫn nhận mã của màn trước.
+    let hop_le: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(dau.allowed.clone()));
+    let hop_le_ipc = Arc::clone(&hop_le);
+
+    let mut dung = WebViewBuilder::new()
+        .with_html(&dau.document)
+        .with_initialization_script(KICH_BAN_KHUNG);
+    if let Some(kb) = tu_lai {
+        dung = dung.with_initialization_script(kb);
+    }
+    let webview = dung
+        .with_ipc_handler(move |yeu_cau| {
+            let danh_sach = hop_le_ipc.lock().map(|d| d.clone()).unwrap_or_default();
+            if let Some(t) = doc_tra_loi(yeu_cau.body(), &danh_sach)
+                && let Ok(mut q) = hang_ipc.lock()
+            {
+                q.push(t);
+            }
+        })
+        .build(&window)
+        .map_err(|e| format!("không dựng được WebView: {e}"))?;
+
+    let mut dang_thoat = false;
+    vong.run_return(|su_kien, _, dieu_khien| {
+        if dang_thoat {
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        }
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
+
+        if matches!(
+            su_kien,
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            }
+        ) {
+            dang_thoat = true;
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        }
+
+        let cho_xu_ly: Vec<DialogAnswer> = hang
+            .lock()
+            .map(|mut q| q.drain(..).collect())
+            .unwrap_or_default();
+        for t in cho_xu_ly {
+            match tiep(&t) {
+                Next::Show(man) => {
+                    if let Ok(mut d) = hop_le.lock() {
+                        d.clone_from(&man.allowed);
+                    }
+                    window.set_title(&man.title);
+                    if webview.load_html(&man.document).is_err() {
+                        dang_thoat = true;
+                        *dieu_khien = ControlFlow::Exit;
+                        return;
+                    }
+                }
+                Next::Done => {
+                    dang_thoat = true;
+                    *dieu_khien = ControlFlow::Exit;
+                    return;
+                }
+            }
+        }
+    });
+    Ok(())
+}
+
 /// Hiện tài liệu và CHỜ người dùng kích hoạt một hành động.
 ///
 /// Trả `None` khi người dùng đóng cửa sổ mà không bấm gì.
