@@ -1401,3 +1401,60 @@ dấu tích mà đằng sau nó không có ai chịu trách nhiệm.
 
 Nó thuộc 0.2, và trước đó phải trả lời: **ai vận hành sổ khoá, và người dùng
 dựa vào cái gì để tin bên ấy?**
+
+
+## 31. "Bảo vệ nội dung" là một cái tên nói quá (18/08/2026)
+
+Kế hoạch gọi 3.4 là *"bảo vệ nội dung TCC — quyền sở hữu chứng minh trên
+chuỗi"*. Làm xong phần chứng minh thì thấy tên ấy **hứa nhiều hơn thứ làm
+được**, và đây là chỗ ghi lại.
+
+### Nội dung gói nằm trên đĩa ở dạng ĐỌC ĐƯỢC
+
+Gói TCC là một **thư mục đã ký**, không phải một hộp khoá. Ai mở thư mục ra là
+thấy. Nên một phép kiểm sở hữu chỉ chặn được **màn hình**, không chặn được
+**tệp**.
+
+> Chặn hiển thị mà không mã hoá nội dung là một cái khoá treo trên cánh cửa
+> không có tường.
+
+### Vì sao không mã hoá luôn cho xong
+
+Vì không có chỗ nào cất khoá giải mã cho đúng người:
+
+| Cất ở đâu | Hỏng thế nào |
+|---|---|
+| Trong gói | Ai cũng đọc — không mã hoá gì cả |
+| Trên chuỗi | Chuỗi công khai; cùng chuyện |
+| Người bán mã hoá cho người mua | Người bán vẫn giữ bản rõ, bán tiếp cho ai cũng được |
+| **Máy chủ phát khoá sau khi kiểm sở hữu** | **Chạy được** — nhưng đó là một DỊCH VỤ, không phải tính chất của chuỗi |
+
+**Bảo vệ nội dung không có máy chủ phát khoá là không làm được.** Ai bảo làm
+được thì đang bán một cánh cửa không tường.
+
+Nên mục 3.4 đổi tên trong kế hoạch thành **kiểm sở hữu trên chuỗi**, và phần
+"bảo vệ" ghi rõ là chưa — chứ không để một cái tên đẹp che một tính chất không
+có.
+
+### Phần LÀM ĐƯỢC, và nó vẫn đáng làm
+
+`crates/tcc-chain/src/ownership.rs` đọc phản hồi `tcc_getNftsByOwner` và trả
+lời *"ví này có mã ấy không"*. Đủ cho **"chỉ chủ sở hữu mới thấy nút Mở"** —
+đúng như kế hoạch tự viết: chặn sao chép tuỳ tiện, **không** chặn người có kỹ
+thuật và có động lực.
+
+### Và nó lặp lại đúng bài học chống ký mù
+
+Máy chủ trả về cả `owner` lẫn `contract` trong phản hồi, nên **so lại được** —
+và module này so lại. Không so thì một RPC bị chiếm chỉ cần trả danh sách của
+một ví giàu nào đó là **mọi người đều "sở hữu"**.
+
+> Máy chủ là bên ta đề phòng, không phải bên ta dựa vào.
+
+Đột biến bỏ phép so lại `owner` → đỏ.
+
+### Một chi tiết nhỏ mà mất quyền
+
+`0x01` và `0x1` là cùng một mã. Không chuẩn hoá thì một bên viết cách này, một
+bên viết cách kia, và **chủ sở hữu thật bị báo là không sở hữu**. Đột biến bỏ
+phép bỏ số 0 ở đầu → đỏ.

@@ -9,6 +9,7 @@ authors.workspace = true
 [dependencies]
 blake3 = "1.8.6"
 ml-dsa = "0.1.1"
+serde_json = { workspace = true }
 sha2 = "0.10.9"
 thiserror = { workspace = true }
 zeroize = { version = "1", features = ["zeroize_derive"] }
@@ -17,11 +18,10 @@ aes-gcm = { version = "0.10.3", optional = true }
 base64ct = { version = "1.8", features = ["alloc"], optional = true }
 pbkdf2 = { version = "0.12.2", optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
-serde_json = { workspace = true, optional = true }
 
 [features]
 # Chỉ bật khi cần NHẬP ví cũ từ ví web. Xem `crates/tcc-chain/src/import.rs`.
-import-web-wallet = ["dep:aes-gcm", "dep:base64ct", "dep:pbkdf2", "dep:serde", "dep:serde_json"]
+import-web-wallet = ["dep:aes-gcm", "dep:base64ct", "dep:pbkdf2", "dep:serde"]
 
 [dev-dependencies]
 hex = "0.4.3"
