@@ -124,6 +124,41 @@ pub fn build(
     )?)
 }
 
+/// Mã nút đóng ở màn "đã gửi".
+pub const ACTION_DONE: &str = "gui-xong";
+
+/// Màn **ĐÃ GỬI** — hiện trong cửa sổ, không chỉ in ra terminal.
+///
+/// # Vì sao cần
+///
+/// Ngày 17/08/2026 giao dịch thật đầu tiên đi qua đường chống ký mù và **lên
+/// chuỗi thành công** — nhưng cửa sổ đóng ngay, kết quả chỉ nằm ở terminal.
+/// Người dùng bấm ký rồi thấy cửa sổ biến mất, và không biết tiền đã đi hay
+/// chưa. Đó là trạng thái tệ nhất một ví có thể để lại.
+///
+/// Cùng một lỗi đã sửa cho nhánh HỎNG, mà quên nhánh THÀNH CÔNG.
+///
+/// # Errors
+/// Chuỗi không dùng được trên giao diện.
+pub fn build_sent(ma_giao_dich: &str, ngon_ngu: Language) -> Result<Node, UiError> {
+    let t = |k: TextKey| t(k, ngon_ngu);
+    Node::group(Flow::Column, Gap::Large)
+        .child(Node::text_with(t(TextKey::XongTieuDe), Emphasis::Title)?)?
+        .child(Node::text_with(
+            t(TextKey::XongMaGiaoDich),
+            Emphasis::Subtle,
+        )?)?
+        // Mã ĐỦ, không cắt — người dùng đem nó đi tra.
+        .child(Node::text_with(ma_giao_dich.to_owned(), Emphasis::Normal)?)?
+        // "Đã nhận" KHÁC "đã vào khối". Không nói ra là hứa hộ chuỗi.
+        .child(Node::text_with(t(TextKey::XongConCho), Emphasis::Warning)?)?
+        .child(Node::button(
+            t(TextKey::XongNutDong),
+            ACTION_DONE,
+            Tone::Neutral,
+        )?)
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum XacNhanError {
     #[error(transparent)]
@@ -255,6 +290,28 @@ mod kiem_thu {
         }
         for c in n.children() {
             gom_sac_thai(c, ra);
+        }
+    }
+
+    /// **Màn "đã gửi" phải hiện MÃ GIAO DỊCH đủ, và nói rõ CHƯA vào khối.**
+    ///
+    /// "Đã gửi" rất dễ bị đọc thành "xong rồi". Mạng mới nhận, chưa ghi vào
+    /// khối — không nói ra là hứa hộ chuỗi.
+    #[test]
+    fn man_da_gui_hien_ma_va_noi_ro_chua_vao_khoi() {
+        let ma = "0xc06d6191c039ece24cc87ff8d4b4dae82257f657bbaf32c48e473c5c38017ade";
+        for ngon_ngu in [Language::En, Language::Vi] {
+            let cay = build_sent(ma, ngon_ngu).unwrap();
+            let mut bd = WebViewRenderer::new();
+            bd.render(&cay).unwrap();
+            let s = bd.body();
+            assert!(s.contains(ma), "mã giao dịch bị cắt:\n{s}");
+            assert!(!s.contains('…'), "màn hình có dấu cắt ngắn");
+            assert!(
+                s.contains(crate::text::label(TextKey::XongConCho, ngon_ngu)),
+                "không nói rõ chưa vào khối ({ngon_ngu:?})"
+            );
+            assert!(s.contains("data-nhan=\"canh-bao\""));
         }
     }
 

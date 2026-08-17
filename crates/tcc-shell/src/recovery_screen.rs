@@ -84,6 +84,55 @@ pub fn build_entry(loi: Option<&str>, ngon_ngu: Language) -> Result<Node, UiErro
         )
 }
 
+/// Màn 1 của **phiên thử**: gõ cụm từ, và nói rõ khoá KHÔNG được cất.
+///
+/// # Vì sao phải nói TRƯỚC khi gõ
+///
+/// Người dùng gõ cụm từ khôi phục vào một cửa sổ thì mặc định họ tin rằng nó
+/// được lưu. Nói sau khi gõ xong là đã để họ tin nhầm một lượt.
+///
+/// Phiên này tồn tại vì cất khoá đang bị chặn ở đóng gói (`docs/vi-thiet-ke.md`
+/// §19), còn KÝ thì không. Nó không hạ tiêu chuẩn nào: không có gì được cất
+/// bằng cách yếu hơn — không có gì được cất cả.
+///
+/// # Errors
+/// Chuỗi không dùng được trên giao diện.
+pub fn build_session_entry(loi: Option<&str>, ngon_ngu: Language) -> Result<Node, UiError> {
+    let t = |k: TextKey| label(k, ngon_ngu);
+
+    let mut man = Node::group(Flow::Column, Gap::Large)
+        .child(Node::text_with(t(TextKey::PhienTieuDe), Emphasis::Title)?)?
+        .child(Node::text_with(
+            t(TextKey::PhienKhongCatDau),
+            Emphasis::Warning,
+        )?)?
+        .child(Node::text(t(TextKey::PhienDongLaMat))?)?
+        .child(Node::text(t(TextKey::CumTuGiaiThich))?)?
+        .child(Node::text_with(
+            t(TextKey::CumTuAiNhinCungDoc),
+            Emphasis::Warning,
+        )?)?;
+
+    if let Some(cau) = loi {
+        man = man.child(Node::text_with(cau, Emphasis::Warning)?)?;
+    }
+
+    man.child(Node::field(t(TextKey::CumTuNhan), "", false)?)?
+        .child(
+            Node::group(Flow::Row, Gap::Medium)
+                .child(Node::button(
+                    t(TextKey::CumTuNutTiep),
+                    ACTION_CONTINUE,
+                    Tone::Neutral,
+                )?)?
+                .child(Node::button(
+                    t(TextKey::NhapNutHuy),
+                    ACTION_CANCEL,
+                    Tone::Neutral,
+                )?)?,
+        )
+}
+
 /// Màn 2: **địa chỉ mà cụm từ ấy mở ra**, trước khi lưu.
 ///
 /// # Errors
@@ -391,6 +440,27 @@ mod kiem_thu {
             "{s}"
         );
         assert!(s.contains("sai PIN"));
+    }
+
+    /// **Phiên thử phải nói KHÔNG cất khoá, và nói TRƯỚC khi người dùng gõ.**
+    #[test]
+    fn phien_thu_noi_khong_cat_truoc_khi_go() {
+        for ngon_ngu in [Language::En, Language::Vi] {
+            let s = ve(&build_session_entry(None, ngon_ngu).unwrap());
+            let cau = label(TextKey::PhienKhongCatDau, ngon_ngu);
+            assert!(
+                s.contains(cau),
+                "không nói khoá chẳng được cất ({ngon_ngu:?})"
+            );
+            // Câu ấy phải đứng TRƯỚC ô nhập trong tài liệu.
+            let vi_cau = s.find(cau).expect("có câu");
+            let vi_o = s.find("<input").expect("có ô nhập");
+            assert!(
+                vi_cau < vi_o,
+                "nói sau khi người ta đã gõ xong thì để làm gì"
+            );
+            assert!(s.contains("data-nhan=\"canh-bao\""));
+        }
     }
 
     /// Màn báo hỏng KHÔNG được lộ cụm từ người dùng vừa gõ.

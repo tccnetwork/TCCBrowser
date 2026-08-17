@@ -87,6 +87,16 @@ pub enum TextKey {
     /// ⚠️ Bản dựng chưa ký nên hệ điều hành không cho cất khoá.
     HongChuaKyGoi,
     HongKhongPhaiLoiCuaBan,
+    // ── phiên thử: khoá chỉ sống trong bộ nhớ ──
+    PhienTieuDe,
+    /// ⚠️ Khoá không được cất — nói TRƯỚC khi người dùng gõ.
+    PhienKhongCatDau,
+    PhienDongLaMat,
+    // ── màn ĐÃ GỬI ──
+    XongTieuDe,
+    XongMaGiaoDich,
+    XongConCho,
+    XongNutDong,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -320,6 +330,33 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::HongKhongPhaiLoiCuaBan, Language::Vi) => {
             "Không phải bạn gõ sai. Ví chưa lưu được cho tới khi ứng dụng được ký."
         }
+        (TextKey::PhienTieuDe, Language::En) => "Try the wallet for this session only",
+        (TextKey::PhienTieuDe, Language::Vi) => "Dùng thử ví, chỉ trong phiên này",
+        (TextKey::PhienKhongCatDau, Language::En) => {
+            "The key stays in memory and is never saved. Nothing is written to the Keychain or to disk."
+        }
+        (TextKey::PhienKhongCatDau, Language::Vi) => {
+            "Khoá chỉ nằm trong bộ nhớ, không được cất. Không ghi vào Keychain, không ghi ra đĩa."
+        }
+        (TextKey::PhienDongLaMat, Language::En) => {
+            "Close this window and the key is gone. You will have to type the phrase again."
+        }
+        (TextKey::PhienDongLaMat, Language::Vi) => {
+            "Đóng cửa sổ là mất khoá. Muốn dùng lại thì phải gõ lại cụm từ."
+        }
+        (TextKey::XongTieuDe, Language::En) => "Sent",
+        (TextKey::XongTieuDe, Language::Vi) => "Đã gửi",
+        (TextKey::XongMaGiaoDich, Language::En) => "Transaction id",
+        (TextKey::XongMaGiaoDich, Language::Vi) => "Mã giao dịch",
+        // Nhận != đã ghi vào khối. Nói rõ, vì "đã gửi" dễ bị đọc thành "xong rồi".
+        (TextKey::XongConCho, Language::En) => {
+            "The network accepted it. It is not in a block yet — check the id above to see when it lands."
+        }
+        (TextKey::XongConCho, Language::Vi) => {
+            "Mạng đã nhận. Nó CHƯA vào khối — tra mã ở trên để biết khi nào lên."
+        }
+        (TextKey::XongNutDong, Language::En) => "Close",
+        (TextKey::XongNutDong, Language::Vi) => "Đóng",
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",
 
         (TextKey::ViDuocXinChuKy, Language::En) => {

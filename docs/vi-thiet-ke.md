@@ -1194,3 +1194,60 @@ Không phải bạn gõ sai"* — và giữ câu gốc ở dưới dạng chữ 
 Nhận dạng bằng chuỗi `entitlement` vì thư viện không cho mã riêng. Chuỗi đổi thì
 phép nhận dạng lặng lẽ hỏng — nên câu gốc **vẫn phải hiện**, và có phép thử ghim
 đúng chuỗi đang nhận.
+
+
+## 27. Giao dịch THẬT đầu tiên qua đường chống ký mù (17/08/2026)
+
+```
+tx_hash 0xc06d6191c039ece24cc87ff8d4b4dae82257f657bbaf32c48e473c5c38017ade
+nonce   174 → 175        ← bằng chứng nó đã vào khối
+```
+
+Testnet 91338, ví `0x266346…9a71`, 1 TCC. Rồi một giao dịch thứ hai
+(`0x935cb477…`), nonce 175 → 176. Cả hai chốt sau khoảng 20 giây.
+
+Đường đi trọn vẹn: gõ cụm từ → máy chủ dựng giao dịch chưa ký → **giải mã, tự
+tính lại băm, so khớp** → hiện thứ ĐÃ GIẢI MÃ → người dùng bấm → ký → gửi.
+
+Đây là câu trả lời cho *"lập trình viên được gì mà web thường không cho"*, lần
+đầu ở dạng **một giao dịch có thật** chứ không phải một lập luận.
+
+### Thử được mà KHÔNG hạ tiêu chuẩn nào
+
+Cất khoá vẫn bị chặn ở đóng gói (§19). Nhưng **ký** thì không — nên
+`examples/thu-vi-mot-phien.rs` giữ khoá **trong bộ nhớ đúng một phiên** và
+không ghi ở đâu cả.
+
+Không phải bản lùi: không có gì được cất bằng cách yếu hơn — **không có gì được
+cất cả**. Màn hình nói thẳng điều đó **TRƯỚC khi người dùng gõ**, và có phép thử
+chốt rằng câu ấy đứng trước ô nhập trong tài liệu. Người gõ cụm từ khôi phục vào
+một cửa sổ mặc định tin rằng nó được lưu; nói sau khi họ gõ xong là đã để họ tin
+nhầm một lượt.
+
+### Và lỗi thứ ba cùng một hình dạng
+
+| Lần | Người dùng thấy | Thật ra |
+|---|---|---|
+| 1 | trình duyệt không hiện gì | `main` chưa gọi `run_app` |
+| 2 | nhập sai thì tắt luôn | lỗi chỉ in ra terminal |
+| 3 | **bấm ký xong thì ẩn luôn** | **thành công cũng chỉ in ra terminal** |
+
+Lần thứ ba đau nhất: tôi vừa sửa đúng chuyện này cho nhánh HỎNG và **quên nhánh
+THÀNH CÔNG**. Người dùng bấm ký rồi thấy cửa sổ biến mất, không biết tiền đã đi
+hay chưa — trạng thái tệ nhất một ví có thể để lại.
+
+Màn "Đã gửi" hiện **mã giao dịch đủ** và một câu cố ý:
+
+> *"Mạng đã nhận. Nó CHƯA vào khối — tra mã ở trên để biết khi nào lên."*
+
+*"Đã gửi"* rất dễ đọc thành *"xong rồi"*. Mạng mới nhận, chưa ghi vào khối —
+không nói ra là **hứa hộ chuỗi**.
+
+### Bài học chung của ba lần
+
+Cả ba đều là **kết quả không đi ra tới nơi người dùng nhìn**. Không phép thử đơn
+vị nào chạm tới, vì chúng đều nằm ở chỗ mã giao tiếp với người chứ không ở chỗ
+mã tính toán. Luật rút ra:
+
+> Mỗi nhánh kết thúc của một luồng — xong, hỏng, huỷ — **phải có một màn hình**.
+> Đóng cửa sổ không phải một câu trả lời.

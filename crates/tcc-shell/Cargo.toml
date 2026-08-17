@@ -65,6 +65,10 @@ name = "kiem-man-hinh-ung-dung"
 required-features = ["window"]
 
 [[example]]
+name = "thu-vi-mot-phien"
+required-features = ["wallet", "network"]
+
+[[example]]
 name = "kiem-cum-tu-sai"
 required-features = ["wallet"]
 
