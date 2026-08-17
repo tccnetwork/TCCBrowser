@@ -1,0 +1,19 @@
+[package]
+name = "tcc-render-raster"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+tcc-ui = { workspace = true }
+thiserror = { workspace = true }
+# Cùng bộ chữ đã đo ở đâm thử 0.1 — xem `dam-thu/BAO-CAO.md`.
+cosmic-text = "0.19"
+
+[dev-dependencies]
+png = "0.18"
+
+[lints]
+workspace = true

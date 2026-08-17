@@ -32,10 +32,13 @@ serde_json = { workspace = true }
 # Đây là ĐIỂM LẮP RÁP — crate duy nhất được phép biết tới một bộ dựng cụ thể.
 # Luật 2 trong tools/kiem-luat-phu-thuoc.sh chốt điều đó.
 tcc-render-webview = { workspace = true }
+tcc-render-raster = { workspace = true }
 tcc-net = { workspace = true, optional = true }
 
 [dev-dependencies]
 tcc-keystore = { workspace = true }
+tcc-render-raster = { workspace = true }
+tcc-chain = { workspace = true }
 unicode-general-category = "1"
 serde_json = { workspace = true }
 tcc-spec = { workspace = true }

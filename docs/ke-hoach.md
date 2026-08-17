@@ -158,7 +158,7 @@ thật.
 
 | # | Việc |
 |---|---|
-| 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` |
+| 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** |
 | 4.3 | Bố cục, hợp thành |
 | 4.4 | Trợ năng qua AccessKit |

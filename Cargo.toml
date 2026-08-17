@@ -17,6 +17,10 @@ members = [
   # ---- Giao diện ----
   "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào
   "crates/tcc-render-webview", # bộ dựng #1: giàn giáo, sẽ tháo
+  # Bộ dựng #2 — KHÔNG phải để đẹp hơn, mà để CHỨNG MINH luật "tcc-ui không
+  # biết bộ dựng nào" là thật. Một trait chỉ có một bản cài đặt thì không ai
+  # biết nó có thật sự trừu tượng hay không.
+  "crates/tcc-render-raster",
 
   # ---- Thân ----
   "crates/tcc-runtime",      # nạp và chạy ứng dụng TCC
@@ -49,6 +53,7 @@ tcc-manifest = { path = "crates/tcc-manifest" }
 tcc-capability = { path = "crates/tcc-capability" }
 tcc-ui = { path = "crates/tcc-ui" }
 tcc-render-webview = { path = "crates/tcc-render-webview" }
+tcc-render-raster = { path = "crates/tcc-render-raster" }
 tcc-runtime = { path = "crates/tcc-runtime" }
 tcc-net = { path = "crates/tcc-net" }
 tcc-keystore = { path = "crates/tcc-keystore" }

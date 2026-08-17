@@ -858,3 +858,58 @@ nguyên sự từ chối đó:
 
 Nên trạng thái đúng của dự án lúc này là: **phần ví xong về mã, bị chặn ở đóng
 gói.** Đó là một câu khác hẳn "sắp xong".
+
+
+## 20. Bộ dựng thứ hai (17/08/2026)
+
+`crates/tcc-render-raster` — vẽ thẳng ra pixel, không một dòng HTML.
+
+### Nó KHÔNG phải để đẹp hơn
+
+`tcc-ui` có luật *"không được biết bộ dựng nào"*, và cho tới hôm nay luật ấy
+**không ai kiểm được**: một trait chỉ có một bản cài đặt thì mọi giả định ngầm
+đều nằm im, vì chưa có ai đá vào. Crate này là cú đá.
+
+### Hai thứ nó cho không, mà WebView không cho
+
+**Chạy được không cần màn hình.** `cargo test --workspace` không chạm WebView
+được — trên macOS vòng lặp sự kiện phải ở luồng chính. Từ nay mọi màn hình của
+khung được **kiểm trợ năng ở CI, trên cả ba nền, mỗi lần đẩy** — trước đó chỉ
+kiểm được trong ví dụ có người bấm.
+
+**Ảnh so được từng pixel**, nên một thay đổi bố cục ngoài ý muốn hiện ra thành
+con số.
+
+### Cây trợ năng dựng TỪ LƯỢT VẼ
+
+Gọi `Node::accessibility_tree()` trong `published_accessibility` thì phép kiểm
+ngang bằng **luôn xanh** — nó đang so một hàm với chính nó. Nên ở đây cây được
+ghi lại **trong lúc vẽ**: vẽ sót một nút là đỏ.
+
+Bản đầu bọc thêm một `Group` ở gốc và phép kiểm bắt ngay — đúng như nó phải thế.
+
+### Phép kiểm đắt nhất: hai bộ dựng phải nói CÙNG một điều
+
+`crates/tcc-shell/tests/hai-bo-dung.rs` chạy mỗi màn hình qua cả hai và đòi hai
+cây trợ năng **bằng nhau**. Nếu hai bộ dựng nói hai điều khác nhau với trình đọc
+màn hình thì ít nhất một cái đang nói dối, và cho tới hôm nay không có cách nào
+biết.
+
+### Và kiểm đột biến tìm ra một lỗ trong chính phép kiểm ấy
+
+Bỏ cờ *"không hoàn tác"* của nút nguy hiểm → **ba phép thử màn hình thật vẫn
+xanh**. Vì màn xác nhận giao dịch cố ý dùng hai nút cùng sắc thái, và màn quản
+lý quyền rỗng thì không có nút nào.
+
+> Một phép kiểm chéo chỉ chạy trên những màn hình đang có là một phép kiểm chéo
+> che đúng chỗ chưa ai đi qua.
+
+Đã thêm `phu_het_moi_loai_nut` — một cây phủ hết tám loại nút, kể cả loại màn
+hình thật chưa dùng. Sau đó cả hai đột biến (cờ nguy hiểm, ảnh trang trí kèm
+nhãn) đều đỏ.
+
+### Ranh giới đã nói ra
+
+Bộ dựng này xếp `Flow::Row` theo chiều dọc. Nói thẳng trong mã chứ không giả vờ:
+bố cục hàng cần đo bề rộng từng phần tử, và crate này sinh ra để **kiểm** bố cục
+dọc + trợ năng, không phải để thay WebView hôm nay.
