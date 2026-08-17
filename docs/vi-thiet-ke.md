@@ -1002,3 +1002,48 @@ canh; hôm nay nó canh chính tôi.
 cần `accesskit_macos`/`accesskit_windows` và một cửa sổ, tức là cùng loại việc
 đang bị chặn ở §19. Phần ánh xạ là phần có thể kiểm mà không cần cửa sổ, và nó
 là phần chứa mọi quyết định dễ sai.
+
+
+## 23. 4.3 — và một câu hỏi kế hoạch chưa hỏi (17/08/2026)
+
+### Làm được ngay, và đã làm
+
+**Căn giữa theo chiều dọc trong hàng.** Bản 4.2 đặt phần tử ngay lúc đo, nên mọi
+thứ dính mép trên: một nhãn nhỏ cạnh một tiêu đề lớn trông như bị **treo lơ
+lửng** — thứ người ta nhìn thấy ngay kể cả khi không biết gọi tên nó là gì.
+
+Sửa được là nhờ đổi cách gom: gom hết một dòng rồi mới đặt, vì **chiều cao dòng
+chỉ biết sau khi đã đo hết phần tử trên dòng ấy**. Đột biến bỏ căn giữa → đỏ.
+
+### Và một lỗi tôi ĐI TÌM mà không có
+
+Màn xác nhận giao dịch cố ý hiện địa chỉ **đủ 66 ký tự** — cắt ngắn là lỗ dò
+trùng đầu-đuôi. Nhưng 66 ký tự không có dấu cách thì bộ ngắt dòng **theo từ**
+không có chỗ nào để ngắt, và tôi chờ thấy nó tràn khỏi mép.
+
+Không tràn: `cosmic-text` tự ngắt giữa từ khi một từ dài hơn cả dòng. Hai phép
+thử vẫn giữ lại — địa chỉ trong nhóm lồng bốn tầng, và một từ 400 ký tự — vì
+ngày đổi bộ chữ thì đây là chỗ vỡ đầu tiên.
+
+### Câu hỏi kế hoạch chưa hỏi: "căn lề" có thuộc TIÊU CHUẨN không?
+
+4.3 ghi *"bố cục, hợp thành"*, và cách hiểu tự nhiên là thêm thuộc tính `align`
+vào `Group`. **Tôi cố ý không làm.**
+
+Quyết định kiến trúc số 1 nói ứng dụng khai báo **ý định**, bộ dựng quyết định
+**hình thức**. Mô hình nút hiện có `Flow` và `Gap` — không cỡ, không màu, không
+căn lề — và điều đó không phải thiếu sót, đó là ranh giới.
+
+`align: "center"` là **hình thức**. Thêm nó là:
+
+- một thay đổi phá vỡ tiêu chuẩn (VERSIONING §2), kéo theo bản dịch, vector, cả
+  hai bộ dựng;
+- và một bước lùi khỏi luật *"ứng dụng không mô tả hình thức"*, sau đó `padding`,
+  `width`, `color` sẽ tới, mỗi cái đều hợp lý một mình.
+
+Nên **căn giữa là quyết định của bộ dựng**, không phải thuộc tính của nút. Kế
+hoạch viết 4.3 trước khi mô hình khai báo ổn định, và chỗ này kế hoạch nên đổi
+chứ không phải mô hình.
+
+Ai thấy cần `align` thật thì phải trả lời trước: *ứng dụng nào cần nó, và vì sao
+bộ dựng không tự quyết được?* Chưa có ứng dụng nào để hỏi câu ấy.

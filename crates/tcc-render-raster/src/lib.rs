@@ -126,6 +126,30 @@ struct O {
     cao: f32,
 }
 
+/// Đặt một dòng đã gom xong, **căn giữa theo chiều dọc**, trả về chiều cao dòng.
+///
+/// Căn giữa chứ không dính mép trên: một nhãn nhỏ cạnh một tiêu đề lớn mà dính
+/// mép trên thì trông như bị treo lơ lửng — và đó là thứ người ta nhìn thấy
+/// ngay, kể cả khi không biết gọi tên nó là gì.
+fn xa_dong(dong: &mut Vec<O>, trai: f32, tren: f32, khe: f32, ra: &mut Vec<DaDat>) -> f32 {
+    if dong.is_empty() {
+        return 0.0;
+    }
+    let cao_dong = dong.iter().fold(0.0f32, |a, o| a.max(o.cao));
+    let mut x = trai;
+    for o in dong.drain(..) {
+        let rong = o.rong;
+        let lech = (cao_dong - o.cao) / 2.0;
+        ra.push(DaDat {
+            o,
+            trai: x,
+            tren: tren + lech,
+        });
+        x += rong + khe;
+    }
+    cao_dong
+}
+
 /// Chỗ để đặt: góc trên trái và bề rộng được phép dùng.
 ///
 /// Gom bốn tham số rời thành một kiểu là để **không hoán vị nhầm** — `trai` và
@@ -366,34 +390,45 @@ impl RasterRenderer {
         access: &mut Vec<AccessNode>,
     ) -> f32 {
         let (trai, tren, rong_toi_da, khe) = (cho.trai, cho.tren, cho.rong, cho.khe);
-        let mut x = trai;
         let mut y = tren;
-        let mut cao_hang: f32 = 0.0;
+        // Gom từng DÒNG rồi mới đặt, thay vì đặt ngay khi đo.
+        //
+        // Lý do là căn giữa: chiều cao của một dòng chỉ biết được SAU khi đã đo
+        // hết phần tử trên dòng ấy. Bản 4.2 đặt ngay, nên mọi thứ dính mép
+        // trên — một nhãn nhỏ cạnh một tiêu đề lớn trông như bị treo lơ lửng.
+        let mut dong: Vec<O> = Vec::new();
+        let mut rong_dong = 0.0f32;
+
         for c in n.children() {
-            // Nhóm lồng trong hàng: đặt nó như một khối chiếm hết phần còn lại.
+            // Nhóm lồng trong hàng: xả dòng đang gom, rồi đặt nhóm như một khối.
             if matches!(c.kind(), NodeKind::Group { .. }) {
-                let cao = self.dat(c, x, y, rong_toi_da - (x - trai), ra, access);
-                y += cao + khe;
-                cao_hang = 0.0;
-                x = trai;
+                y += xa_dong(&mut dong, trai, y, khe, ra);
+                rong_dong = 0.0;
+                if !ra.is_empty() {
+                    y += khe;
+                }
+                y += self.dat(c, trai, y, rong_toi_da, ra, access) + khe;
                 continue;
             }
             let o = self.do_la(c, rong_toi_da, access);
-            if x > trai && x - trai + o.rong > rong_toi_da {
-                x = trai;
-                y += cao_hang + khe;
-                cao_hang = 0.0;
+            let them = if dong.is_empty() {
+                o.rong
+            } else {
+                khe + o.rong
+            };
+            if !dong.is_empty() && rong_dong + them > rong_toi_da {
+                y += xa_dong(&mut dong, trai, y, khe, ra) + khe;
+                rong_dong = 0.0;
             }
-            cao_hang = cao_hang.max(o.cao);
-            let rong = o.rong;
-            ra.push(DaDat {
-                o,
-                trai: x,
-                tren: y,
-            });
-            x += rong + khe;
+            rong_dong += if dong.is_empty() {
+                o.rong
+            } else {
+                khe + o.rong
+            };
+            dong.push(o);
         }
-        (y - tren + cao_hang).max(0.0)
+        y += xa_dong(&mut dong, trai, y, khe, ra);
+        (y - tren).max(0.0)
     }
 
     fn ve_o(&mut self, dat: &DaDat) {
@@ -716,5 +751,92 @@ mod kiem_thu {
         let mut bd = RasterRenderer::new();
         bd.render(&Node::group(Flow::Column, Gap::None)).unwrap();
         assert!(bd.height() >= 1);
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_43 {
+    use super::*;
+
+    fn tran_mep_phai(bd: &RasterRenderer) -> bool {
+        (0..bd.height()).any(|y| bd.image()[y * WIDTH + WIDTH - 1] < 250)
+    }
+
+    /// **Địa chỉ ví dài 66 ký tự, KHÔNG có chỗ ngắt** — có tràn mép không?
+    ///
+    /// Màn xác nhận giao dịch và màn nhập ví đều hiện địa chỉ ĐỦ, cố ý: cắt
+    /// ngắn là lỗ dò trùng đầu-đuôi. Nhưng một chuỗi 66 ký tự không dấu cách
+    /// thì bộ ngắt dòng theo TỪ không có chỗ nào để ngắt.
+    #[test]
+    fn dia_chi_du_khong_tran_mep() {
+        let dia_chi = "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549";
+        assert_eq!(dia_chi.len(), 66);
+
+        // Đặt trong nhóm lồng sâu — mỗi tầng thụt thêm, đúng như màn thật.
+        let mut cay = Node::text(dia_chi).unwrap();
+        for _ in 0..4 {
+            cay = Node::group(Flow::Column, Gap::Large).child(cay).unwrap();
+        }
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        assert!(
+            !tran_mep_phai(&bd),
+            "địa chỉ tràn khỏi mép phải — người dùng đọc thiếu đuôi mà không biết"
+        );
+    }
+
+    /// Khoảng dọc mà cột `x` có mực: (trên cùng, dưới cùng).
+    fn khoang_doc(bd: &RasterRenderer, tu_cot: usize, den_cot: usize) -> Option<(usize, usize)> {
+        let co_muc =
+            |y: usize| (tu_cot..den_cot.min(WIDTH)).any(|x| bd.image()[y * WIDTH + x] < 250);
+        let tren = (0..bd.height()).find(|y| co_muc(*y))?;
+        let duoi = (0..bd.height()).rev().find(|y| co_muc(*y))?;
+        Some((tren, duoi))
+    }
+
+    /// **Hàng ngang căn GIỮA theo chiều dọc, không dính mép trên.**
+    ///
+    /// Một nhãn nhỏ cạnh một tiêu đề lớn mà dính mép trên thì trông như bị treo
+    /// lơ lửng — thứ người ta nhìn thấy ngay kể cả khi không biết gọi tên nó.
+    #[test]
+    fn hang_can_giua_theo_chieu_doc() {
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::text_with("To", Emphasis::Title).unwrap())
+            .unwrap()
+            .child(Node::text("nhỏ").unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        // Chữ "To" cỡ tiêu đề nằm bên trái; "nhỏ" nằm bên phải nó.
+        let (tren_to, duoi_to) = khoang_doc(&bd, 0, 45).expect("phải có chữ to");
+        let (tren_nho, duoi_nho) = khoang_doc(&bd, 50, WIDTH).expect("phải có chữ nhỏ");
+
+        let giua_to = usize::midpoint(tren_to, duoi_to);
+        let giua_nho = usize::midpoint(tren_nho, duoi_nho);
+        assert!(
+            giua_nho.abs_diff(giua_to) <= 4,
+            "tâm dọc lệch nhau {} px — chữ nhỏ không được căn giữa (to {tren_to}..{duoi_to}, nhỏ {tren_nho}..{duoi_nho})",
+            giua_nho.abs_diff(giua_to)
+        );
+        assert!(
+            tren_nho > tren_to,
+            "chữ nhỏ vẫn dính mép trên cùng với chữ to"
+        );
+    }
+
+    /// Một từ dài hơn cả bề rộng phải bị **ngắt giữa từ**, không tràn.
+    #[test]
+    fn tu_dai_hon_be_rong_bi_ngat_giua_tu() {
+        let dai = "a".repeat(400);
+        let mut bd = RasterRenderer::new();
+        bd.render(&Node::text(&dai).unwrap()).unwrap();
+        assert!(!tran_mep_phai(&bd), "từ dài tràn khỏi mép phải");
+        assert!(bd.height() > 40, "không xuống dòng: cao {}", bd.height());
     }
 }
