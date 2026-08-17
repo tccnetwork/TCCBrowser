@@ -6,6 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [features]
+# Cầu nối trợ năng tới hệ điều hành (mục 4.4). Chuyển tiếp xuống bộ dựng pixel.
+accesskit = ["tcc-render-raster/accesskit"]
 # Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
 # tcc-render-webview trực tiếp.
 window = ["tcc-render-webview/window"]

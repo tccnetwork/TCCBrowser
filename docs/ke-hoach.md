@@ -161,7 +161,7 @@ thật.
 | 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** — ✅ **xong ở `tcc-render-raster`** (17/08/2026): đo bề rộng thật, ngắt dòng, dấu chồng đúng |
 | 4.3 | Bố cục, hợp thành — 🔶 **một phần**: hàng/cột + xuống dòng đã có; còn căn lề, co giãn, hợp thành |
-| 4.4 | Trợ năng qua AccessKit |
+| 4.4 | Trợ năng qua AccessKit — ✅ **ánh xạ xong** (17/08/2026), sau cờ `accesskit`; còn nối adapter của nền tảng vào cửa sổ thật |
 
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
 Đó là lúc chứng minh được đường thoát là thật.

@@ -11,6 +11,12 @@ tcc-ui = { workspace = true }
 thiserror = { workspace = true }
 # Cùng bộ chữ đã đo ở đâm thử 0.1 — xem `dam-thu/BAO-CAO.md`.
 cosmic-text = "0.19"
+# Cầu nối trợ năng tới hệ điều hành. Sau cờ, vì nó chỉ cần khi có cửa sổ thật —
+# phép kiểm ngang bằng trợ năng chạy được mà không cần nó.
+accesskit = { version = "0.24", optional = true }
+
+[features]
+accesskit = ["dep:accesskit"]
 
 [dev-dependencies]
 png = "0.18"

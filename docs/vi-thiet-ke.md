@@ -953,3 +953,52 @@ nhau, đổi chỗ hai cái vẫn biên dịch, vẫn chạy, chỉ **vẽ sai**
 
 Căn lề, co giãn theo chỗ trống, hợp thành (chồng lớp, cắt xén). Hàng/cột và
 xuống dòng chỉ là phần xương.
+
+
+## 22. Cầu nối AccessKit — 4.4 (17/08/2026)
+
+`crates/tcc-render-raster/src/accesskit_bridge.rs`, sau cờ `accesskit`.
+
+### Chỗ dễ mất thông tin nhất
+
+| Ta có | AccessKit có |
+|---|---|
+| `TextInput { secret: true }` | `Role::PasswordInput` ✅ |
+| `Switch { on }` | `Role::Switch` + `toggled` ✅ |
+| `Button { destructive: true }` | **chỉ `Role::Button`** ❌ |
+
+Hai cái đầu dịch thẳng. Cái thứ ba **không có vai trò tương ứng**, và bỏ qua thì
+người dùng trình đọc màn hình nghe *"Xoá dữ liệu, nút"* **y hệt** *"Huỷ, nút"* —
+cùng một câu cho một việc xoá sạch và một việc không làm gì. Nên nó đi vào
+`description`.
+
+`PasswordInput` cũng không phải chuyện hình thức: `TextInput` làm trình đọc màn
+hình **đọc to từng ký tự** mật khẩu. Đây đúng là bất biến B32, giờ áp cho nền
+tảng thứ hai.
+
+### Hai lỗi của tôi, và cả hai đều bị máy bắt
+
+**Viết cứng câu tiếng Việt.** Bản đầu tôi để `CAU_MAT_MAT` là hằng số tiếng Việt
+ngay trong crate. Sai hai lần: giao diện mặc định **tiếng Anh**, và WebView đã
+nhận câu ấy làm **tham số** do `text.rs` dịch. Hai bộ dựng đọc hai câu khác nhau
+cho cùng một nút là đúng thứ phép kiểm chéo sinh ra để chặn. Giờ nó là
+`AccessText`, tiêm từ ngoài, mặc định tiếng Anh — y như `RendererText`.
+
+**Đặt tên module bằng tiếng Việt.** `accesskit_cau` → **luật 13 bắt được**. Đó
+là luật tôi tự viết vì quy ước này từng trôi suốt nhiều tháng khi chưa có máy
+canh; hôm nay nó canh chính tôi.
+
+### Đột biến
+
+| Đổi gì | Bắt được? |
+|---|---|
+| ô mật khẩu → `TextInput` thường | ✅ |
+| nút nguy hiểm không nói gì thêm | ✅ (2 phép thử + phép kiểm chéo) |
+| nhóm mang nhãn | ✅ |
+
+### Còn thiếu
+
+Ánh xạ xong, nhưng **chưa nối adapter của nền tảng vào cửa sổ thật** — việc ấy
+cần `accesskit_macos`/`accesskit_windows` và một cửa sổ, tức là cùng loại việc
+đang bị chặn ở §19. Phần ánh xạ là phần có thể kiểm mà không cần cửa sổ, và nó
+là phần chứa mọi quyết định dễ sai.

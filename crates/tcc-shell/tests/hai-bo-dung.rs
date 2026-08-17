@@ -114,3 +114,42 @@ fn man_hinh_ve_ra_co_muc_that() {
     bd.render(&cay).expect("vẽ được");
     assert!(bd.ink() > 200, "màn hình gần như trắng trơn: {}", bd.ink());
 }
+
+/// **Hai bộ dựng phải đọc CÙNG MỘT CÂU cho nút không hoàn tác được.**
+///
+/// AccessKit không có vai trò riêng cho "không hoàn tác", nên câu ấy đi vào
+/// `description`. WebView đưa nó qua `aria-description`. Hai đường khác nhau,
+/// một câu — và câu ấy phải là câu `text.rs` dịch, không phải câu bộ dựng nào
+/// tự bịa.
+#[cfg(feature = "accesskit")]
+#[test]
+fn hai_bo_dung_doc_cung_cau_mat_mat() {
+    use tcc_render_raster::accesskit_bridge::{AccessText, to_accesskit};
+    use tcc_shell::text::{TextKey, label};
+
+    for ngon_ngu in [Language::En, Language::Vi] {
+        let cau = label(TextKey::CauMatMat, ngon_ngu).to_owned();
+
+        let cay = tcc_ui::Node::button("Xoá hết", "xoa", tcc_ui::Tone::Danger).unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let cap_nhat = to_accesskit(
+            &bd.published_accessibility().unwrap(),
+            &AccessText {
+                cau_mat_mat: cau.clone(),
+            },
+        );
+        let nut = &cap_nhat.nodes.first().unwrap().1;
+        assert_eq!(nut.description(), Some(cau.as_str()));
+
+        // Và WebView phải nhả ra ĐÚNG chuỗi ấy trong tài liệu của nó.
+        let mut web = tcc_render_webview::WebViewRenderer::new()
+            .with_text(tcc_shell::text::renderer_text(ngon_ngu));
+        web.render(&cay).unwrap();
+        assert!(
+            web.body().contains(&cau),
+            "WebView không đọc câu mất mát ({ngon_ngu:?}):\n{}",
+            web.body()
+        );
+    }
+}

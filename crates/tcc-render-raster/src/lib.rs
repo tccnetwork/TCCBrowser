@@ -40,6 +40,9 @@
               đổi ở đây làm mã khó đọc hơn mà không chặn thêm được gì."
 )]
 
+#[cfg(feature = "accesskit")]
+pub mod accesskit_bridge;
+
 use cosmic_text::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache};
 use tcc_ui::{AccessNode, Alt, Emphasis, Flow, Gap, Node, NodeKind, Renderer, Role, Tone};
 

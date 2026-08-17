@@ -35,6 +35,14 @@ jobs:
 
       # Đường nhập ví cũ nằm sau cờ, nên `--workspace` trơn KHÔNG biên dịch nó.
       # Mã không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
+      # Cầu nối trợ năng (4.4) nằm sau cờ, nên `--workspace` trơn không biên
+      # dịch nó. Mã không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
+      - name: AccessKit bridge
+        run: |
+          cargo clippy -p tcc-render-raster --features accesskit --all-targets -- -D warnings
+          cargo test -p tcc-render-raster --features accesskit
+          cargo test -p tcc-shell --features accesskit --test hai-bo-dung
+
       - name: Web-wallet import path
         run: |
           cargo clippy -p tcc-chain --features import-web-wallet --all-targets -- -D warnings
