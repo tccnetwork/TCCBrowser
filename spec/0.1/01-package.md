@@ -5,11 +5,28 @@
 ```text
 <package-dir>/
 ├── manifest.json      ← the manifest
-├── signature.hex      ← signature, lowercase hex, trailing newline allowed
+├── signature.hex      ← signature, lowercase hex — see "Reading signature.hex"
 └── content/           ← EVERYTHING in here feeds the content hash
 ```
 
-All three **MUST** be present. A package missing any of them is invalid.
+All three **MUST** be present. A package missing any of them **MUST** be
+rejected with `missing-file`.
+
+### Reading `signature.hex`
+
+The file contains the signature of [03](03-signature.md) as hex, and nothing
+else. An implementation **MUST**:
+
+| Rule | On violation |
+|---|---|
+| Accept **lowercase** hex digits only | `not-hex` |
+| Accept **one optional** trailing `\n` or `\r\n`, nothing more | `not-hex` |
+| Reject leading whitespace, inner whitespace, `0x` prefixes | `not-hex` |
+| Require exactly `2 × 3373` = 6746 hex digits | `bad-signature-length` |
+
+Uppercase is rejected rather than normalised for the same reason the manifest
+forbids unknown fields: two encodings of one value are two things to compare,
+and the comparison is what the signature protects.
 
 Anything **outside** those three **MUST NOT** enter the signature, and an
 implementation **MUST NOT** read it when running the app.
@@ -132,9 +149,20 @@ empty input — see the `canonical` vectors, case "cây rỗng" (empty tree).
 content_hash = lowercase_hex( BLAKE3_XOF( canonical_form )[0..48] )
 ```
 
-Quick check: the empty tree **MUST** yield
-`af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262…`
-(the first 32 bytes are BLAKE3's published KAT for empty input).
+Quick check: the empty tree **MUST** yield exactly
+
+```text
+af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262e00f03e7b69af26b7faaf09fcd333050
+```
+
+The first 32 bytes are BLAKE3's published KAT for empty input, so half of this
+value can be checked against the BLAKE3 specification itself rather than
+against us.
+
+⚠️ Until 2026-08-18 this document printed that value **truncated with an
+ellipsis** and pointed the reader at the conformance vectors. That made the
+one self-check in the whole document unusable by anyone reading only the
+specification — which is exactly the reader this document exists for.
 
 **Why BLAKE3 rather than SHA-2:** to match the TCC chain, which already uses
 BLAKE3. Two hash functions in one ecosystem are two places to get it wrong.

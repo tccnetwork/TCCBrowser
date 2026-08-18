@@ -37,9 +37,38 @@ pub const MAX_CONTENT_BYTES: u64 = 256 * 1024 * 1024;
 pub enum PackageError {
     Io(String),
     Tree(String),
-    TooLarge { total: u64 },
+    TooLarge {
+        total: u64,
+    },
     LienKetMem(String),
     ThieuTep(String),
+    /// `signature.hex` có nhưng KHÔNG đúng 6746 chữ số hex.
+    ///
+    /// Tách khỏi `not-hex`: "sai định dạng" và "đúng định dạng nhưng sai độ
+    /// dài" là hai chuyện khác nhau với người dựng gói — một bên là gõ nhầm,
+    /// một bên là ký bằng lược đồ khác.
+    ChuKySaiDoDai(usize),
+    /// Không phải hex chữ thường.
+    ///
+    /// Tách khỏi `Io`: `Io` là "đĩa hỏng", còn đây là "tệp có nhưng viết sai".
+    /// Gộp lại thì mã lỗi ra `bad-path`, mà đặc tả nói `not-hex` — và một mã
+    /// sai là bộ kiểm định của người ngoài không khớp được.
+    KhongPhaiHex(String),
+}
+
+impl PackageError {
+    /// Mã lỗi ỔN ĐỊNH, thuộc về TIÊU CHUẨN — `spec/0.1/06-error-codes.md`.
+    #[must_use]
+    pub const fn ma(&self) -> &'static str {
+        match self {
+            Self::ThieuTep(_) => "missing-file",
+            Self::KhongPhaiHex(_) => "not-hex",
+            Self::ChuKySaiDoDai(_) => "bad-signature-length",
+            Self::LienKetMem(_) => "symlink",
+            Self::TooLarge { .. } => "package-too-large",
+            Self::Io(_) | Self::Tree(_) => "bad-path",
+        }
+    }
 }
 
 impl std::fmt::Display for PackageError {
@@ -57,6 +86,13 @@ impl std::fmt::Display for PackageError {
                  thể trỏ ra ngoài thư mục gói, và cái được ký sẽ khác cái được chạy"
             ),
             Self::ThieuTep(p) => write!(f, "thiếu \"{p}\""),
+            Self::KhongPhaiHex(p) => write!(f, "{p} không phải hex chữ thường"),
+            Self::ChuKySaiDoDai(n) => {
+                write!(
+                    f,
+                    "signature.hex có {n} chữ số hex, cần đúng {SIGNATURE_HEX_LEN}"
+                )
+            }
         }
     }
 }
@@ -144,6 +180,114 @@ pub fn read_signature(goc: &Path) -> Result<Vec<u8>, PackageError> {
         return Err(PackageError::ThieuTep(SIGNATURE_FILE.to_string()));
     }
     let s = fs::read_to_string(p)?;
-    hex::decode(s.trim())
-        .map_err(|e| PackageError::Io(format!("{SIGNATURE_FILE} không phải hex: {e}")))
+    read_signature_hex(&s)
+}
+
+/// Số chữ số hex của một chữ ký lai: `2 × 3373`.
+pub const SIGNATURE_HEX_LEN: usize = 6746;
+
+/// Đọc nội dung `signature.hex` theo ĐÚNG luật của tiêu chuẩn.
+///
+/// # Vì sao chặt đến thế
+///
+/// Bản cũ (tới 18/08/2026) gọi `s.trim()` rồi `hex::decode`, tức là nhận cả
+/// khoảng trắng đầu dòng, cả tab, cả **chữ hoa**. Đặc tả thì nói *"lowercase
+/// hex"* — nên hai bên lệch nhau, và một gói bản này nhận thì bản khác từ chối.
+///
+/// Không chuẩn hoá chữ hoa thành chữ thường mà **từ chối**, cùng lý do bản kê
+/// khai cấm trường lạ: hai cách viết của một giá trị là hai thứ phải so, mà
+/// chính phép so ấy là thứ chữ ký bảo vệ.
+///
+/// # Errors
+/// Không phải hex chữ thường, hoặc sai độ dài.
+pub fn read_signature_hex(noi_dung: &str) -> Result<Vec<u8>, PackageError> {
+    // ĐÚNG một dấu xuống dòng ở cuối, không hơn. `trim` nhận cả khoảng trắng
+    // đầu và mọi thứ ở cuối — rộng hơn hẳn thứ đặc tả cho phép.
+    let than = noi_dung
+        .strip_suffix("\r\n")
+        .or_else(|| noi_dung.strip_suffix('\n'))
+        .unwrap_or(noi_dung);
+
+    if than.len() != SIGNATURE_HEX_LEN {
+        return Err(PackageError::ChuKySaiDoDai(than.len()));
+    }
+    if !than
+        .bytes()
+        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(PackageError::KhongPhaiHex(SIGNATURE_FILE.to_owned()));
+    }
+    hex::decode(than).map_err(|_| PackageError::KhongPhaiHex(SIGNATURE_FILE.to_owned()))
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
+mod kiem_thu_chu_ky_hex {
+    use super::*;
+
+    fn hop_le() -> String {
+        "ab".repeat(SIGNATURE_HEX_LEN / 2)
+    }
+
+    #[test]
+    fn dung_do_dai_va_chu_thuong_thi_nhan() {
+        assert!(read_signature_hex(&hop_le()).is_ok());
+        assert!(read_signature_hex(&format!("{}\n", hop_le())).is_ok());
+        assert!(read_signature_hex(&format!("{}\r\n", hop_le())).is_ok());
+    }
+
+    /// **Chữ HOA bị từ chối**, không được chuẩn hoá lặng lẽ.
+    ///
+    /// Hai cách viết của một giá trị là hai thứ phải so, mà chính phép so ấy là
+    /// thứ chữ ký bảo vệ.
+    #[test]
+    fn chu_hoa_bi_tu_choi() {
+        let hoa = hop_le().to_uppercase();
+        assert!(read_signature_hex(&hoa).is_err());
+        // Lẫn lộn cũng thế.
+        let mut lan = hop_le();
+        lan.replace_range(0..1, "A");
+        assert!(read_signature_hex(&lan).is_err());
+    }
+
+    /// Khoảng trắng thừa bị từ chối — `trim()` cũ nhận hết.
+    #[test]
+    fn khoang_trang_thua_bi_tu_choi() {
+        for xau in [
+            format!(" {}", hop_le()),
+            format!("{}  ", hop_le()),
+            format!("{}\n\n", hop_le()),
+            format!("\t{}", hop_le()),
+            format!("{}\n ", hop_le()),
+        ] {
+            assert!(read_signature_hex(&xau).is_err(), "nhận nhầm {xau:?}");
+        }
+    }
+
+    /// Sai độ dài ra mã RIÊNG, không lẫn với "không phải hex".
+    ///
+    /// Với người dựng gói, "gõ nhầm" và "ký bằng lược đồ khác" là hai việc.
+    #[test]
+    fn sai_do_dai_ra_ma_rieng() {
+        let ngan = "ab".repeat(100);
+        let e = read_signature_hex(&ngan).unwrap_err();
+        assert_eq!(e.ma(), "bad-signature-length", "{e}");
+
+        let dai = format!("{}ab", hop_le());
+        assert_eq!(
+            read_signature_hex(&dai).unwrap_err().ma(),
+            "bad-signature-length"
+        );
+    }
+
+    /// Thiếu tệp ra `missing-file`.
+    #[test]
+    fn thieu_tep_ra_dung_ma() {
+        let e = PackageError::ThieuTep("signature.hex".to_owned());
+        assert_eq!(e.ma(), "missing-file");
+    }
 }

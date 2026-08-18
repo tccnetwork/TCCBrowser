@@ -66,6 +66,8 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 | Mã | Khi nào |
 |---|---|
 | `ui-too-large` | Tệp giao diện vượt 1 MiB |
+| `missing-file` | Gói thiếu `manifest.json`, `signature.hex` hoặc `content/` |
+| `bad-signature-length` | `signature.hex` không đúng 6746 chữ số hex |
 | `external-image` | `source` của ảnh trỏ ra mạng |
 | `secret-field-from-app` | Gói xin `"secret": true` trên một `field` |
 | `text-too-long` | Chuỗi vượt 4 096 ký tự |

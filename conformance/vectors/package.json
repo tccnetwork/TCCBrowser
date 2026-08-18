@@ -119,5 +119,83 @@
    },
    "notes": "The limit is inclusive. An off-by-one here rejects a legal package."
   }
+ ],
+ "signature_file": [
+  {
+   "case": "exactly 6746 lowercase hex digits",
+   "expect_pass": true,
+   "text": "ab*3373"
+  },
+  {
+   "case": "one trailing newline is allowed",
+   "expect_pass": true,
+   "text": "ab*3373\n"
+  },
+  {
+   "case": "CRLF is allowed",
+   "expect_pass": true,
+   "text": "ab*3373\r\n"
+  },
+  {
+   "case": "uppercase hex is refused, not normalised",
+   "expect_pass": false,
+   "code": "not-hex",
+   "text": "AB*3373"
+  },
+  {
+   "case": "leading whitespace is refused",
+   "expect_pass": false,
+   "code": "bad-signature-length",
+   "text": " ab*3373"
+  },
+  {
+   "case": "two trailing newlines are refused",
+   "expect_pass": false,
+   "code": "bad-signature-length",
+   "text": "ab*3373\n\n"
+  },
+  {
+   "case": "too short",
+   "expect_pass": false,
+   "code": "bad-signature-length",
+   "text": "ab*100"
+  },
+  {
+   "case": "too long",
+   "expect_pass": false,
+   "code": "bad-signature-length",
+   "text": "ab*3374"
+  }
+ ],
+ "missing_file": [
+  {
+   "case": "no manifest.json",
+   "code": "missing-file",
+   "present": [
+    "signature.hex",
+    "content/"
+   ]
+  },
+  {
+   "case": "no signature.hex",
+   "code": "missing-file",
+   "present": [
+    "manifest.json",
+    "content/"
+   ]
+  },
+  {
+   "case": "no content/ directory",
+   "code": "missing-file",
+   "present": [
+    "manifest.json",
+    "signature.hex"
+   ]
+  },
+  {
+   "case": "empty directory",
+   "code": "missing-file",
+   "present": []
+  }
  ]
 }

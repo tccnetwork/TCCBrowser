@@ -474,6 +474,112 @@ fn chay_ui(chi_tiet: bool) -> Ket {
 
 // ─────────────────────────── Tầng gói: đường dẫn ────────────────────────────
 
+/// Luật đọc `signature.hex` của `01-package.md`.
+///
+/// Nhóm này ra đời 18/08/2026 sau khi một người đọc CHỈ đặc tả chỉ ra rằng tệp
+/// ấy gần như không được đặc tả: một dòng *"lowercase hex, trailing newline
+/// allowed"* và hết. Viết luật cho chặt xong thì lộ ra bản triển khai đang
+/// `trim()` mọi khoảng trắng và nhận cả chữ hoa.
+fn kiem_tep_chu_ky(chi_tiet: bool) -> Ket {
+    let v = doc_vector("package.json");
+    let mut k = Ket::moi();
+    let Some(ds) = v["signature_file"].as_array() else {
+        k.ghi("nhóm signature_file", false, "thiếu trong vector", chi_tiet);
+        return k;
+    };
+    for t in ds {
+        let ten = ten_cua(t);
+        let cho_dat = t["expect_pass"].as_bool().expect("thiếu `expect_pass`");
+        let cho_ma = t["code"].as_str();
+        // `ab*3373` là cách vector viết "lặp `ab` 3373 lần" — chuỗi 6746 ký tự
+        // viết thẳng vào JSON thì không ai đọc nổi tệp vector nữa.
+        let tho = t["text"].as_str().unwrap_or_default();
+        let noi_dung = trai_lap(tho);
+
+        match (cho_dat, tcc_runtime::package::read_signature_hex(&noi_dung)) {
+            (true, Ok(_)) => k.ghi(ten, true, "", chi_tiet),
+            (true, Err(e)) => k.ghi(ten, false, &format!("phải ĐẠT nhưng: {e}"), chi_tiet),
+            (false, Ok(_)) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
+            (false, Err(e)) => {
+                let ma = e.ma();
+                let khop = cho_ma.is_none_or(|c| ma == c);
+                k.ghi(
+                    ten,
+                    khop,
+                    &format!("từ chối đúng nhưng SAI MÃ: chờ {cho_ma:?}, thật \"{ma}\""),
+                    chi_tiet,
+                );
+            }
+        }
+    }
+    // ── Ca THIẾU TỆP: dựng thư mục gói thật rồi bỏ bớt một tệp ──
+    //
+    // Không giả lập: `missing-file` là lỗi của TẦNG ĐĨA, và giả lập nó bằng
+    // cách gọi thẳng hàm dựng lỗi thì chẳng kiểm được gì.
+    if let Some(ds) = v["missing_file"].as_array() {
+        for t in ds {
+            let ten = ten_cua(t);
+            let co: Vec<&str> = t["present"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+                .unwrap_or_default();
+            let tam = std::env::temp_dir().join(format!("tcc-thieu-{}", co.join("-")));
+            let _ = std::fs::remove_dir_all(&tam);
+            let _ = std::fs::create_dir_all(&tam);
+            for tep in &co {
+                match *tep {
+                    "content/" => {
+                        let _ = std::fs::create_dir_all(tam.join("content"));
+                    }
+                    // Chữ ký phải HỢP LỆ VỀ HÌNH THỨC, nếu không ca "thiếu
+                    // content/" dừng ở `bad-signature-length` và không bao giờ
+                    // chạm tới thứ nó định kiểm.
+                    "signature.hex" => {
+                        let _ = std::fs::write(tam.join(tep), "ab".repeat(3373));
+                    }
+                    _ => {
+                        let _ = std::fs::write(tam.join(tep), "x");
+                    }
+                }
+            }
+            let ra = tcc_runtime::package::read_manifest(&tam)
+                .and_then(|_| tcc_runtime::package::read_signature(&tam).map(|_| ()))
+                .and_then(|()| tcc_runtime::package::read_content(&tam).map(|_| ()));
+            let cho_ma = t["code"].as_str();
+            match ra {
+                Ok(()) => k.ghi(ten, false, "phải TỪ CHỐI nhưng lại đạt", chi_tiet),
+                Err(e) => {
+                    let ma = e.ma();
+                    let khop = cho_ma.is_none_or(|c| ma == c);
+                    k.ghi(
+                        ten,
+                        khop,
+                        &format!("sai mã: chờ {cho_ma:?}, thật \"{ma}\""),
+                        chi_tiet,
+                    );
+                }
+            }
+            let _ = std::fs::remove_dir_all(&tam);
+        }
+    }
+    k
+}
+
+/// Trải `xy*N` thành `xy` lặp N lần; giữ nguyên phần đuôi sau đó.
+fn trai_lap(tho: &str) -> String {
+    let Some((mau, con_lai)) = tho.split_once('*') else {
+        return tho.to_owned();
+    };
+    let so: usize = con_lai
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect::<String>()
+        .parse()
+        .unwrap_or(0);
+    let duoi: String = con_lai.chars().skip_while(char::is_ascii_digit).collect();
+    format!("{}{duoi}", mau.repeat(so))
+}
+
 /// Luật đường dẫn của `01-package.md`.
 ///
 /// Nhóm này ra đời sau khi rà đặc tả và thấy **16 trong 32 mã lỗi không có
@@ -684,6 +790,7 @@ fn main() -> ExitCode {
         ("Cây giao diện", chay_ui(chi_tiet)),
         ("Quyền năng", chay_capability(chi_tiet)),
         ("Tầng gói: đường dẫn", chay_package(chi_tiet)),
+        ("Tầng gói: tệp chữ ký", kiem_tep_chu_ky(chi_tiet)),
         ("Kiểm gói đầu-cuối", chay_verify(chi_tiet)),
     ];
 

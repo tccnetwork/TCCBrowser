@@ -42,12 +42,12 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 369 tests
-cargo test --workspace --features tcc-shell/window  # 372, three need a window
+cargo test --workspace                              # 374 tests
+cargo test --workspace --features tcc-shell/window  # 377, three need a window
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 tools/kiem-luat-phu-thuoc.sh                        # 18 architecture rules
-cargo run -p tcc-conformance                        # 138 conformance vectors, eight groups
+cargo run -p tcc-conformance                        # 150 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py

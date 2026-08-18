@@ -67,6 +67,8 @@ suite.
 | Code | When |
 |---|---|
 | `ui-too-large` | The interface file is over 1 MiB |
+| `missing-file` | The package lacks `manifest.json`, `signature.hex` or `content/` |
+| `bad-signature-length` | `signature.hex` does not hold exactly 6746 hex digits |
 | `external-image` | An image `source` points at the network |
 | `secret-field-from-app` | A package asked for `"secret": true` on a `field` |
 | `text-too-long` | String over 4,096 characters |

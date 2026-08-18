@@ -76,10 +76,38 @@ tính năng có mặt mà ta quên tắt là một tính năng người dùng b�
 |---|---|---|
 | macOS | WKWebView | ✅ đo được, **18/20** |
 | Linux | WebKitGTK | ⚠️ chạy dưới màn hình ảo **không ổn định** — `the underlying handle is not available`. Cùng lý do các bước đối kháng trên Linux phải để `continue-on-error` |
-| Windows | WebView2 | ⏳ vừa bật, chờ số đo đầu tiên |
+| Windows | WebView2 | ✅ đo được, **18/20 — thiếu ĐÚNG hai mục ấy** |
+
+**Hai bộ máy hoàn toàn khác nhau (WebKit và Chromium) thiếu cùng hai mục.** Đó
+không phải trùng hợp — nó xác nhận rằng hai mục ấy vắng vì **cách nạp**, không
+vì bộ máy.
 
 **Chưa công bố bảng nền tảng nào**, vì phần giao cần đủ ba số đo. Công bố khi
 mới có một là công bố một bảng của macOS và gọi nó là nền tảng.
+
+## Nạp thế nào để có ngữ cảnh an toàn
+
+Khảo sát mã nguồn `wry` 0.52.1 (18/08/2026):
+
+| Cách nạp | Origin | Ngữ cảnh an toàn |
+|---|---|---|
+| `with_html` — **đang dùng** | `null`, mờ | **Không** trên cả ba (đã đo) |
+| custom protocol + `with_url` | `tcc-goi://goi` (Win: `http://tcc-goi.localhost`) | Linux **có** — WebKitGTK gọi `register_uri_scheme_as_secure`; macOS **nhiều khả năng không** — WKWebView không có lời gọi tương đương; Windows chưa đo |
+| `with_url("https://…")` | origin thật của site | **Có**, đồng nhất cả ba |
+
+Hai điều rút ra:
+
+**`with_url` thắng `with_html`.** Cả ba bản cài đặt của `wry` đều kiểm `url`
+trước; không thể vừa `with_html` vừa mong có origin.
+
+**Custom protocol dồn MỌI trang vào MỘT origin.** Nếu tầng 2 đi đường ấy thì
+mọi trang đọc được `localStorage`, `IndexedDB`, cookie **của nhau** — và không
+CSP nào vá được. Nên tầng 2 phải nạp `https://` thật; custom protocol giữ đúng
+vai trò cũ: phục vụ tệp trong gói đã ký.
+
+⚠️ Ba điều **chưa xác minh**, cần thí nghiệm thật chứ không đọc mã:
+`isSecureContext` dưới `tcc-goi://` trên WKWebView; `localStorage` dưới custom
+scheme; và cách phân vùng dữ liệu giữa nhiều WebView ngoài Darwin.
 
 ## Chưa đo
 

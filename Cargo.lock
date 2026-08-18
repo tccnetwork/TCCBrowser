@@ -2953,6 +2953,7 @@ dependencies = [
  "tcc-capability",
  "tcc-crypto",
  "tcc-manifest",
+ "tcc-runtime",
  "tcc-spec",
  "tcc-ui",
 ]
