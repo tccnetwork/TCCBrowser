@@ -14,6 +14,30 @@ them, or running them — in any language. If you finish reading and still have 
 ask someone before you can produce a valid package, this document has failed.
 That is its only test.
 
+## What is normative, and what this version depends on
+
+Everything an implementation must satisfy to conform to 0.1 is stated **inside
+this directory**, with its own **MUST**. Nothing outside it is
+conformance-bearing.
+
+That is deliberate, and it has a consequence worth stating plainly. Four places
+in these documents link to [`../VERSIONING.md`](../VERSIONING.md) — for why a
+list only grows with a version bump, and for what counts as a breaking change.
+Those links are **informative**: they explain why a rule is what it is, or tell
+a spec editor what to do next. None of them attaches a requirement to the
+linked text.
+
+The reason to say so is that `VERSIONING.md` lives **outside** any versioned
+directory, so unlike this directory it is not immutable. Its wording, and its
+section numbers, can change after 0.1 freezes, with no erratum trail. If those
+links were conformance-bearing, a requirement of 0.1 could be rewritten without
+a version bump — which is the exact failure `VERSIONING.md` §1 exists to
+prevent. They are not, so it cannot; a reader who follows one and finds
+different prose has lost an explanation, not a rule.
+
+An implementer who never opens those links can still produce a valid package.
+If that ever stops being true, the rule has to move **into** this directory.
+
 ## Terms
 
 | Term | Meaning |
@@ -54,7 +78,14 @@ key registry.
 ## Conformance
 
 A conforming implementation **MUST** pass 100% of the vectors in
-[`conformance/vectors/`](../../conformance/vectors/):
+[`conformance/vectors/`](../../conformance/vectors/). That directory sits
+outside this one, so one constraint keeps it from moving what 0.1 means: **a
+vector may only test a requirement already stated in this directory.** Adding
+such a vector is an erratum and needs no version bump, because an
+implementation that failed it was already not conforming — the prose said so
+before the vector existed. A vector testing anything else is a change to the
+standard and needs a version bump, whatever it does to the reference
+implementation.
 
 | Group | Checks |
 |---|---|

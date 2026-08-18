@@ -46,7 +46,7 @@ cargo test --workspace                              # 379 tests
 cargo test --workspace --features tcc-shell/window  # 380, three need a window
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
-tools/kiem-luat-phu-thuoc.sh                        # 21 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 22 architecture rules
 cargo run -p tcc-conformance                        # 153 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer

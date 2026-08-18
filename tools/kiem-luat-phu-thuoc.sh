@@ -429,6 +429,58 @@ else
 fi
 
 echo
+echo "--- Luật 23: yêu cầu của 0.1 không được dựa vào tài liệu ngoài 0.1 ---"
+# `spec/0.1/README.md` hứa rằng mọi thứ mang tính quy phạm đều nằm trong thư
+# mục 0.1, và các liên kết ra ngoài chỉ để tham khảo. Lời hứa ấy phải kiểm được,
+# vì nếu mất thì mất theo một cách không ai thấy: `VERSIONING.md` nằm ngoài mọi
+# thư mục có phiên bản nên KHÔNG bất biến — một yêu cầu của 0.1 tựa vào nó là
+# một yêu cầu sửa được mà không cần tăng phiên bản, đúng cái hỏng `VERSIONING.md`
+# §1 sinh ra để chặn.
+#
+# Kiểm theo ĐOẠN VĂN, không theo dòng: câu quy phạm và liên kết hiếm khi rơi
+# đúng một dòng, và kiểm theo dòng thì luật này chỉ bắt được trường hợp dễ nhất.
+#
+# Miễn trừ đúng MỘT chỗ: liên kết tới `conformance/`. Bộ vector là bộ máy của
+# tiêu chuẩn, không phải văn xuôi diễn giải nó — và `spec/0.1/README.md` nêu
+# ràng buộc giữ nó khỏi trôi: một vector chỉ được kiểm một yêu cầu đã nêu sẵn
+# trong 0.1. Chính luật này bắt ra chỗ ấy, và câu ràng buộc kia là câu trả lời.
+ngoai=$(python3 - <<'PY2'
+import re, pathlib
+
+MOC = re.compile(r"\*\*(MUST|MUST NOT|SHALL|PHẢI|KHÔNG ĐƯỢC)\*\*")
+RA_NGOAI = re.compile(r"\]\((\.\./[^)]*)\)")
+xau = []
+mien = []
+for p in sorted(pathlib.Path("spec/0.1").rglob("*.md")):
+    for i, doan in enumerate(p.read_text().split("\n\n")):
+        if not MOC.search(doan):
+            continue
+        for dich in RA_NGOAI.findall(doan):
+            if "conformance/" in dich:
+                mien.append(f"{p}:đoạn{i + 1}")
+                continue
+            xau.append(f"{p}:đoạn{i + 1}→{dich}")
+# Miễn trừ tự canh chính nó. Kiểm đột biến cho thấy: nới `conformance/` thành
+# "mọi liên kết" thì luật vẫn BÁO ĐẠT trong khi một vi phạm thật vừa lọt qua —
+# một miễn trừ rộng ra là một luật tắt dần mà không ai thấy.
+#
+# Canh bằng NGỮ NGHĨA chứ không bằng con số: chỗ duy nhất được viện tới bộ vector
+# là mục "Tuân thủ" của README. Đếm cứng thì thêm liên kết vào bản dịch — một
+# thay đổi tốt — cũng làm luật đỏ, mà một luật đỏ vì việc tốt là một luật người
+# ta học cách bỏ qua.
+for m in mien:
+    if not m.split(":")[0].endswith("README.md"):
+        xau.append(f"MIỄN-TRỪ-TRÔI({m})")
+print(" ".join(xau))
+PY2
+)
+if [ -n "$ngoai" ]; then
+  bao "đoạn văn vừa nêu yêu cầu vừa tựa vào tài liệu ngoài 0.1:$ngoai"
+else
+  dat "mọi yêu cầu của 0.1 đều tự đứng trong 0.1"
+fi
+
+echo
 echo "--- Luật 22: mã lỗi chỉ được GỌI TÊN ở nơi nó được ĐỊNH NGHĨA ---"
 # Luật 10 canh bảng mã lỗi: mã nào trong bảng cũng phải có trong mã nguồn. Nó
 # KHÔNG canh văn xuôi — và đó là chỗ tôi lọt.

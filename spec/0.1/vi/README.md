@@ -13,6 +13,29 @@ Người muốn **tự viết một bản cài đặt TCC** — dựng gói, ký
 bằng bất kỳ ngôn ngữ nào. Nếu đọc hết mà vẫn phải hỏi mới làm được gói hợp lệ
 thì tài liệu này chưa đạt; đó là phép thử duy nhất của nó.
 
+## Cái gì có tính quy phạm, và phiên bản này dựa vào đâu
+
+Mọi thứ một bản cài đặt phải thoả để tuân thủ 0.1 đều nằm **trong thư mục này**,
+kèm **PHẢI** của chính nó. Không gì ngoài thư mục này mang tính quy phạm.
+
+Điều đó là cố ý, và hệ quả của nó đáng nói thẳng. Bốn chỗ trong các tài liệu ở
+đây trỏ tới [`../VERSIONING.md`](../../VERSIONING.md) — để giải thích vì sao một
+danh sách chỉ nở ra khi tăng phiên bản, và thế nào là thay đổi phá vỡ. Những
+liên kết ấy mang tính **tham khảo**: chúng nói vì sao một luật lại như thế, hoặc
+bảo người biên tập đặc tả phải làm gì tiếp. Không liên kết nào gắn một yêu cầu
+vào phần văn bản được trỏ tới.
+
+Lý do phải nói ra: `VERSIONING.md` nằm **ngoài** mọi thư mục có phiên bản, nên
+khác thư mục này, nó không bất biến. Câu chữ của nó, và số mục của nó, đổi được
+sau khi 0.1 đóng băng, mà không để lại vết đính chính nào. Nếu những liên kết ấy
+mang tính quy phạm thì một yêu cầu của 0.1 có thể bị viết lại mà không cần tăng
+phiên bản — đúng cái hỏng mà `VERSIONING.md` §1 sinh ra để chặn. Chúng không
+mang tính quy phạm, nên chuyện đó không xảy ra được; người đọc lần theo một liên
+kết rồi thấy câu chữ khác đi thì mất một lời giải thích, không mất một luật.
+
+Một người cài đặt chưa từng mở những liên kết ấy vẫn dựng được gói hợp lệ. Ngày
+nào điều đó không còn đúng, luật ấy phải chuyển **vào** thư mục này.
+
 ## Từ dùng
 
 | Từ | Nghĩa |
@@ -51,7 +74,15 @@ Khoá công khai nằm ngay trong bản kê khai; gói **tự ký**. Bản cài 
 
 ## Tuân thủ
 
-Bản cài đặt tuân thủ **PHẢI** đạt 100% bộ vector ở `conformance/vectors/`:
+Bản cài đặt tuân thủ **PHẢI** đạt 100% bộ vector ở `conformance/vectors/`. Thư
+mục ấy nằm ngoài thư mục này, nên có đúng một ràng buộc giữ cho nó không xê dịch
+được ý nghĩa của 0.1: **một vector chỉ được kiểm một yêu cầu đã nêu sẵn trong
+thư mục này.** Thêm một vector như thế là đính chính, không cần tăng phiên bản,
+vì bản cài đặt trượt nó thì vốn đã không tuân thủ — văn bản đã nói điều đó trước
+khi có vector. Một vector kiểm thứ gì khác là một thay đổi của tiêu chuẩn và
+phải tăng phiên bản, bất kể nó cho kết quả gì trên bản cài đặt gốc.
+
+Các nhóm vector:
 
 | Nhóm | Kiểm gì |
 |---|---|
