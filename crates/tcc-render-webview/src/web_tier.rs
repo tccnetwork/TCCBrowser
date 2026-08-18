@@ -142,6 +142,33 @@ pub struct CorpusRow {
     pub guards: GuardCounts,
 }
 
+impl CorpusRow {
+    /// Trang có **im khi nạp** không: không đòi một quyền năng nào mà tầng 2 từ
+    /// chối, trong lúc **không ai bấm gì cả**.
+    ///
+    /// # Đây KHÔNG phải nhãn chất lượng, và càng không phải nhãn an toàn
+    ///
+    /// Kế hoạch mục 5.3 gọi nó là nhãn *"TCC Ready"*. Cái tên ấy hứa nhiều hơn
+    /// thứ đo được, nên không dùng — cùng lý do "đã xác minh nhà phát hành"
+    /// không bao giờ được hiện: một nhãn nghe như bảo chứng mà chỉ kiểm được
+    /// một việc hẹp thì người đọc tin vào phần nó không kiểm.
+    ///
+    /// Thứ hàm này biết: trong lượt nạp, **không có ai bấm gì**, nên mọi lần
+    /// chắn nổ đều là trang **tự đòi**, không phải người dùng yêu cầu. Đó là một
+    /// tính chất có thật và đo lại được.
+    ///
+    /// Thứ hàm này **không** biết: trang có *cần* quyền năng ấy để dùng được
+    /// hay không. Một trang mà quảng cáo cố mở cửa sổ vẫn đọc trọn vẹn nội
+    /// dung. Bộ đếm không tách được "cần" khỏi "có kẻ thử" — nên không có nhãn
+    /// đạt/trượt nào đi ra từ đây.
+    #[must_use]
+    pub const fn quiet_on_load(&self) -> bool {
+        self.guards.navigations_refused == 0
+            && self.guards.new_windows_refused == 0
+            && self.guards.downloads_refused == 0
+    }
+}
+
 /// Chạy một bộ trang thật và đếm xem **chắn của ta** nổ bao nhiêu lần trên mỗi
 /// trang.
 ///
@@ -663,6 +690,44 @@ mod kiem_thu {
                 .any(|l| l.contains("with_incognito(true)")),
             "`chan_lai` không bật chế độ không giữ gì — trang đang ghi ra đĩa"
         );
+    }
+
+    /// **"Im khi nạp" đòi cả BA chắn đều không nổ.**
+    ///
+    /// Kiểm đột biến: bỏ bất kỳ vế nào trong ba vế thì một trang đòi đúng quyền
+    /// năng ấy vẫn được tính là im — và con số công bố sẽ cao hơn sự thật.
+    #[test]
+    fn im_khi_nap_doi_ca_ba_chan() {
+        let hang = |g: GuardCounts| CorpusRow {
+            url: "https://a.example".to_owned(),
+            finished: true,
+            guards: g,
+        };
+        assert!(hang(GuardCounts::default()).quiet_on_load());
+        // Điều hướng ĐƯỢC PHÉP không làm mất "im": đó là lượt nạp bình thường.
+        assert!(
+            hang(GuardCounts {
+                navigations_allowed: 3,
+                ..GuardCounts::default()
+            })
+            .quiet_on_load()
+        );
+        for g in [
+            GuardCounts {
+                navigations_refused: 1,
+                ..GuardCounts::default()
+            },
+            GuardCounts {
+                new_windows_refused: 1,
+                ..GuardCounts::default()
+            },
+            GuardCounts {
+                downloads_refused: 1,
+                ..GuardCounts::default()
+            },
+        ] {
+            assert!(!hang(g).quiet_on_load(), "{g:?} vẫn bị tính là im");
+        }
     }
 
     /// **Gõ tên miền trơn thì vẫn mở được** — không bắt gõ `https://`.

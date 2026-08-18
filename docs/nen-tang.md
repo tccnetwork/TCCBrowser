@@ -236,3 +236,51 @@ Lượt đầu chạy hết 50 trang rồi **hoảng loạn ở nhịp cuối** 
 `ControlFlow::Exit` không phải thoát ngay, `tao` còn giao thêm vài sự kiện, và
 nhịp thừa ấy tra chỉ số đã vượt cuối danh sách. Không lượt chạy thật thì không
 thấy — cùng bài học với `TX_HEX`: **một mốc tự dựng thì không phải mốc.**
+
+
+## Mục 5.3 — vì sao KHÔNG có nhãn "TCC Ready"
+
+Kế hoạch viết *"nhãn TCC Ready cho trang đạt chuẩn"*. Nhãn ấy không xuất xưởng,
+và lý do là cùng một lý do trình duyệt này không bao giờ hiện "đã xác minh nhà
+phát hành".
+
+**Một nhãn nghe như bảo chứng mà chỉ kiểm được một việc hẹp thì người đọc tin
+vào phần nó không kiểm.** "TCC Ready" nghe như *"trang này an toàn và chạy
+đúng"*. Thứ ta đo được chỉ là: trong lượt nạp, các chắn của ta nổ mấy lần.
+
+Và bộ đếm **không tách được hai chuyện khác hẳn nhau**:
+
+| Trang | Bộ đếm thấy | Sự thật |
+|---|---|---|
+| Trang tin có quảng cáo tự bật cửa sổ | 20 lần từ chối | Nội dung đọc trọn vẹn, không mất gì |
+| Trang chỉ dùng được khi mở được cửa sổ mới | 1 lần từ chối | Hỏng thật |
+
+Gắn nhãn "trượt" cho trang đầu là **đổ lỗi cho trang vì quảng cáo của nó**, mà
+người đọc trang ấy không mất gì cả. Muốn tách hai cột đó phải có **người ngồi
+bấm**, không có con số nào thay được.
+
+### Thứ ĐO ĐƯỢC, gọi đúng tên nó
+
+Bộ trang chạy khi **không ai bấm gì**. Nên mọi lần chắn nổ đều là **trang tự
+đòi**, không phải người dùng yêu cầu. Tính chất ấy có thật và đo lại được, và
+tên đúng của nó là **"im khi nạp"** — không phải "đạt chuẩn".
+
+Lượt đo 18/08/2026, cùng bộ 50 trang: **26/50 im khi nạp.**
+
+Bảng dưới cột "im" in ra ngay cạnh câu nói rõ nó không phải nhãn chất lượng và
+không phải nhãn an toàn. Câu ấy nằm **cạnh con số**, không nằm trong tài liệu:
+ai đọc một con số trần cũng sẽ gán cho nó nghĩa rộng hơn nghĩa nó có.
+
+### Hai lượt chạy, hai con số — và đó là dữ liệu, không phải lỗi
+
+| | Lượt 1 (21:57) | Lượt 2 (22:2x) |
+|---|---|---|
+| Nạp xong trong 5 giây | 40 | 34 |
+| Cửa sổ mới bị từ chối | 148 | 67 |
+
+Chênh **hơn gấp đôi** ở cùng một bộ trang, cùng một máy, cách nhau vài chục
+phút. Vì trang tin thay quảng cáo mỗi lượt tải, và mạng mỗi lúc một khác.
+
+Ghi ra chứ không chọn con số đẹp hơn: **một phép đo dao động gấp đôi giữa hai
+lượt là phép đo không được phép công bố dưới dạng một con số.** Nó dùng để so
+xu hướng qua nhiều lượt, không dùng để tuyên bố "trình duyệt chặn 148 cửa sổ".

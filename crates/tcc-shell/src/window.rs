@@ -415,7 +415,7 @@ pub fn run_corpus(
         "{:<52} {:>5} {:>5} {:>5} {:>5}",
         "trang", "xong", "đi", "chặn", "cửa+tải"
     );
-    let (mut xong, mut chan, mut cua, mut tai) = (0u64, 0u64, 0u64, 0u64);
+    let (mut xong, mut chan, mut cua, mut tai, mut im) = (0u64, 0u64, 0u64, 0u64, 0u64);
     for h in &hang {
         let g = h.guards;
         println!(
@@ -427,13 +427,20 @@ pub fn run_corpus(
             g.new_windows_refused + g.downloads_refused
         );
         xong += u64::from(h.finished);
+        im += u64::from(h.quiet_on_load());
         chan += g.navigations_refused;
         cua += g.new_windows_refused;
         tai += g.downloads_refused;
     }
     println!(
-        "\n{} trang · nạp xong {xong} · điều hướng bị chặn {chan} · cửa sổ mới bị từ chối {cua} · tải tệp bị từ chối {tai}",
+        "\n{} trang · nạp xong {xong} · im khi nạp {im} · điều hướng bị chặn {chan} · cửa sổ mới bị từ chối {cua} · tải tệp bị từ chối {tai}",
         hang.len()
+    );
+    // ⚠️ "im khi nạp" KHÔNG phải nhãn đạt/trượt. Nói ra ngay dưới con số, chứ
+    // không để trong tài liệu: người đọc một con số trần sẽ tự gán cho nó nghĩa
+    // rộng hơn nghĩa nó có. Xem `CorpusRow::quiet_on_load`.
+    println!(
+        "  (\"im khi nạp\" = không tự đòi quyền năng nào khi KHÔNG ai bấm gì. Không phải nhãn chất lượng, không phải nhãn an toàn.)"
     );
     // Số trang CHƯA chạy cũng phải nói ra: người đọc một bảng thiếu dòng mà
     // không được báo sẽ tưởng mình đang nhìn toàn bộ.
