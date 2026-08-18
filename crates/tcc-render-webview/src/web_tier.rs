@@ -26,6 +26,7 @@
 //! bị từ chối, vì trang tải qua đường trần thì bất kỳ ai trên đường cũng sửa
 //! được nội dung, mà ta lại đang đặt nó trong một cửa sổ mang tên TCC.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -129,6 +130,134 @@ pub fn open_page(url: &str, tieu_de: &str) -> Result<(), String> {
             *dieu_khien = ControlFlow::Exit;
         }
     });
+}
+
+/// Kết quả của một trang trong bộ 50 trang.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CorpusRow {
+    pub url: String,
+    /// Máy dựng có báo nạp **xong** không. Không phải "trang hiện đúng" — ta
+    /// không hỏi được trang, và cố ý không hỏi.
+    pub finished: bool,
+    pub guards: GuardCounts,
+}
+
+/// Chạy một bộ trang thật và đếm xem **chắn của ta** nổ bao nhiêu lần trên mỗi
+/// trang.
+///
+/// # Nó đo cái gì, và cố ý KHÔNG đo cái gì
+///
+/// Tầng 2 dùng máy dựng của hệ điều hành. So ảnh chụp từng điểm ảnh ở đây là đo
+/// WebKit của Apple, không đo mã của ta — và nó sẽ đỏ mỗi lần macOS cập nhật,
+/// vì một lý do ta không sửa được và cũng không nên sửa.
+///
+/// Thứ **là của ta** ở tầng 2 là chính sách: chỉ `https`, từ chối cửa sổ mới,
+/// từ chối tải tệp, không giữ gì trên đĩa. Nên bộ trang này đo **giá của chính
+/// sách ấy trên trang thật**: bao nhiêu trang cần một cửa sổ mới, bao nhiêu
+/// trang cố nhảy sang một lược đồ ta chặn. Con số đó quyết định được; "trang
+/// trông hơi khác" thì không.
+///
+/// ⚠️ Không hỏi trang bất cứ điều gì. WebView của trang **không có IPC và không
+/// có kịch bản** — đó là chắn lớn nhất của tầng 2, và đo đạc không phải lý do
+/// đủ để gỡ nó. Nên "nạp xong" ở đây là lời của máy dựng, không phải lời của
+/// trang.
+///
+/// # Errors
+/// Danh sách rỗng, địa chỉ đầu không hợp lệ, hoặc không dựng được cửa sổ.
+pub fn run_corpus(danh_sach: &[String], giay_moi_trang: u64) -> Result<Vec<CorpusRow>, String> {
+    use tao::event::{Event, WindowEvent};
+    use tao::event_loop::ControlFlow;
+
+    let Some(dau) = danh_sach.first() else {
+        return Err("danh sách trang rỗng".to_owned());
+    };
+    check_web_url(dau).map_err(|e| e.to_string())?;
+
+    let mut vong = EventLoopBuilder::new().build();
+    let window = WindowBuilder::new()
+        .with_title("TCC — bộ trang thật")
+        .with_inner_size(LogicalSize::new(1100.0, 800.0))
+        .build(&vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+
+    // Máy dựng báo nạp xong qua đây. Đây là QUAN SÁT, không phải quyền năng:
+    // không có gì được tiêm vào trang, và trang không nói được gì với ta.
+    let xong: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    let xong_moc = Arc::clone(&xong);
+
+    // ▼▼▼ TRANG-BAT-DAU ▼▼▼
+    let trang = chan_lai(WebViewBuilder::new().with_url(dau))
+        .with_on_page_load_handler(move |su_kien, _url| {
+            if matches!(su_kien, wry::PageLoadEvent::Finished)
+                && let Ok(mut c) = xong_moc.lock()
+            {
+                *c = true;
+            }
+        })
+        .build(&window)
+        .map_err(|e| format!("không dựng được WebView trang: {e}"))?;
+    // ▲▲▲ TRANG-KET-THUC ▲▲▲
+
+    let cho = Duration::from_secs(giay_moi_trang);
+    let ket_qua: Arc<Mutex<Vec<CorpusRow>>> = Arc::new(Mutex::new(Vec::new()));
+    let ket_qua_vong = Arc::clone(&ket_qua);
+    let mut chi_so = 0usize;
+    let mut moc = Instant::now();
+    let mut truoc = guard_counts();
+
+    vong.run_return(move |su_kien, _, dieu_khien| {
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(100));
+        if matches!(
+            su_kien,
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            }
+        ) {
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        }
+        // ⚠️ Xin thoát KHÔNG phải là thoát ngay: `tao` còn giao thêm vài sự kiện
+        // sau khi ta đặt `Exit`, và nhịp thừa ấy chạy lại đúng khối bên dưới.
+        // Bản đầu tra thẳng `danh_sach[chi_so]` nên nhịp thừa sau trang cuối
+        // làm nổ chỉ số — chạy hết 50 trang rồi mất sạch kết quả ở bước cuối.
+        let Some(dang_chay) = danh_sach.get(chi_so) else {
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        };
+        if moc.elapsed() < cho {
+            return;
+        }
+
+        let da_xong = xong.lock().is_ok_and(|c| *c);
+        let gio = guard_counts();
+        if let Ok(mut r) = ket_qua_vong.lock() {
+            r.push(CorpusRow {
+                url: dang_chay.clone(),
+                finished: da_xong,
+                guards: gio.since(truoc),
+            });
+        }
+        truoc = gio;
+
+        chi_so += 1;
+        let Some(ke) = danh_sach.get(chi_so) else {
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        };
+        if let Ok(mut c) = xong.lock() {
+            *c = false;
+        }
+        let _ = trang.load_url(ke);
+        moc = Instant::now();
+    });
+
+    // `Arc` còn đúng một chủ ở đây: vòng lặp đã trả về nên bản sao trong closure
+    // đã rơi. `try_unwrap` hỏng thì trả bản chép — thà chậm hơn là hoảng loạn.
+    Ok(Arc::try_unwrap(ket_qua).map_or_else(
+        |a| a.lock().map(|r| r.clone()).unwrap_or_default(),
+        |m| m.into_inner().unwrap_or_default(),
+    ))
 }
 
 /// Mở cửa sổ có **thanh địa chỉ** ở trên và **trang web** bên dưới.
@@ -266,27 +395,93 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
 /// | Bảng nháp | Trang đọc trộm thứ người dùng vừa sao chép — thường là mật khẩu |
 /// | Tự phát | Âm thanh nổ ra từ một cửa sổ người dùng chưa nhìn tới |
 fn chan_lai(b: WebViewBuilder<'_>) -> WebViewBuilder<'_> {
-    b.with_navigation_handler(|url| allow_navigation(&url))
-        .with_new_window_req_handler(|url| allow_new_window(&url))
-        .with_download_started_handler(|url, _duong_dan| allow_download(&url))
-        // ⚠️ KHÔNG giữ gì trên đĩa. Cả ba máy đều hiểu cờ này:
-        // `WKWebsiteDataStore::nonPersistentDataStore` trên macOS,
-        // `SetIsInPrivateModeEnabled` trên WebView2, kho tạm trên WebKitGTK.
-        //
-        // Vì sao chọn "không giữ gì" chứ không phải "giữ rồi cho xoá": chưa có
-        // màn hình hồ sơ, chưa có chỗ xem cookie, và `wry` chỉ cho
-        // `clear_all_browsing_data` — xoá sạch tất cả, không xoá theo tên miền.
-        // Một trình duyệt âm thầm dồn cookie ra đĩa mà người dùng không xem
-        // được và không xoá riêng được thì tệ hơn một trình duyệt không giữ gì.
-        // Đổi lại được, ngày nào có phân vùng theo nguồn gốc thật.
-        .with_incognito(true)
-        // Mặc định của `wry` đã là `false`, nhưng viết ra: một trang đọc được
-        // bảng nháp là một trang đọc được thứ người dùng vừa sao chép, mà thứ
-        // ấy rất hay là mật khẩu.
-        .with_clipboard(false)
-        // Mặc định của `wry` là `true`. Tắt: tiếng nổ ra từ một cửa sổ người
-        // dùng chưa kịp nhìn là chuyện của quảng cáo, không phải của trình duyệt.
-        .with_autoplay(false)
+    // Đếm nằm trong CLOSURE, không nằm trong hàm quyết định. Hàm quyết định vẫn
+    // thuần và vẫn `const` — đếm là hệ quả phụ, không được là thứ đổi được câu
+    // trả lời. Đây cũng là lý do mỗi nhánh chỉ đếm khi nó THẬT SỰ từ chối: một
+    // bộ đếm tên là "đã chặn" mà tăng cả khi cho qua là một con số nói dối.
+    b.with_navigation_handler(|url| {
+        let cho = allow_navigation(&url);
+        if cho {
+            &CHO_DIEU_HUONG
+        } else {
+            &CHAN_DIEU_HUONG
+        }
+        .fetch_add(1, Ordering::Relaxed);
+        cho
+    })
+    .with_new_window_req_handler(|url| {
+        let cho = allow_new_window(&url);
+        if !cho {
+            CHAN_CUA_SO_MOI.fetch_add(1, Ordering::Relaxed);
+        }
+        cho
+    })
+    .with_download_started_handler(|url, _duong_dan| {
+        let cho = allow_download(&url);
+        if !cho {
+            CHAN_TAI_TEP.fetch_add(1, Ordering::Relaxed);
+        }
+        cho
+    })
+    // ⚠️ KHÔNG giữ gì trên đĩa. Cả ba máy đều hiểu cờ này:
+    // `WKWebsiteDataStore::nonPersistentDataStore` trên macOS,
+    // `SetIsInPrivateModeEnabled` trên WebView2, kho tạm trên WebKitGTK.
+    //
+    // Vì sao chọn "không giữ gì" chứ không phải "giữ rồi cho xoá": chưa có
+    // màn hình hồ sơ, chưa có chỗ xem cookie, và `wry` chỉ cho
+    // `clear_all_browsing_data` — xoá sạch tất cả, không xoá theo tên miền.
+    // Một trình duyệt âm thầm dồn cookie ra đĩa mà người dùng không xem
+    // được và không xoá riêng được thì tệ hơn một trình duyệt không giữ gì.
+    // Đổi lại được, ngày nào có phân vùng theo nguồn gốc thật.
+    .with_incognito(true)
+    // Mặc định của `wry` đã là `false`, nhưng viết ra: một trang đọc được
+    // bảng nháp là một trang đọc được thứ người dùng vừa sao chép, mà thứ
+    // ấy rất hay là mật khẩu.
+    .with_clipboard(false)
+    // Mặc định của `wry` là `true`. Tắt: tiếng nổ ra từ một cửa sổ người
+    // dùng chưa kịp nhìn là chuyện của quảng cáo, không phải của trình duyệt.
+    .with_autoplay(false)
+}
+
+static CHO_DIEU_HUONG: AtomicU64 = AtomicU64::new(0);
+static CHAN_DIEU_HUONG: AtomicU64 = AtomicU64::new(0);
+static CHAN_CUA_SO_MOI: AtomicU64 = AtomicU64::new(0);
+static CHAN_TAI_TEP: AtomicU64 = AtomicU64::new(0);
+
+/// Số lần từng chắn đã nổ, tính từ khi tiến trình bắt đầu.
+///
+/// Đây là thứ đo được **cái của ta**. Xem `docs/nen-tang.md` về việc vì sao bộ
+/// 50 trang không so ảnh chụp từng điểm ảnh.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct GuardCounts {
+    pub navigations_allowed: u64,
+    pub navigations_refused: u64,
+    pub new_windows_refused: u64,
+    pub downloads_refused: u64,
+}
+
+impl GuardCounts {
+    /// Chênh lệch giữa hai lần đọc — số lần nổ trong khoảng giữa.
+    #[must_use]
+    pub const fn since(self, truoc: Self) -> Self {
+        Self {
+            navigations_allowed: self.navigations_allowed - truoc.navigations_allowed,
+            navigations_refused: self.navigations_refused - truoc.navigations_refused,
+            new_windows_refused: self.new_windows_refused - truoc.new_windows_refused,
+            downloads_refused: self.downloads_refused - truoc.downloads_refused,
+        }
+    }
+}
+
+/// Đọc bộ đếm chắn.
+#[must_use]
+pub fn guard_counts() -> GuardCounts {
+    GuardCounts {
+        navigations_allowed: CHO_DIEU_HUONG.load(Ordering::Relaxed),
+        navigations_refused: CHAN_DIEU_HUONG.load(Ordering::Relaxed),
+        new_windows_refused: CHAN_CUA_SO_MOI.load(Ordering::Relaxed),
+        downloads_refused: CHAN_TAI_TEP.load(Ordering::Relaxed),
+    }
 }
 
 /// Cho phép điều hướng tới đâu.

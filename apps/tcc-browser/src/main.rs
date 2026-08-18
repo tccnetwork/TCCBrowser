@@ -27,6 +27,11 @@ fn main() -> ExitCode {
         return lenh_web(&doi, ngon_ngu);
     }
 
+    // `corpus <tệp>` — chạy bộ trang thật, đếm chắn. Xem `corpus/50-trang.txt`.
+    if doi.first().map(String::as_str) == Some("corpus") {
+        return lenh_corpus(&doi);
+    }
+
     // `vi nhap <tệp>` — nhập ví từ bản kết xuất của ví web, NGAY TRONG cửa sổ.
     if doi.first().map(String::as_str) == Some("vi") {
         return lenh_vi(&doi, ngon_ngu);
@@ -182,6 +187,26 @@ fn lenh_web(doi: &[String], ngon_ngu: Language) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `corpus <tệp> [giây]` — chạy bộ trang thật.
+#[cfg(feature = "window")]
+fn lenh_corpus(doi: &[String]) -> ExitCode {
+    let tep = doi.get(1).map_or("corpus/50-trang.txt", String::as_str);
+    let giay = doi.get(2).and_then(|g| g.parse().ok()).unwrap_or(6);
+    match tcc_shell::window::run_corpus(std::path::Path::new(tep), giay) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("✗ {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(feature = "window"))]
+fn lenh_corpus(_doi: &[String]) -> ExitCode {
+    eprintln!("✗ bộ trang thật cần bản dựng có cửa sổ: --features window");
+    ExitCode::FAILURE
 }
 
 #[cfg(not(feature = "window"))]

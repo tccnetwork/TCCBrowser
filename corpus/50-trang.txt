@@ -1,0 +1,72 @@
+# Bộ 50 trang thật — kế hoạch mục 5.2.
+#
+# Đây KHÔNG phải bộ so ảnh chụp. Tầng 2 dùng máy dựng của hệ điều hành, nên so
+# từng điểm ảnh là đo WebKit của Apple chứ không đo mã của ta — và nó sẽ đỏ mỗi
+# lần macOS cập nhật, vì một lý do ta không sửa được.
+#
+# Thứ đo được ở đây là GIÁ CỦA CHÍNH SÁCH TA ĐẶT trên trang thật: bao nhiêu
+# trang cố mở cửa sổ mới (ta từ chối), bao nhiêu trang cố nhảy sang lược đồ ta
+# chặn, bao nhiêu trang cố tải tệp. Những con số đó quyết định được.
+#
+# Chọn trang theo bốn nhóm, để con số không chỉ nói về một kiểu web:
+#   tin tức · bách khoa và tài liệu · dịch vụ và công cụ · Việt Nam
+#
+# Dòng bắt đầu bằng `#` là chú thích. Mọi địa chỉ phải là `https://`.
+
+# ── Tin tức ──
+https://vnexpress.net
+https://tuoitre.vn
+https://thanhnien.vn
+https://vietnamnet.vn
+https://dantri.com.vn
+https://www.bbc.com/news
+https://www.reuters.com
+https://apnews.com
+https://www.theguardian.com/international
+https://www.aljazeera.com
+https://news.ycombinator.com
+https://lobste.rs
+
+# ── Bách khoa và tài liệu ──
+https://vi.wikipedia.org/wiki/Trang_Ch%C3%ADnh
+https://en.wikipedia.org/wiki/Web_browser
+https://developer.mozilla.org/en-US/docs/Web
+https://doc.rust-lang.org/book/
+https://docs.rs
+https://www.rfc-editor.org/rfc/rfc9110.html
+https://datatracker.ietf.org
+https://www.w3.org/TR/
+https://csrc.nist.gov/pubs/fips/204/final
+https://arxiv.org
+https://www.gutenberg.org
+https://stackoverflow.com/questions
+
+# ── Dịch vụ và công cụ ──
+https://github.com
+https://gitlab.com/explore
+https://crates.io
+https://www.npmjs.com
+https://pypi.org
+https://web.dev
+https://caniuse.com
+https://httpbin.org
+https://example.com
+https://www.wikipedia.org
+https://openstreetmap.org
+https://archive.org
+https://duckduckgo.com
+https://startpage.com
+
+# ── Việt Nam: nhà nước, ngân hàng, thương mại ──
+https://chinhphu.vn
+https://mic.gov.vn
+https://www.sbv.gov.vn
+https://vietcombank.com.vn
+https://www.techcombank.com.vn
+https://shopee.vn
+https://tiki.vn
+https://www.thegioididong.com
+https://vnpt.com.vn
+https://viettel.vn
+https://vnu.edu.vn
+https://hust.edu.vn

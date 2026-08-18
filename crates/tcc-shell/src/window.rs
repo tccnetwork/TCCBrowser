@@ -390,6 +390,63 @@ pub fn open_web(url: &str, ngon_ngu: Language) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+/// Đọc bộ trang từ tệp, chạy qua từng trang, in bảng đếm chắn.
+///
+/// # Errors
+/// Không đọc được tệp, tệp không có địa chỉ nào, hoặc không dựng được cửa sổ.
+pub fn run_corpus(
+    tep: &std::path::Path,
+    giay_moi_trang: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let van = std::fs::read_to_string(tep)?;
+    let danh_sach: Vec<String> = van
+        .lines()
+        .map(str::trim)
+        .filter(|d| !d.is_empty() && !d.starts_with('#'))
+        .map(ToOwned::to_owned)
+        .collect();
+    if danh_sach.is_empty() {
+        return Err(format!("{} không có địa chỉ nào", tep.display()).into());
+    }
+
+    let hang = tcc_render_webview::web_tier::run_corpus(&danh_sach, giay_moi_trang)?;
+
+    println!(
+        "{:<52} {:>5} {:>5} {:>5} {:>5}",
+        "trang", "xong", "đi", "chặn", "cửa+tải"
+    );
+    let (mut xong, mut chan, mut cua, mut tai) = (0u64, 0u64, 0u64, 0u64);
+    for h in &hang {
+        let g = h.guards;
+        println!(
+            "{:<52} {:>5} {:>5} {:>5} {:>5}",
+            &h.url[..h.url.len().min(52)],
+            if h.finished { "✓" } else { "—" },
+            g.navigations_allowed,
+            g.navigations_refused,
+            g.new_windows_refused + g.downloads_refused
+        );
+        xong += u64::from(h.finished);
+        chan += g.navigations_refused;
+        cua += g.new_windows_refused;
+        tai += g.downloads_refused;
+    }
+    println!(
+        "\n{} trang · nạp xong {xong} · điều hướng bị chặn {chan} · cửa sổ mới bị từ chối {cua} · tải tệp bị từ chối {tai}",
+        hang.len()
+    );
+    // Số trang CHƯA chạy cũng phải nói ra: người đọc một bảng thiếu dòng mà
+    // không được báo sẽ tưởng mình đang nhìn toàn bộ.
+    if hang.len() < danh_sach.len() {
+        println!(
+            "⚠ dừng sớm: {}/{} trang — cửa sổ bị đóng trước khi chạy hết",
+            hang.len(),
+            danh_sach.len()
+        );
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,

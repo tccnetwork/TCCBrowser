@@ -156,3 +156,83 @@ từ chối. **Luật 20** canh điều đó. Xem `SECURITY.md` §3.
   miền — và chưa có màn hình hồ sơ nào để người dùng nhìn thấy thứ đang được
   giữ. Thanh địa chỉ **nói thẳng câu đó ra**, không để người dùng tự phát hiện.
 - **Cảnh báo chứng chỉ TLS**: không có móc.
+
+
+## Bộ 50 trang thật — kết quả đo 18/08/2026
+
+Kế hoạch mục 5.2 viết *"bộ 50 trang thật, so ảnh chụp hằng tuần"*. Phần **so ảnh
+chụp** không làm, và đây là lý do.
+
+Tầng 2 dùng máy dựng của hệ điều hành. So từng điểm ảnh ở đây là **đo WebKit của
+Apple**, không đo mã của ta — nó sẽ đỏ mỗi lần macOS cập nhật, vì một nguyên nhân
+ta không sửa được và cũng không nên sửa. Một phép đo đỏ vì lý do ngoài tầm là
+một phép đo người ta học cách bỏ qua.
+
+Thứ **là của ta** ở tầng 2 là chính sách: chỉ `https`, từ chối cửa sổ mới, từ
+chối tải tệp, không giữ gì trên đĩa. Nên bộ trang này đo **giá của chính sách ấy
+trên trang thật**.
+
+Chạy: `tcc-browser corpus corpus/50-trang.txt 5` — một máy, một lần, macOS 15.6,
+21:57–22:02 ngày 18/08/2026. Không có ai bấm gì trong suốt lượt chạy.
+
+| Đo | Số |
+|---|---|
+| Trang | 50 |
+| Nạp xong trong 5 giây | 40 |
+| Nạp xong khi cho 15 giây | **45** |
+| **Điều hướng bị chặn** | **0** |
+| **Cửa sổ mới bị từ chối** | **148** |
+| **Tải tệp bị từ chối** | **0** |
+
+### Chỉ `https` không tốn gì cả
+
+**Không một trang nào** trong 50 trang bị chắn điều hướng nổ. Luật chặt nhất của
+tầng 2 — chặt hơn tầng 3 một bậc — không cản trở gì trên tập này.
+
+### 148 lần từ chối cửa sổ mới, và chúng dồn vào đâu
+
+Trung bình gần **ba lần mỗi trang**, mà **không ai bấm gì cả** — nên đó là trang
+tự gọi, không phải người dùng mở liên kết.
+
+Phân bố mới là điều đáng đọc:
+
+| Nhóm | Từ chối |
+|---|---|
+| Tài liệu và công cụ (MDN, Rust Book, docs.rs, RFC, arXiv, GitHub, crates.io, PyPI…) | **0** |
+| Tin tức và thương mại | 24 (Al Jazeera) · 20 (VnExpress) · 15 (Dân Trí) · 14 (Shopee) · 13 (AP) |
+
+Một chính sách nổ ba lần mỗi trang thường là chính sách sai. Nhưng ở đây nó nổ
+**đúng không lần nào** trên mọi trang tài liệu, và dồn hết vào trang nhiều quảng
+cáo. Đó là lập luận **ủng hộ** luật, không phải chống.
+
+Phải nói rõ giới hạn: bộ đếm biết một cửa sổ **bị từ chối**, không biết người
+dùng có **mất gì** không. Muốn biết điều đó phải có người ngồi bấm.
+
+### 5 trang không bao giờ báo "nạp xong"
+
+BBC News, AP News, `mic.gov.vn`, `sbv.gov.vn`, `vnpt.com.vn` — kể cả với 15 giây.
+
+**Không kết luận là hỏng.** "Nạp xong" là sự kiện của WebKit; một trang còn một
+tài nguyên treo (quảng cáo, đo đạc, kết nối chờ dài) có thể không bao giờ phát
+sự kiện ấy trong khi vẫn đọc được bình thường. Ta **không hỏi trang** được —
+WebView của trang không có IPC và không có kịch bản, và đo đạc không phải lý do
+đủ để gỡ chắn lớn nhất của tầng 2.
+
+### Một trang đã liệt kê thiết bị thu hình
+
+Trong lượt chạy, macOS ghi một cảnh báo về `AVCaptureDeviceTypeExternal`. Nghĩa
+là **danh sách thiết bị thu hình đã bị liệt kê** — nhiều khả năng qua
+`enumerateDevices()`.
+
+Liệt kê **không phải** là bật camera, và không có đèn camera nào sáng. Nhưng nó
+là bằng chứng thật, không phải giả định, rằng trang chạm tới được vùng ấy —
+đúng vùng `wry` viết cứng `WKPermissionDecision::Grant`. Chắn duy nhất vẫn là
+**luật 20**: gói không khai `NS*UsageDescription` thì macOS không có gì để cấp.
+Xem `SECURITY.md` §3.
+
+### Lượt chạy thật bắt được một lỗi
+
+Lượt đầu chạy hết 50 trang rồi **hoảng loạn ở nhịp cuối** và mất sạch kết quả:
+`ControlFlow::Exit` không phải thoát ngay, `tao` còn giao thêm vài sự kiện, và
+nhịp thừa ấy tra chỉ số đã vượt cuối danh sách. Không lượt chạy thật thì không
+thấy — cùng bài học với `TX_HEX`: **một mốc tự dựng thì không phải mốc.**

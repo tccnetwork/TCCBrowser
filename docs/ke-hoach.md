@@ -173,7 +173,7 @@ thật.
 | # | Việc |
 |---|---|
 | 5.1 | **TCC Modern Baseline** — 🔶 phép ĐO đã có và chạy trong CI trên cả ba nền (18/08/2026), [`../docs/nen-tang.md`](../docs/nen-tang.md). Bảng công bố chờ đủ số đo của ba bộ máy |
-| 5.2 | Bộ 50 trang thật, so ảnh chụp hằng tuần |
+| 5.2 | Bộ 50 trang thật — ✅ **xong** (18/08/2026), `corpus/50-trang.txt`, kết quả ở `docs/nen-tang.md`. **Không so ảnh chụp**: tầng 2 dùng máy dựng của hệ điều hành nên so điểm ảnh là đo WebKit của Apple, không đo mã của ta. Đo giá của chính sách ta đặt, thay vào đó |
 | 5.3 | Nhãn "TCC Ready" cho trang đạt chuẩn |
 | 5.4 | Tầng 3: nút mở bằng trình duyệt hệ thống — ✅ **xong** (17/08/2026), `crates/tcc-shell/src/external_link.rs` |
 
