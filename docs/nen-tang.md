@@ -70,6 +70,17 @@ Ba mục cuối (`localStorage`, `Notification`, `navigator.geolocation`) **khô
 phải thứ ta muốn có**. Chúng nằm trong bảng để biết **phải tắt cái gì** — một
 tính năng có mặt mà ta quên tắt là một tính năng người dùng bị lộ.
 
+## Đo được ở đâu, và chưa đo được ở đâu
+
+| Nền | Bộ máy | Tình trạng |
+|---|---|---|
+| macOS | WKWebView | ✅ đo được, **18/20** |
+| Linux | WebKitGTK | ⚠️ chạy dưới màn hình ảo **không ổn định** — `the underlying handle is not available`. Cùng lý do các bước đối kháng trên Linux phải để `continue-on-error` |
+| Windows | WebView2 | ⏳ vừa bật, chờ số đo đầu tiên |
+
+**Chưa công bố bảng nền tảng nào**, vì phần giao cần đủ ba số đo. Công bố khi
+mới có một là công bố một bảng của macOS và gọi nó là nền tảng.
+
 ## Chưa đo
 
 - **Hiệu năng.** Máy phát triển là Intel Mac, Iris Plus 645 — kế hoạch đã dặn

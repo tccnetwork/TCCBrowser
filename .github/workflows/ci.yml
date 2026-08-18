@@ -227,12 +227,6 @@ jobs:
       - run: cargo check -p tcc-render-webview --features window --all-targets
       - run: cargo check -p tcc-shell --features window --all-targets
 
-      # Measure the web engine rather than describing it. The published
-      # baseline is the INTERSECTION of three engines, so it has to be measured
-      # on each — see docs/nen-tang.md.
-      - name: Measure the web platform (WebKitGTK)
-        continue-on-error: true
-        run: xvfb-run -a cargo run -p tcc-shell --features window --example do-nen-tang
 
       # The adversarial examples on a SECOND platform. They are the checks that
       # drive a real WebKit view and ask it what it sees, so running them on one
@@ -252,6 +246,17 @@ jobs:
       # quirk. When they fail here, macOS is still enforcing them strictly.
       - name: Virtual display
         run: sudo apt-get install -y xvfb
+
+      # Measure the web engine rather than describing it. The published baseline
+      # is the INTERSECTION of three engines, so it must be measured on each —
+      # see docs/nen-tang.md.
+      #
+      # continue-on-error like the other xvfb steps: WebKitGTK under a virtual
+      # display does not reliably get a window handle, and that is a property of
+      # the runner rather than of this code.
+      - name: Measure the web platform (WebKitGTK)
+        continue-on-error: true
+        run: xvfb-run -a cargo run -p tcc-shell --features window --example do-nen-tang
       - name: App text cannot escape the document (Linux)
         continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
@@ -278,3 +283,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo check -p tcc-render-webview --features window --all-targets
       - run: cargo check -p tcc-shell --features window --all-targets
+      # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
+      # đủ ba — xem docs/nen-tang.md.
+      - name: Measure the web platform (WebView2)
+        continue-on-error: true
+        run: cargo run -p tcc-shell --features window --example do-nen-tang
