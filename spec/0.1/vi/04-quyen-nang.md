@@ -77,6 +77,27 @@ lệnh) thì phải kiểm theo **cú pháp đích**, không phải theo "có k�
 Bản cài đặt **PHẢI** làm nó nổi bật hơn hẳn mọi quyền khác, và **PHẢI** nói rõ
 bằng tiếng người rằng nó chuyển tiền — không phải một chữ "ví" chung chung.
 
+## Trường của phạm vi, nói cho hết
+
+Mọi trường dưới đây đều **PHẢI CÓ**. Không có trường phạm vi tuỳ chọn: thiếu
+một trường là `bad-json`, không phải một giá trị mặc định. Mặc định ở đây nghĩa
+là hộp thoại hiện một đằng còn lúc chạy cưỡng chế một nẻo.
+
+| Quyền | Trường | Kiểu | Luật |
+|---|---|---|---|
+| `network` | `hosts` | mảng chuỗi | Ít nhất một. Mỗi phần tử là tên máy chủ — không lược đồ, không cổng, không đường dẫn |
+| `storage` | `quota_bytes` | số nguyên | `0 ≤ n ≤ 2^53−1`. `0` hợp lệ, nghĩa là "xin chỗ lưu nhưng không ghi gì" |
+| `wallet` | `may_request_signature` | luận lý | `false` hợp lệ, nghĩa là "chỉ đọc địa chỉ" |
+
+Trần `2^53−1` chứ không `2^64−1` vì số JSON ở phần lớn bộ đọc là số thực chính
+xác kép: một giá trị không đi qua bộ đọc mà về nguyên vẹn là một giá trị hai
+bản cài đặt hiểu khác nhau.
+
+`quota_bytes` âm hoặc có phần thập phân → `bad-json`.
+
+⚠️ Tới 18/08/2026 hai trường này chỉ có trong ví dụ — không kiểu, không biên,
+không nói có bắt buộc hay không.
+
 ## Luật khớp tên máy chủ
 
 Khi ứng dụng gọi một máy chủ, bản cài đặt **PHẢI** khớp **CHÍNH XÁC**.

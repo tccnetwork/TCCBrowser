@@ -80,6 +80,27 @@ An implementation **MUST** make it visually distinct from every other capability
 and **MUST** say in plain language that it moves money — not a generic word like
 "wallet".
 
+## Scope fields, exactly
+
+Every field below is **MUST**. There are no optional scope fields: a missing
+one is `bad-json`, not a default. A default here would mean the dialog shows
+one thing and the runtime enforces another.
+
+| Capability | Field | Type | Rule |
+|---|---|---|---|
+| `network` | `hosts` | array of string | At least one. Each is a host name, no scheme, no port, no path |
+| `storage` | `quota_bytes` | integer | `0 ≤ n ≤ 2^53−1`. `0` is legal and means "asks for storage but writes nothing" |
+| `wallet` | `may_request_signature` | boolean | `false` is legal and means "read the address only" |
+
+The upper bound on `quota_bytes` is 2^53−1 rather than 2^64−1 because JSON
+numbers are doubles in most readers, and a value that cannot survive a
+round-trip through the reader is a value two implementations disagree about.
+
+A negative or fractional `quota_bytes` **MUST** be rejected with `bad-json`.
+
+⚠️ Until 2026-08-18 these two fields appeared only in examples, with no type,
+no bounds, and no statement of whether they were required.
+
 ## Host matching rules
 
 When an app calls a host, an implementation **MUST** match **exactly**.

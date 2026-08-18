@@ -145,6 +145,26 @@ này đã sai đúng như thế cho tới 18/08/2026.
 Vân tay vẫn **không nói gì về người ký là ai** — xem [02](02-ban-ke-khai.md).
 Nó chỉ giúp người dùng nhận ra khoá đã đổi.
 
+### "Ký tự" và "dấu" nghĩa là gì
+
+Hai chữ này chịu lực, và hai bản cài đặt đếm khác nhau thì nhận những gói khác
+nhau.
+
+- **Ký tự** là một **giá trị vô hướng Unicode** (mã điểm). Không phải byte,
+  không phải đơn vị UTF-16, không phải cụm chữ cái.
+- **Dấu** là một giá trị vô hướng có hạng Unicode `Mn`, `Mc` hoặc `Me`.
+- Trần **8 dấu** áp cho dấu **LIÊN TIẾP**. Gặp một thứ không phải dấu là đếm
+  lại từ đầu: luật này cấm chồng dấu lên MỘT chữ, không cấm một câu nhiều dấu.
+
+Đếm trên chuỗi **đúng như nó nằm trong tệp**. Không chuẩn hoá, trước hay sau
+đều không — bản kê khai được ký ở dạng byte thô, và chuẩn hoá trước khi đếm
+nghĩa là thứ đem đo không phải thứ đem ký.
+
+⚠️ **Điều này quan trọng với tiếng Việt.** `ế` viết bằng U+1EBF là **một** ký
+tự; viết bằng `e` + U+0302 + U+0301 là **ba**. Cùng một câu nhìn giống hệt nhau
+có thể tốn gấp ba trần 4.096 tuỳ cách gõ. Đó là hệ quả của việc không chuẩn
+hoá, và nói ra ở đây chứ không để người viết ứng dụng tự phát hiện lúc chạm trần.
+
 ## Trần cây
 
 | | |

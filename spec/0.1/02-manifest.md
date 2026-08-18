@@ -34,6 +34,50 @@ see two different values.
 }
 ```
 
+## `actions` — the only behaviour an app can declare
+
+An app carries no code, so "what happens when this button is pressed" is a
+**declaration in the manifest**, not a script. The UI tree carries an action id
+and nothing else; joining that id to a behaviour is the standard's job.
+
+```json
+"actions": [
+  { "id": "load-items", "effect": { "kind": "fetch", "host": "shop.example", "path": "/items" } }
+]
+```
+
+| Field | Rule |
+|---|---|
+| `id` | MUST. Same character set as a UI `action`: lowercase ASCII, digits, `-`, `.` |
+| `effect` | MUST. An object tagged by `kind` |
+
+### Effects
+
+`kind` has exactly **one** value in 0.1:
+
+| `kind` | Fields | Meaning |
+|---|---|---|
+| `fetch` | `host` MUST · `path` MUST | Ask one host for one path |
+
+- `host` **MUST** match a host granted by a `network` capability, under the
+  matching rule in [04](04-capabilities.md). An action naming a host outside
+  the granted scope **MUST** be rejected with `action-host-not-granted`.
+- `path` **MUST** begin with `/`; otherwise `bad-scope`.
+- A non-ASCII `host` **MUST** be rejected with `non-ascii-host`, before any
+  matching is attempted — see [04](04-capabilities.md) on why a Unicode host is
+  refused rather than punycoded.
+- An unknown `kind`, or any field not listed, **MUST** be rejected with
+  `bad-json`. It is not ignored — see the rule on unknown fields above.
+
+There is deliberately no `kind` for writing, deleting, or opening a link. Every
+value added here widens what an app can do without asking again, so the list
+grows only with a version bump ([VERSIONING](../VERSIONING.md) §3).
+
+⚠️ Until 2026-08-18 `effect` appeared **only in examples** in this document —
+no field table, no rule for unknown `kind`. Two implementers reading it would
+have guessed differently, and that is the whole failure this table exists to
+prevent.
+
 ## Fields
 
 | Field | Type | Required | |

@@ -52,7 +52,8 @@ standard demanded something it gave no means to say.
 That is a defect in the standard rather than in any implementation, so it is
 fixed here. Adding a value is a breaking change ([VERSIONING](../VERSIONING.md)
 §3): `emphasis` is a closed set, so a renderer **will not compile** until it
-handles the new value. That cost is the point — see the note on `toggle` below.
+handles the new value. That cost is the point: a renderer that silently ignored
+an emphasis it did not know would show a warning as ordinary text.
 
 `warning` means: this line must stand out from every line around it. As with
 every other intent, the app declares the intent and the implementation decides
@@ -155,13 +156,36 @@ A fingerprint still says **nothing about who the publisher is** — see
 [02](02-manifest.md) on `publisher`. It only lets a user notice that the key
 changed.
 
+### What "character" and "mark" mean
+
+Both words are load-bearing, and two implementations counting differently
+accept different packages.
+
+- A **character** is one **Unicode scalar value** (code point). Not a byte, not
+  a UTF-16 unit, not a grapheme cluster.
+- A **mark** is a scalar whose Unicode general category is `Mn`, `Mc` or `Me`.
+- The limit of **8 marks** applies to *consecutive* marks. Any non-mark resets
+  the count: the rule bans piling marks on one letter, not a sentence with many
+  accents.
+
+Counting happens on the string **exactly as it appears in the file**. No
+normalisation is applied, before or after — the manifest is signed as raw
+bytes, and normalising before counting would mean the thing measured is not the
+thing signed.
+
+⚠️ **This matters for Vietnamese.** `ế` written as U+1EBF is **one** character;
+written as `e` + U+0302 + U+0301 it is **three**. The same visible sentence can
+therefore cost three times as much against the 4,096 limit depending on how it
+was typed. That is a consequence of not normalising, and it is stated here
+rather than left for an author to discover at the limit.
+
 ## Tree limits
 
 | | |
 |---|---|
 | Maximum nodes | **10,000** |
 | Maximum depth | **32** |
-| Maximum string length | **4,096 characters** (characters, NOT bytes) |
+| Maximum string length | **4,096 characters** — see the definition below |
 | Maximum file size | **1 MiB** |
 
 > **Why 32 and not something larger.** Each level of the tree costs **two**

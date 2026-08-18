@@ -34,6 +34,39 @@ trị khác nhau.
 }
 ```
 
+## `actions` — hành vi DUY NHẤT ứng dụng khai được
+
+Ứng dụng không mang mã, nên *"bấm nút này thì gì xảy ra"* là một **khai báo
+trong bản kê khai**, không phải một đoạn kịch bản. Cây giao diện chỉ mang mã
+hành động; nối mã ấy với hành vi là việc của tiêu chuẩn.
+
+| Trường | Luật |
+|---|---|
+| `id` | PHẢI. Cùng tập ký tự với `action` của giao diện: chữ thường ASCII, chữ số, `-`, `.` |
+| `effect` | PHẢI. Một đối tượng gắn thẻ bằng `kind` |
+
+### Hành vi
+
+`kind` có đúng **một** giá trị trong 0.1:
+
+| `kind` | Trường | Nghĩa |
+|---|---|---|
+| `fetch` | `host` PHẢI · `path` PHẢI | Hỏi một máy chủ một đường dẫn |
+
+- `host` **PHẢI** khớp một máy chủ đã được quyền `network` cấp, theo luật khớp
+  ở [04](04-quyen-nang.md). Khai máy chủ ngoài phạm vi → `action-host-not-granted`.
+- `path` **PHẢI** bắt đầu bằng `/`; không thì `bad-scope`.
+- `host` không phải ASCII → `non-ascii-host`, **trước** mọi phép khớp.
+- `kind` lạ, hoặc trường không có trong bảng → `bad-json`. Không bỏ qua.
+
+Cố ý **không** có `kind` cho ghi, xoá, hay mở liên kết. Mỗi giá trị thêm vào
+đây là nới rộng thứ ứng dụng làm được mà không phải hỏi lại, nên danh sách chỉ
+dài ra khi lên phiên bản.
+
+⚠️ Tới 18/08/2026 `effect` **chỉ xuất hiện trong ví dụ** — không bảng trường,
+không luật cho `kind` lạ. Hai người cài đặt đọc nó sẽ đoán khác nhau, và đó
+đúng là thứ bảng này sinh ra để chặn.
+
 ## Các trường
 
 | Trường | Kiểu | Bắt buộc | |
