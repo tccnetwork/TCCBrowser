@@ -52,6 +52,9 @@ pub mod markup;
 pub mod package_server;
 
 #[cfg(feature = "window")]
+pub mod web_tier;
+
+#[cfg(feature = "window")]
 pub mod window;
 
 use tcc_ui::{AccessNode, Node, Renderer};

@@ -405,7 +405,7 @@ const KICH_BAN_DO_BO_GO: &str = r"
 /// Tách thành hai hằng số chứ không một cờ `bool`: một cờ đặt sai vẫn biên
 /// dịch, còn gọi nhầm hằng số thì đọc mã là thấy. Có phép thử chốt rằng kịch
 /// bản của ỨNG DỤNG không chứa chữ `.value`.
-const KICH_BAN_KHUNG: &str = r"
+pub(crate) const KICH_BAN_KHUNG: &str = r"
 document.addEventListener('click', function (e) {
   var n = e.target;
   while (n) {

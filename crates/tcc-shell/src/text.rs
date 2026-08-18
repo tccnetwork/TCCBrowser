@@ -105,6 +105,9 @@ pub enum TextKey {
     RaNgoaiNutMo,
     RaNgoaiNutHuy,
     RaNgoaiKhongPhaiWeb,
+    // ── tầng 2: thanh địa chỉ ──
+    WebNhanDiaChi,
+    WebNutDi,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -390,6 +393,10 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::RaNgoaiKhongPhaiWeb, Language::Vi) => {
             "Chỉ mở được liên kết http và https. Thứ khác thì từ chối."
         }
+        (TextKey::WebNhanDiaChi, Language::En) => "Address",
+        (TextKey::WebNhanDiaChi, Language::Vi) => "Địa chỉ",
+        (TextKey::WebNutDi, Language::En) => "Go",
+        (TextKey::WebNutDi, Language::Vi) => "Đi",
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",
 
         (TextKey::ViDuocXinChuKy, Language::En) => {

@@ -402,7 +402,7 @@ done
 if [ -n "$thieu" ]; then
   bao "thiếu nhóm vector:$thieu"
 else
-  dat "đủ tám tệp vector (chín nhóm — `package.json` mang cả đường dẫn lẫn tệp chữ ký)"
+  dat "đủ tám tệp vector, chín nhóm"
 fi
 
 echo

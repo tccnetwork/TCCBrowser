@@ -366,6 +366,30 @@ pub fn manage_permissions(
     Ok(())
 }
 
+/// **Tầng 2** — mở một trang web thật, có thanh địa chỉ.
+///
+/// # Vì sao hàm này nằm ở `tcc-shell`
+///
+/// Luật 2: chỉ crate này được biết tới một bộ dựng cụ thể. Binary gọi hàm này
+/// chứ không gọi thẳng `tcc-render-webview` — mất luật ấy là ngày đổi bộ dựng
+/// phải sửa cả những chỗ không ai nhớ là có.
+///
+/// # Ba điều nói thẳng
+///
+/// 1. Trang web **mang mã của nó**: không chữ ký, không cổng quyền năng.
+/// 2. Nó chạy trong WebView **riêng**, không IPC và không kịch bản của khung.
+/// 3. **Chỉ `https://`** — xem `tcc_render_webview::web_tier`.
+///
+/// # Errors
+/// Địa chỉ không hợp lệ, hoặc không dựng được cửa sổ.
+pub fn open_web(url: &str, ngon_ngu: Language) -> Result<(), Box<dyn std::error::Error>> {
+    let cay = crate::address_bar::build(url, ngon_ngu)?;
+    let mut bo_dung = WebViewRenderer::new().with_text(crate::text::renderer_text(ngon_ngu));
+    bo_dung.render(&cay)?;
+    tcc_render_webview::web_tier::open_browser(url, "TCC — tầng 2", bo_dung.document())?;
+    Ok(())
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,

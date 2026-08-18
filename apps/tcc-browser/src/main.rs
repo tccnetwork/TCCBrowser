@@ -22,6 +22,11 @@ fn main() -> ExitCode {
         Language::En
     };
 
+    // `web <https://…>` — TẦNG 2: mở một trang web thật.
+    if doi.first().map(String::as_str) == Some("web") {
+        return lenh_web(&doi, ngon_ngu);
+    }
+
     // `vi nhap <tệp>` — nhập ví từ bản kết xuất của ví web, NGAY TRONG cửa sổ.
     if doi.first().map(String::as_str) == Some("vi") {
         return lenh_vi(&doi, ngon_ngu);
@@ -51,10 +56,9 @@ fn main() -> ExitCode {
 
     // Đường dẫn gói THẬT trên đĩa. Đây là đường ống đầy đủ: kiểm chữ ký → hỏi
     // người dùng → cấp quyền → nội dung điểm vào.
-    if let Some(duong_dan) = doi
-        .iter()
-        .find(|a| !a.starts_with('-') && *a != "vi" && *a != "quyen" && *a != "hop-thoai")
-    {
+    if let Some(duong_dan) = doi.iter().find(|a| {
+        !a.starts_with('-') && *a != "vi" && *a != "quyen" && *a != "hop-thoai" && *a != "web"
+    }) {
         return mo_goi_that(std::path::Path::new(duong_dan), ngon_ngu);
     }
 
@@ -155,6 +159,37 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
 /// crate này **không có** cờ `network` nào để mà hỏi. Một nhánh `cfg` hỏi về
 /// một cờ không tồn tại thì im lặng không bao giờ chạy — đúng loại mã trông như
 /// có phòng bị mà không phòng gì.
+/// `web <https://…>` — **tầng 2**: mở một trang web thật.
+///
+/// # Ba điều nói thẳng
+///
+/// 1. Trang web **mang mã của nó**. Không chữ ký, không cổng quyền năng.
+/// 2. Nó chạy trong một WebView **riêng**, không có IPC và không có kịch bản
+///    của khung — nếu chung thì trang gọi được `postMessage` của ta.
+/// 3. **Chỉ `https://`.** `http://` bị từ chối: trang tải qua đường trần thì ai
+///    trên đường cũng sửa được, mà ta lại đặt nó trong cửa sổ mang tên TCC.
+#[cfg(feature = "window")]
+fn lenh_web(doi: &[String], ngon_ngu: Language) -> ExitCode {
+    let Some(url) = doi.get(1) else {
+        eprintln!("cần: tcc-browser web https://…");
+        return ExitCode::FAILURE;
+    };
+    println!("⚠ Tầng 2: trang web mang mã của nó. Ở đó không có thứ gì của TCC che chắn.");
+    match tcc_shell::window::open_web(url, ngon_ngu) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("✗ {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[cfg(not(feature = "window"))]
+fn lenh_web(_doi: &[String], _ngon_ngu: Language) -> ExitCode {
+    eprintln!("✗ mở trang web cần bản dựng có cửa sổ: --features window");
+    ExitCode::FAILURE
+}
+
 /// `vi nhap <tệp>` — nhập ví trong cửa sổ.
 ///
 /// Bản dựng KHÔNG có cờ `wallet` trả lời thẳng là không có ví, chứ không im
