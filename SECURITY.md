@@ -550,6 +550,29 @@ never surfaced. This is why CI runs `clippy -D warnings` **before** the test ste
 
 ## 3. ⚠️ What has NOT been examined — read this section carefully
 
+**A dependency grants camera and microphone to any page, and we cannot stop
+it in code.** wry 0.52.1 hardcodes `WKPermissionDecision::Grant` for
+`requestMediaCapturePermissionForOrigin` on macOS
+(`wkwebview/class/wry_web_view_ui_delegate.rs:74`) and exposes no way to
+override that delegate. At tier 2 — arbitrary web pages — a page calling
+`getUserMedia()` is granted without anyone being asked, which contradicts
+architecture decision 2 as directly as anything in this codebase.
+
+The only remaining barrier is the operating system: with no
+`NS*UsageDescription` string in `Info.plist`, macOS refuses the app access to
+the camera and microphone, so wry's "Grant" has nothing to grant. That makes
+an omission load-bearing, which is a fragile place to stand — someone adding
+one line to a plist for an unrelated feature removes it. Architecture rule 20
+now watches for exactly that declaration, and the packaging script fails if it
+appears.
+
+This is a mitigation, not a fix. The fix is upstream: wry has to let the
+embedder answer that request, and then TCC has to answer it with a real
+permission dialog. Until then, tier 2 has no per-site camera or microphone
+consent, only per-app OS consent, and it is listed here rather than in a
+release note.
+
+
 **Vietnamese input was typed into the real application screen for the first
 time on 2026-08-17**, by a person, into `tcc-browser examples/hello-tcc`.
 Before that day the application screen was never drawn at all, so every
@@ -1086,7 +1109,7 @@ cargo test --workspace --features tcc-shell/window  # 380 — three more that ne
 cargo run -p tcc-conformance                        # 150 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 18 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 19 architecture rules
 ```
 
 All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in

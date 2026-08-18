@@ -161,6 +161,29 @@ else
 fi
 
 echo
+echo "--- Luật 20: KHÔNG khai quyền thiết bị trong gói macOS ---"
+# `wry` 0.52.1 viết CỨNG `WKPermissionDecision::Grant` cho yêu cầu micro/camera
+# của trang web (`wkwebview/class/wry_web_view_ui_delegate.rs:74`) và không cho
+# ghi đè. Ở tầng 2 — mở trang web bất kỳ — nghĩa là một trang gọi
+# `getUserMedia()` được cấp mà KHÔNG ai hỏi người dùng.
+#
+# Chắn duy nhất còn lại là tầng hệ điều hành: thiếu chuỗi mô tả mục đích thì
+# macOS từ chối, nên lời "Grant" của wry không có gì để cấp. Thêm một dòng
+# `NS*UsageDescription` là gỡ chắn ấy — nên luật này canh.
+#
+# Ngày nào wry cho ghi đè quyết định ấy thì luật này mới nên nới, và phải nới
+# kèm một hộp thoại hỏi quyền THẬT, không nới trơn.
+# Soi KHAI BÁO thật (`<key>NS…UsageDescription</key>`), không soi mọi chỗ nhắc
+# tên. Bản đầu soi chuỗi trơn và nó tự tố cáo chính kịch bản đóng gói — chỗ
+# đang GIẢI THÍCH vì sao không được khai.
+lo_quyen=$(grep -rlE "<key>NS[A-Za-z]*UsageDescription</key>" tools/ apps/ 2>/dev/null || true)
+if [ -n "$lo_quyen" ]; then
+  bao "khai quyền thiết bị trong gói macOS:$(printf ' %s' $lo_quyen)"
+else
+  dat "gói macOS không khai quyền thiết bị nào — wry không tự cấp được micro/camera"
+fi
+
+echo
 echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật THẬT ---"
 # Con số này trôi nhiều nhất và im lặng nhất: tài liệu ghi 6, rồi 10, rồi 12,
 # trong khi kịch bản đã có 16. Người đọc tin con số, không đếm lại.

@@ -59,8 +59,32 @@ cat > "$GOI/Contents/Info.plist" <<PLIST
   <key>CFBundleShortVersionString</key><string>0.1</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <!--
+    ⚠️ KHÔNG khai NSCameraUsageDescription, NSMicrophoneUsageDescription,
+    NSLocationWhenInUseUsageDescription hay bất kỳ NS*UsageDescription nào.
+
+    Lý do là một hạn chế của thư viện, không phải sở thích: `wry` 0.52.1 viết
+    CỨNG `WKPermissionDecision::Grant` cho yêu cầu micro/camera của trang web
+    (`wkwebview/class/wry_web_view_ui_delegate.rs:74`) và không cho ghi đè. Nên
+    ở tầng 2, một trang gọi `getUserMedia()` được cấp mà KHÔNG ai hỏi người dùng
+    — đâm thẳng vào quyết định kiến trúc số 2.
+
+    Chắn duy nhất còn lại nằm ở tầng hệ điều hành: thiếu chuỗi mô tả mục đích
+    thì macOS TỪ CHỐI ứng dụng chạm micro/camera, nên lời "Grant" của wry không
+    có gì để cấp.
+
+    Thêm một dòng NS*UsageDescription vào đây là gỡ chắn ấy đi. Có phép kiểm
+    trong kịch bản này canh, và luật kiến trúc 20 canh ở CI.
+  -->
 </dict></plist>
 PLIST
+
+# Chắn duy nhất chống việc wry tự cấp micro/camera — xem chú thích trong Info.plist.
+if grep -q "UsageDescription" "$GOI/Contents/Info.plist"; then
+  echo "❌ Info.plist khai NS*UsageDescription — gỡ mất chắn micro/camera của tầng 2"
+  exit 1
+fi
+echo "✅ Info.plist không khai quyền thiết bị nào"
 echo "✅ gói ở $GOI"
 
 if [ -z "$HO_SO" ] || [ -z "$CHUNG_THU" ]; then
