@@ -254,6 +254,47 @@ jobs:
       - name: Virtual display
         run: sudo apt-get install -y xvfb
 
+      # Four variables, and the middle one is the one that matters on this
+      # runner. WebKitGTK 2.4x renders through a DMA-BUF path that wants a real
+      # GPU; under xvfb it gets none, and the failure surfaces late and
+      # confusingly as "the underlying handle is not available" rather than as
+      # anything mentioning graphics. Ubuntu 24.04 ships 2.44, so this is the
+      # engine's default path, not an edge case.
+      #
+      # Set at JOB level so every xvfb step below gets them. Missing one step is
+      # how a fix gets reported as flaky.
+      - name: WebKitGTK under a virtual display
+        run: |
+          {
+            echo "WEBKIT_DISABLE_DMABUF_RENDERER=1"
+            echo "WEBKIT_DISABLE_COMPOSITING_MODE=1"
+            echo "LIBGL_ALWAYS_SOFTWARE=1"
+            echo "GDK_BACKEND=x11"
+          } >> "$GITHUB_ENV"
+
+      # ⚠️ Ba lượt, không phải một.
+      #
+      # Chỗ này từng bị đúng cái bẫy ấy: một lượt xanh, tôi gỡ `continue-on-error`,
+      # lượt sau đỏ. Nên phép kiểm "đã hết chập chờn chưa" phải chạy nhiều lượt
+      # TRONG CÙNG một job — một lượt xanh không phân biệt được "đã sửa" với
+      # "vừa may".
+      #
+      # Bước này không bao giờ làm đỏ CI: nó chỉ ĐẾM và in ra, để lần sau có số
+      # mà quyết định, thay vì lại quyết định bằng một lượt.
+      - name: Is WebKitGTK steady under a virtual display? (3 runs)
+        continue-on-error: true
+        run: |
+          dat=0
+          for i in 1 2 3; do
+            if xvfb-run -a cargo run -q -p tcc-shell --features window \
+                 --example do-nen-tang > "/tmp/nen-$i.log" 2>&1; then
+              dat=$((dat + 1)); echo "lượt $i: ĐẠT"
+            else
+              echo "lượt $i: TRƯỢT"; tail -3 "/tmp/nen-$i.log"
+            fi
+          done
+          echo "════ WebKitGTK dưới màn hình ảo: $dat/3 lượt đạt ════"
+
       # Measure the web engine rather than describing it. The published baseline
       # is the INTERSECTION of three engines, so it must be measured on each —
       # see docs/nen-tang.md.
