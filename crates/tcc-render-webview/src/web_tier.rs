@@ -269,6 +269,17 @@ fn chan_lai(b: WebViewBuilder<'_>) -> WebViewBuilder<'_> {
     b.with_navigation_handler(|url| allow_navigation(&url))
         .with_new_window_req_handler(|url| allow_new_window(&url))
         .with_download_started_handler(|url, _duong_dan| allow_download(&url))
+        // ⚠️ KHÔNG giữ gì trên đĩa. Cả ba máy đều hiểu cờ này:
+        // `WKWebsiteDataStore::nonPersistentDataStore` trên macOS,
+        // `SetIsInPrivateModeEnabled` trên WebView2, kho tạm trên WebKitGTK.
+        //
+        // Vì sao chọn "không giữ gì" chứ không phải "giữ rồi cho xoá": chưa có
+        // màn hình hồ sơ, chưa có chỗ xem cookie, và `wry` chỉ cho
+        // `clear_all_browsing_data` — xoá sạch tất cả, không xoá theo tên miền.
+        // Một trình duyệt âm thầm dồn cookie ra đĩa mà người dùng không xem
+        // được và không xoá riêng được thì tệ hơn một trình duyệt không giữ gì.
+        // Đổi lại được, ngày nào có phân vùng theo nguồn gốc thật.
+        .with_incognito(true)
         // Mặc định của `wry` đã là `false`, nhưng viết ra: một trang đọc được
         // bảng nháp là một trang đọc được thứ người dùng vừa sao chép, mà thứ
         // ấy rất hay là mật khẩu.
@@ -440,6 +451,23 @@ mod kiem_thu {
                 "một chỗ dựng WebView cho trang KHÔNG đi qua `chan_lai`:\n{khuc_mot}"
             );
         }
+
+        // Và `chan_lai` phải bật chế độ không giữ gì.
+        //
+        // Lật `true` thành `false` ở đó là lặng lẽ mở lại đường ghi ra đĩa, mà
+        // không phép thử nào khác thấy được: chạy không màn hình thì không hỏi
+        // được máy dựng nó đang dùng kho dữ liệu nào.
+        let than = nguon
+            .split("fn chan_lai")
+            .nth(1)
+            .expect("không tìm thấy `chan_lai`");
+        let than = &than[..than.find("\n}").unwrap_or(than.len())];
+        assert!(
+            than.lines()
+                .filter(|l| !l.trim_start().starts_with("//"))
+                .any(|l| l.contains("with_incognito(true)")),
+            "`chan_lai` không bật chế độ không giữ gì — trang đang ghi ra đĩa"
+        );
     }
 
     /// **Gõ tên miền trơn thì vẫn mở được** — không bắt gõ `https://`.

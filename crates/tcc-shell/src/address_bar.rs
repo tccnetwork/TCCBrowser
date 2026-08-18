@@ -23,19 +23,29 @@ pub const ACTION_GO: &str = "web-di";
 /// Chuỗi không dùng được trên giao diện.
 pub fn build(dia_chi_hien: &str, ngon_ngu: Language) -> Result<Node, UiError> {
     let t = |k: TextKey| label(k, ngon_ngu);
-    Node::group(Flow::Row, Gap::Small)
-        // Ô nhập THƯỜNG, không che chữ: người dùng phải đọc được mình đang ở
-        // đâu. Đây cũng là lý do ô che chữ bị cấm với gói ứng dụng — hàng chấm
-        // tròn ở thanh địa chỉ thì vô nghĩa và nguy hiểm.
-        .child(Node::field(
-            t(TextKey::WebNhanDiaChi),
-            dia_chi_hien.to_owned(),
-            false,
-        )?)?
-        .child(Node::button(
-            t(TextKey::WebNutDi),
-            ACTION_GO,
-            Tone::Neutral,
+    Node::group(Flow::Column, Gap::Small)
+        .child(
+            Node::group(Flow::Row, Gap::Small)
+                // Ô nhập THƯỜNG, không che chữ: người dùng phải đọc được mình đang ở
+                // đâu. Đây cũng là lý do ô che chữ bị cấm với gói ứng dụng — hàng chấm
+                // tròn ở thanh địa chỉ thì vô nghĩa và nguy hiểm.
+                .child(Node::field(
+                    t(TextKey::WebNhanDiaChi),
+                    dia_chi_hien.to_owned(),
+                    false,
+                )?)?
+                .child(Node::button(
+                    t(TextKey::WebNutDi),
+                    ACTION_GO,
+                    Tone::Neutral,
+                )?)?,
+        )?
+        // Nói ra ngay trên thanh, không giấu trong tài liệu: người dùng đăng
+        // nhập một trang rồi mở lại thấy mất, mà không được báo trước, thì họ
+        // kết luận trình duyệt hỏng.
+        .child(Node::text_with(
+            t(TextKey::WebKhongGiuGi),
+            tcc_ui::Emphasis::Subtle,
         )?)
 }
 

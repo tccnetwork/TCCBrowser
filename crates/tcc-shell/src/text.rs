@@ -108,6 +108,8 @@ pub enum TextKey {
     // ── tầng 2: thanh địa chỉ ──
     WebNhanDiaChi,
     WebNutDi,
+    /// Nói thẳng rằng phiên này KHÔNG giữ gì lại.
+    WebKhongGiuGi,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
     NguonKhongRo,
@@ -395,6 +397,12 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         }
         (TextKey::WebNhanDiaChi, Language::En) => "Address",
         (TextKey::WebNhanDiaChi, Language::Vi) => "Địa chỉ",
+        (TextKey::WebKhongGiuGi, Language::En) => {
+            "Nothing is kept: cookies and logins vanish when this window closes"
+        }
+        (TextKey::WebKhongGiuGi, Language::Vi) => {
+            "Không giữ gì: cookie và đăng nhập mất khi đóng cửa sổ này"
+        }
         (TextKey::WebNutDi, Language::En) => "Go",
         (TextKey::WebNutDi, Language::Vi) => "Đi",
         (TextKey::QuyenVi, Language::Vi) => "Truy cập ví TCC của bạn",

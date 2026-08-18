@@ -130,6 +130,7 @@ không cổng quyền năng, không ai kiểm trước.
 | Tải tệp | **Từ chối** — chưa hỗ trợ, thà nói "chưa làm" còn hơn ghi ra đĩa một tệp mà tên và đuôi do trang chọn |
 | Đọc trộm bảng nháp | `with_clipboard(false)` |
 | Tự phát tiếng | `with_autoplay(false)` — mặc định của wry là **bật** |
+| Ghi cookie/đăng nhập ra đĩa | **Không giữ gì** — `with_incognito(true)` trên cả ba máy |
 | `http://` | Từ chối. Chặt hơn `external_link` một bậc: đường trần thì ai cũng sửa được, mà ta đặt nó trong cửa sổ mang tên TCC |
 
 ### ❌ Không chặn được: micro và camera trên macOS
@@ -142,7 +143,16 @@ từ chối. **Luật 20** canh điều đó. Xem `SECURITY.md` §3.
 ### Chưa chặn, và phải nói ra
 
 - **Hộp thoại `alert`/`confirm`/`prompt`** của trang: `wry` không cho móc vào.
-- **Cookie và `localStorage` dùng chung** giữa mọi trang trong cùng `WebContext`
-  — chưa phân vùng theo nguồn gốc. `wry` chỉ có `clear_all_browsing_data`, xoá
-  sạch tất cả, không xoá theo tên miền.
+- **Theo dõi xuyên trang trong một phiên.** Câu tôi viết ở bản trước — *"cookie
+  và `localStorage` dùng chung giữa mọi trang"* — **nói quá**. Máy dựng đã tách
+  kho theo nguồn gốc: trang A không đọc được `localStorage` của trang B. Thứ
+  thật sự dùng chung là **một hồ sơ**, nên một bên thứ ba nhúng ở cả hai trang
+  vẫn nhận ra cùng một người — đúng như mọi trình duyệt dùng chung một hồ sơ.
+  Sửa lại cho đúng: đây là chuyện theo dõi, không phải chuyện rò kho.
+
+  Đã chọn cách xử: **không giữ gì trên đĩa** (`with_incognito(true)`). Đóng cửa
+  sổ là mất cookie và mất đăng nhập. Lý do chọn thế thay vì "giữ rồi cho xoá":
+  `wry` chỉ có `clear_all_browsing_data` — xoá sạch tất cả, không xoá theo tên
+  miền — và chưa có màn hình hồ sơ nào để người dùng nhìn thấy thứ đang được
+  giữ. Thanh địa chỉ **nói thẳng câu đó ra**, không để người dùng tự phát hiện.
 - **Cảnh báo chứng chỉ TLS**: không có móc.
