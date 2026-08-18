@@ -54,7 +54,7 @@ Phép kiểm rẻ nhất là phép bắt được nó.
 - **`$?` sau một pipeline là mã thoát của lệnh CUỐI**, không phải của lệnh bạn
   đang đo. Đo mã thoát thì đừng pipe.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
-  đỏ không phải bằng chứng. Điều này áp cho cả 20 luật kiến trúc.
+  đỏ không phải bằng chứng. Điều này áp cho cả 21 luật kiến trúc.
 
 ## Ranh giới không được vượt
 

@@ -429,6 +429,51 @@ else
 fi
 
 echo
+echo "--- Luật 22: mã lỗi chỉ được GỌI TÊN ở nơi nó được ĐỊNH NGHĨA ---"
+# Luật 10 canh bảng mã lỗi: mã nào trong bảng cũng phải có trong mã nguồn. Nó
+# KHÔNG canh văn xuôi — và đó là chỗ tôi lọt.
+#
+# Tôi viết `action-outside-scope` trong một đoạn văn của đặc tả. Mã ấy không tồn
+# tại ở đâu cả: không trong bảng, không trong mã nguồn, không trong vector nào.
+# Luật 10 nhìn qua nó vì luật 10 chỉ đọc bảng. Người ngoài đọc đặc tả rồi cài
+# đặt theo thì sinh ra một mã lỗi không bản nào khác biết — đúng thứ một tiêu
+# chuẩn sinh ra để chặn.
+#
+# Nên: mọi token kiểu-gạch-nối trong dấu nháy ngược khắp `spec/` phải nằm trong
+# bảng mã lỗi, hoặc nằm trong danh sách miễn trừ ngay dưới đây. Danh sách này
+# CỐ Ý ngắn và cố ý phải sửa bằng tay: thêm một dòng vào đây là một quyết định
+# có ý thức, không phải một chỗ trôi.
+mien_22=$(cat <<'EOF'
+acvp-mldsa65
+dilithium-py
+hybrid-ed25519-mldsa65-v1
+x-acme-autostart
+x-acme-tu-chay
+EOF
+)
+# `acvp-mldsa65` là tên nhóm vector; `dilithium-py` là tên thư viện đối chiếu;
+# `hybrid-ed25519-mldsa65-v1` là tên bộ thuật toán; hai `x-acme-*` là VÍ DỤ về
+# trường lạ mà đặc tả cấm — không phải cơ chế mở rộng, 0.1 không có cơ chế ấy.
+la=$(python3 - "$mien_22" <<'PY2'
+import re, sys, pathlib
+mien = set(sys.argv[1].split())
+van = open("spec/0.1/06-error-codes.md").read()
+bang = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|", van, re.M))
+ra = {}
+for p in sorted(pathlib.Path("spec").rglob("*.md")):
+    for tok in re.findall(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`", p.read_text()):
+        if tok not in bang and tok not in mien:
+            ra.setdefault(tok, set()).add(p.name)
+print(" ".join(f"{k}({','.join(sorted(v))})" for k, v in sorted(ra.items())))
+PY2
+)
+if [ -n "$la" ]; then
+  bao "token kiểu mã lỗi trong đặc tả mà KHÔNG có trong bảng mã lỗi:$la"
+else
+  dat "mọi mã lỗi được gọi tên trong đặc tả đều có trong bảng"
+fi
+
+echo
 echo "--- Luật 21: cờ nào được CI \`check\` thì cũng phải được CI \`test\` ---"
 # `cargo check` biên dịch mà KHÔNG chạy phép thử nào. Mã sau một cờ chỉ được
 # `check` thì mọi phép thử của nó là chữ trên giấy: chúng biên dịch được, và

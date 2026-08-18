@@ -52,7 +52,7 @@ Cổng chặn cứng vẫn nguyên: không giao dịch mainnet trước kiểm �
 
 Xong: `tcc-spec`, `tcc-crypto`, `tcc-manifest`, `tcc-capability`, `tcc-runtime`,
 `tcc-cli`, `tcc-ui`, `tcc-render-webview`, `tcc-shell`, `apps/tcc-browser`.
-**238 phép thử + 136 vector tuân thủ**, clippy sạch, 20 luật kiến trúc 0 vi phạm.
+**238 phép thử + 136 vector tuân thủ**, clippy sạch, 21 luật kiến trúc 0 vi phạm.
 **Đường ống đã nối đủ**: gói đã ký trên đĩa → kiểm chữ ký → hộp thoại hỏi quyền
 trong cửa sổ thật → cú bấm quay về → cấp quyền → **vẽ màn hình ứng dụng**.
 
