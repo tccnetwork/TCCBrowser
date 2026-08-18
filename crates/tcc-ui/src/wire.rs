@@ -428,4 +428,38 @@ mod kiem_thu {
             );
         }
     }
+
+    /// **Khoá JSON trùng trong tệp GIAO DIỆN.**
+    ///
+    /// `02-ban-ke-khai.md` bắt buộc từ chối khoá trùng trong bản kê khai, và
+    /// nói rõ lý do: một công cụ hiển thị và một bên kiểm chữ ký có thể đọc ra
+    /// hai giá trị khác nhau. Đặc tả **không** nói gì về tệp giao diện — nhưng
+    /// cùng cái hại ấy áp nguyên: cây giao diện cũng nằm trong phần được ký.
+    ///
+    /// Phép thử này ghim hành vi ĐANG CÓ để viết được vào đặc tả. Nó cũng là
+    /// thứ vector không làm thay được: định dạng vector nhúng cây dưới dạng
+    /// JSON đã phân tích, mà một đối tượng đã phân tích thì không thể có hai
+    /// khoá trùng.
+    #[test]
+    fn khoa_json_trung_trong_tep_giao_dien() {
+        let x = br#"{"kind":"text","content":"a","content":"b"}"#;
+        let loi = decode(x).expect_err("khoá trùng phải bị từ chối");
+        let cau = loi.to_string();
+        assert!(
+            cau.contains("duplicate") || cau.contains("content"),
+            "từ chối vì lý do khác, không phải khoá trùng: {cau}"
+        );
+    }
+
+    /// **Nhóm rỗng hợp lệ.**
+    ///
+    /// Bảng trong `05-giao-dien.md` ghi `children` mà KHÔNG đánh dấu MUST và
+    /// cũng không ghi giá trị mặc định — hai cách duy nhất bảng ấy dùng để nói
+    /// một trường bắt buộc hay không. Người ngoài đọc bảng thì không suy ra
+    /// được. Đây là câu trả lời thật của bản cài đặt.
+    #[test]
+    fn nhom_rong_hop_le() {
+        let n = decode(br#"{"kind":"group"}"#).expect("nhóm không có `children` phải hợp lệ");
+        assert!(n.children().is_empty());
+    }
 }

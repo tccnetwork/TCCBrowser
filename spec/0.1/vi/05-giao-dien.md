@@ -37,7 +37,7 @@ Giàn giáo hoá thành nhà.
 | `field` | `label` PHẢI · `value` (mặc định rỗng) | Ô nhập. `secret` bị **từ chối** — xem bên dưới |
 | `toggle` | `label` PHẢI · `action` PHẢI · `on` (mặc định **`false`**) | Công tắc |
 | `image` | `source` PHẢI · `alt` **PHẢI** | Ảnh trong gói |
-| `group` | `flow` (`row`/`column`, mặc định `column`) · `gap` (`none`/`small`/`medium`/`large`, mặc định `medium`) · `children` | Loại DUY NHẤT nhận nút con |
+| `group` | `flow` (`row`/`column`, mặc định `column`) · `gap` (`none`/`small`/`medium`/`large`, mặc định `medium`) · `children` (mặc định **rỗng**) | Loại DUY NHẤT nhận nút con |
 
 Trường lạ → **PHẢI** từ chối. Nó gần như luôn là gõ sai tên, và im lặng bỏ qua
 nghĩa là người viết tưởng đã đặt được một thuộc tính mà thật ra không.
@@ -109,7 +109,7 @@ khẩu thật, không phân biệt được với ô của chính trình duyệt
 **Điều này làm được trong 0.1 cho tới ngày 16/08/2026**, và ví dụ ngay trong
 chính tệp này từng ghi `{"kind": "field", "label": "Mật khẩu", "secret": true}`
 — tức là đặc tả đang dạy người ta làm việc ấy. Bỏ một giá trị từng được phép là
-**thay đổi phá vỡ** theo [VERSIONING.md](../../VERSIONING.md) §2, và được ghi
+**thay đổi phá vỡ** theo [VERSIONING.md](../../VERSIONING.md) §3, và được ghi
 lại đúng như thế.
 
 Điều này **không** vá được: gói vẫn vẽ được một ô thường gắn nhãn "PIN". Chắn ở
@@ -144,6 +144,47 @@ này đã sai đúng như thế cho tới 18/08/2026.
 
 Vân tay vẫn **không nói gì về người ký là ai** — xem [02](02-ban-ke-khai.md).
 Nó chỉ giúp người dùng nhận ra khoá đã đổi.
+
+### Chuỗi hiện cho người dùng
+
+[02](02-ban-ke-khai.md) bắt `name`, `version` và mỗi `reason` của quyền năng
+phải qua phép kiểm ký tự cấm. **Phép kiểm ấy áp cho MỌI chuỗi người dùng thấy
+trong cây giao diện**, và cùng một mã `unsafe-display-string`. Nói ra không
+thừa: phần lớn chữ người dùng đọc thật ra nằm trong cây giao diện, nên một phép
+kiểm chỉ nêu trên bản kê khai là bỏ ngỏ đúng phần rộng hơn.
+
+Hai loại chuỗi, khác nhau đúng một điểm:
+
+| Trường | Loại | Xuống dòng |
+|---|---|---|
+| `text.content` | đoạn văn | **được** |
+| `field.value` | đoạn văn | **được** |
+| `button.label` | nhãn | bị từ chối |
+| `field.label` | nhãn | bị từ chối |
+| `toggle.label` | nhãn | bị từ chối |
+| `image.alt` (dạng chữ) | nhãn | bị từ chối |
+
+Mọi phần còn lại của phép kiểm — ký tự điều khiển C0/C1, ký tự đảo chiều, ký tự
+rộng bằng không, trần 8 dấu liên tiếp, trần 4 096 ký tự — áp y hệt cho cả hai
+loại.
+
+**Nhãn** là chuỗi người dùng đọc ngay trước khi hành động: chữ trên nút họ bấm,
+công tắc họ gạt, ô họ gõ vào. Một dấu xuống dòng trong nhãn cho phép tác giả đẩy
+hậu quả ra khỏi tầm nhìn và để lại một dòng vô hại ở chỗ nhìn thấy. Đoạn văn là
+văn xuôi, không có tính kề cận ấy, nên xuống dòng được.
+
+Một ngoại lệ, và nó hẹp: **`field.value` được rỗng**, vì một ô nhập trống là
+chuyện thường. Mọi chuỗi khác ở đây **KHÔNG ĐƯỢC** rỗng hay toàn khoảng trắng —
+một cái nút không nhãn là một cái nút không nói hậu quả. Để ý sự bất đối xứng
+điều này tạo ra: `""` là `field.value` hợp lệ, còn `"   "` thì không.
+
+### Khoá trùng, và mục này phủ những tệp nào
+
+[02](02-ban-ke-khai.md) cấm khoá JSON trùng trong `manifest.json`. **Lệnh cấm ấy
+áp y nguyên cho tệp giao diện**, mã lỗi `bad-json`. Lý do nêu ở đó chuyển sang
+nguyên vẹn: cây giao diện nằm trong `content/`, nên nó được `content_hash` phủ
+và do đó được chữ ký phủ — mà một bên đọc lấy giá trị cuối trong khi bên kiểm
+lấy giá trị đầu là một chữ ký trên hai giao diện khác nhau.
 
 ### "Ký tự" và "dấu" nghĩa là gì
 

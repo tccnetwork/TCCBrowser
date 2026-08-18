@@ -14,6 +14,15 @@ Ba mục này **PHẢI** có. Thiếu bất kỳ mục nào là gói không hợ
 Mọi thứ **ngoài** ba mục đó **KHÔNG ĐƯỢC** đi vào chữ ký, và bản cài đặt **KHÔNG
 ĐƯỢC** đọc chúng khi chạy ứng dụng.
 
+Một gói có chứa những mục thừa ấy thì vẫn **hợp lệ**: bản cài đặt **KHÔNG ĐƯỢC**
+từ chối gói vì chúng có mặt, và không có mã lỗi nào cho chúng. Bỏ qua chúng an
+toàn chính vì chúng không đọc được và không được ký; còn từ chối thì tính hợp lệ
+của một gói lại phụ thuộc vào thứ mà một trình quản lý tệp, một trình soạn thảo
+hay một công cụ sao lưu tình cờ để lại trong thư mục. (Hàng nói về việc từ chối
+mục lạ trong bảng bên dưới là chỉ dẫn cho một **định dạng hộp chứa tương lai**,
+thứ 0.1 không định nghĩa. Nằm trong hộp chứa thì đúng những mục ấy hết vô hại:
+chúng được phân tích TRƯỚC khi chữ ký được kiểm.)
+
 ## Gói là BYTE, và đường vận chuyển không được chạm vào
 
 Chữ ký phủ lên byte thô của `manifest.json`; băm nội dung phủ lên byte thô của

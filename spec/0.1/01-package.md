@@ -31,6 +31,16 @@ and the comparison is what the signature protects.
 Anything **outside** those three **MUST NOT** enter the signature, and an
 implementation **MUST NOT** read it when running the app.
 
+A package that contains such extra entries is nevertheless **valid**: an
+implementation **MUST NOT** reject it for their presence, and there is no error
+code for them. Ignoring them is safe precisely because they are unreadable and
+unsigned, whereas rejecting them would make a package's validity depend on
+whatever a file manager, an editor or a backup tool happened to leave in the
+directory. (The row about rejecting unknown entries in the table below is
+guidance for a **future container format**, which 0.1 does not define. Inside a
+container the same entries stop being harmless: they are parsed before the
+signature is checked.)
+
 ## A package is BYTES, and transports must not touch them
 
 The signature covers the raw bytes of `manifest.json`; the content hash covers

@@ -149,6 +149,71 @@
    },
    "pad_manifest_to": 70000,
    "notes": "Rejected at step 0, before a single byte is parsed: refusing to spend resources on input nobody has authenticated yet."
+  },
+  {
+   "case": "signature is wrong AND the content was changed",
+   "expect_pass": false,
+   "code": "bad-signature",
+   "sign": false,
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "SIGNER",
+    "scheme": "hybrid-ed25519-mldsa65-v1",
+    "content_hash": "COMPUTED",
+    "entry": "ui.json",
+    "capabilities": []
+   },
+   "files": {
+    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+   },
+   "tamper_content_after_signing": true,
+   "notes": "Two rules broken at once. Precedence says the signature is checked before the content hash, so the code is bad-signature. Reporting content-hash-mismatch here would be reporting a comparison against a claim nobody has verified."
+  },
+  {
+   "case": "scheme is unknown AND the content was changed",
+   "expect_pass": false,
+   "code": "scheme-mismatch",
+   "sign": true,
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "SIGNER",
+    "scheme": "hybrid-ed25519-mldsa87-v1",
+    "content_hash": "COMPUTED",
+    "entry": "ui.json",
+    "capabilities": []
+   },
+   "files": {
+    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+   },
+   "tamper_content_after_signing": true,
+   "notes": "Precedence: the declared scheme is checked at step 7, the content hash at step 9. An implementation that hashes content before noticing it cannot verify the scheme spends the work for nothing and reports the later code."
+  },
+  {
+   "case": "publisher is not hex AND the scheme is unknown",
+   "expect_pass": false,
+   "code": "not-hex",
+   "sign": false,
+   "manifest": {
+    "spec_version": "0.1",
+    "id": "com.tcc.hello",
+    "name": "A",
+    "version": "1",
+    "publisher": "zzzz",
+    "scheme": "hybrid-ed25519-mldsa87-v1",
+    "content_hash": "COMPUTED",
+    "entry": "ui.json",
+    "capabilities": []
+   },
+   "files": {
+    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+   },
+   "notes": "I predicted scheme-mismatch here and the vector said not-hex. The scheme check is step 7, but a publisher that is not hex is caught during shape checking at step 6, which precedes it — the precedence table was right and my reading of it was not. This case exists because the order between two manifest-level failures is not visible from reading the fields."
   }
  ]
 }

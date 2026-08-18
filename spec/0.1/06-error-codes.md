@@ -17,6 +17,45 @@ rejected for a spoofing character must report `unsafe-display-string` — report
 a generic code like `spec` says nothing and cannot be matched by the conformance
 suite.
 
+### When several rules are broken at once
+
+A package can break more than one rule. Rejecting it is not enough: two
+implementations that report different codes for the same package are as
+divergent as two that disagree on accepting it, and the code is the only part a
+caller can act on.
+
+So an implementation **MUST** report the code of the **first** check to fail in
+this order, and **MUST NOT** report a later one while an earlier one also fails:
+
+| # | Check | Codes |
+|---|---|---|
+| 1 | `manifest.json` present | `missing-file` |
+| 2 | `signature.hex` present, then well-formed | `missing-file`, `bad-signature-length`, `not-hex` |
+| 3 | `content/` present | `missing-file` |
+| 4 | `manifest.json` within 64 KiB | `manifest-too-large` |
+| 5 | Manifest parses as JSON, no duplicate keys | `bad-json` |
+| 6 | Manifest shape: fields, values, display strings | `bad-json`, `unsafe-display-string`, and the rest of the manifest table |
+| 7 | Declared `scheme` is one the implementation has | `scheme-mismatch` |
+| 8 | Signature verifies over the manifest bytes | `bad-signature` |
+| 9 | `content_hash` matches the content tree | `content-hash-mismatch` |
+| 10 | Interface file, capabilities, behaviour | the interface, capability and behaviour tables |
+
+The order is not arbitrary, and three steps of it are load-bearing:
+
+- **Cheap before expensive, on unauthenticated bytes.** Steps 1–5 are size and
+  parse checks. Nothing reaches the signature verifier, or the content hasher,
+  until the input has a shape worth spending that work on.
+- **Shape before signature (6 before 8) is forced, not chosen.** The public key
+  is a field *inside* the manifest, so there is nothing to verify a signature
+  against until the manifest has been parsed and its shape checked.
+- **Signature before content (8 before 9).** `content_hash` is a claim made by
+  the manifest. Comparing content against an unverified claim tells you the
+  package is self-consistent, which an attacker who rewrote both can arrange.
+
+Step 4 of the pipeline in [01](01-package.md) — asking the user — still **MUST
+NOT** precede step 2 of that pipeline. This table refines which code to report;
+it does not move the user prompt.
+
 ## The list
 
 ### Package and paths
@@ -74,6 +113,14 @@ suite.
 | `text-too-long` | String over 4,096 characters |
 | `too-deep` | Tree over 32 levels |
 | `too-many-nodes` | Tree over 10,000 nodes |
+
+Two codes from the **Manifest** table also arise from interface files, and are
+not repeated here because they are the same code, not a parallel one:
+`bad-json` for an interface file that is malformed, carries a duplicate key, or
+carries a field this standard does not define; and `unsafe-display-string` for
+a user-visible string in the tree that fails the check in
+[05](05-interface.md). Which interface strings are checked, and how, is stated
+there.
 
 ### Cryptography
 

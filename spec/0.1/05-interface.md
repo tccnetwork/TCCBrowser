@@ -37,7 +37,7 @@ renderers. The scaffolding becomes the building.
 | `field` | `label` MUST · `value` (default empty) | Text input. `secret` is **rejected** — see below |
 | `toggle` | `label` MUST · `action` MUST · `on` (default **`false`**) | Switch |
 | `image` | `source` MUST · `alt` **MUST** | An image from the package |
-| `group` | `flow` (`row`/`column`, default `column`) · `gap` (`none`/`small`/`medium`/`large`, default `medium`) · `children` | The ONLY kind that takes children |
+| `group` | `flow` (`row`/`column`, default `column`) · `gap` (`none`/`small`/`medium`/`large`, default `medium`) · `children` (default **empty**) | The ONLY kind that takes children |
 
 Unknown fields **MUST** be rejected. They are almost always a typo, and ignoring
 them silently means the author believes a property took effect when it did not.
@@ -114,7 +114,7 @@ a real password field, indistinguishable from the browser's own.
 **This was reachable in 0.1 until 2026-08-16**, and the example in this very
 file used to show `{"kind": "field", "label": "Password", "secret": true}` — the
 specification was teaching authors to do it. Removing a previously-allowed value
-is a breaking change under [VERSIONING.md](../VERSIONING.md) §2 and is recorded
+is a breaking change under [VERSIONING.md](../VERSIONING.md) §3 and is recorded
 as one.
 
 What this does **not** fix: a package can still draw a plain field labelled
@@ -155,6 +155,51 @@ until 2026-08-18.
 A fingerprint still says **nothing about who the publisher is** — see
 [02](02-manifest.md) on `publisher`. It only lets a user notice that the key
 changed.
+
+### Strings shown to the user
+
+[02](02-manifest.md) requires `name`, `version` and each capability `reason` to
+pass a banned-character check. **The same check applies to every user-visible
+string in the interface tree**, and the code is the same `unsafe-display-string`.
+Saying so is not redundant: the interface tree is where most of the text a user
+reads actually lives, and a check stated only over the manifest leaves the
+larger surface unstated.
+
+Two kinds of string, differing in one respect only:
+
+| Field | Kind | Newlines |
+|---|---|---|
+| `text.content` | paragraph | **allowed** |
+| `field.value` | paragraph | **allowed** |
+| `button.label` | label | rejected |
+| `field.label` | label | rejected |
+| `toggle.label` | label | rejected |
+| `image.alt` (text form) | label | rejected |
+
+Everything else in the check — C0/C1 controls, bidi overrides, zero-width
+characters, the 8-consecutive-mark cap, the 4,096-character limit — applies
+identically to both kinds.
+
+A **label** is the string a user reads immediately before acting: the words on
+the button they press, the switch they flip, the box they type into. A newline
+in a label lets an author push the consequence out of view while leaving
+something harmless on the visible line. A paragraph is prose and has no such
+adjacency, so it may wrap.
+
+One exception, and it is narrow: **`field.value` may be empty**, because an
+empty input box is ordinary. Every other string here **MUST NOT** be empty or
+all-whitespace — an unlabelled button is a button whose consequence is unstated.
+Note the asymmetry this creates: `""` is a valid `field.value` and `"   "` is
+not.
+
+### Duplicate keys, and files this section covers
+
+[02](02-manifest.md) forbids duplicate JSON keys in `manifest.json`. **The same
+prohibition applies to the interface file**, with error code `bad-json`. The
+reason given there transfers unchanged: the interface tree is inside
+`content/`, so it is covered by `content_hash` and therefore by the signature,
+and a reader that takes the last value while a verifier takes the first is one
+signature over two different interfaces.
 
 ### What "character" and "mark" mean
 

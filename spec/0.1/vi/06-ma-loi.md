@@ -16,6 +16,46 @@ Lỗi bọc lỗi **PHẢI** trả mã của **nguyên nhân gốc**. Một bả
 tự giả mạo phải ra `unsafe-display-string` — trả một mã chung như `spec` thì
 không nói lên điều gì và bộ kiểm định không so khớp được.
 
+### Khi nhiều luật cùng bị vi phạm
+
+Một gói có thể phạm nhiều luật cùng lúc. Từ chối thôi thì chưa đủ: hai bản cài
+đặt trả hai mã khác nhau cho cùng một gói thì lệch nhau chẳng kém gì hai bản
+bất đồng về việc nhận hay từ chối — và mã lỗi là phần duy nhất bên gọi hành
+động được.
+
+Nên bản cài đặt **PHẢI** trả mã của phép kiểm **hỏng đầu tiên** theo thứ tự
+dưới đây, và **KHÔNG ĐƯỢC** trả một mã ở sau khi một phép kiểm ở trước cũng
+hỏng:
+
+| # | Phép kiểm | Mã |
+|---|---|---|
+| 1 | Có `manifest.json` | `missing-file` |
+| 2 | Có `signature.hex`, rồi đúng dạng | `missing-file`, `bad-signature-length`, `not-hex` |
+| 3 | Có `content/` | `missing-file` |
+| 4 | `manifest.json` trong 64 KiB | `manifest-too-large` |
+| 5 | Bản kê khai phân tích được, không khoá trùng | `bad-json` |
+| 6 | Hình dạng bản kê khai: trường, giá trị, chuỗi hiển thị | `bad-json`, `unsafe-display-string`, và phần còn lại của bảng bản kê khai |
+| 7 | `scheme` khai báo là thứ bản cài đặt có | `scheme-mismatch` |
+| 8 | Chữ ký khớp trên byte thô của bản kê khai | `bad-signature` |
+| 9 | `content_hash` khớp cây nội dung | `content-hash-mismatch` |
+| 10 | Tệp giao diện, quyền năng, hành vi | bảng giao diện, quyền năng và hành vi |
+
+Thứ tự này không tuỳ tiện, và ba bậc trong đó chịu lực:
+
+- **Rẻ trước, đắt sau, trên byte chưa xác thực.** Bậc 1–5 chỉ là kiểm kích
+  thước và phân tích cú pháp. Không gì chạm tới bên kiểm chữ ký hay bên băm nội
+  dung cho tới khi đầu vào có hình dạng đáng để tiêu công ấy.
+- **Hình dạng trước chữ ký (6 trước 8) là BẮT BUỘC, không phải lựa chọn.** Khoá
+  công khai là một trường *nằm trong* bản kê khai, nên chưa phân tích và chưa
+  kiểm hình dạng bản kê khai thì không có gì để đối chiếu chữ ký cả.
+- **Chữ ký trước nội dung (8 trước 9).** `content_hash` là một lời khai của bản
+  kê khai. So nội dung với một lời khai chưa xác thực chỉ cho biết gói tự nhất
+  quán — mà kẻ viết lại cả hai thì sắp đặt được điều đó.
+
+Bậc 4 của quy trình trong [01](01-goi.md) — hỏi người dùng — vẫn **KHÔNG ĐƯỢC**
+đi trước bậc 2 của quy trình ấy. Bảng này làm rõ nên trả mã nào, nó không dời
+chỗ câu hỏi cho người dùng.
+
 ## Danh sách
 
 ### Gói và đường dẫn
@@ -73,6 +113,13 @@ không nói lên điều gì và bộ kiểm định không so khớp được.
 | `text-too-long` | Chuỗi vượt 4 096 ký tự |
 | `too-deep` | Cây vượt 32 tầng |
 | `too-many-nodes` | Cây vượt 10 000 nút |
+
+Hai mã trong bảng **Bản kê khai** cũng phát sinh từ tệp giao diện, và không lặp
+lại ở đây vì chúng là **cùng một mã**, không phải mã song song: `bad-json` cho
+tệp giao diện hỏng cú pháp, có khoá trùng, hoặc mang trường tiêu chuẩn này
+không định nghĩa; và `unsafe-display-string` cho một chuỗi người dùng thấy
+trong cây mà không qua phép kiểm ở [05](05-giao-dien.md). Chuỗi giao diện nào
+bị kiểm, và kiểm thế nào, nói ở đó.
 
 ### Mật mã
 
