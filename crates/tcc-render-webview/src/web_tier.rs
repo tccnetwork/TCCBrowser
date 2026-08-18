@@ -92,7 +92,7 @@ pub fn attach_page(window: &Window, url: &str) -> Result<wry::WebView, String> {
     // ▼▼▼ TRANG-BAT-DAU ▼▼▼ — phép thử `khong_co_ipc_va_kich_ban` soi đúng
     // khúc giữa hai dấu này. Mọi chỗ dựng WebView cho TRANG WEB phải nằm trong
     // đây, và trong đây không được có IPC hay kịch bản của khung.
-    let dung = || WebViewBuilder::new().with_url(url);
+    let dung = || chan_lai(WebViewBuilder::new().with_url(url));
     // ▲▲▲ TRANG-KET-THUC ▲▲▲
     dung()
         .build(window)
@@ -178,8 +178,7 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
 
     // ── WebView của TRANG: KHÔNG IPC, KHÔNG kịch bản ──
     // ▼▼▼ TRANG-BAT-DAU ▼▼▼
-    let trang = WebViewBuilder::new()
-        .with_url(url_dau)
+    let trang = chan_lai(WebViewBuilder::new().with_url(url_dau))
         .with_bounds(Rect {
             position: LogicalPosition::new(0.0, CHROME_HEIGHT).into(),
             size: wry::dpi::LogicalSize::new(co.width, co.height - CHROME_HEIGHT).into(),
@@ -227,6 +226,64 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
         }
     });
     Ok(())
+}
+
+/// Đặt mọi chắn lên WebView của TRANG.
+///
+/// # Vì sao gom vào một hàm
+///
+/// Ba chắn dưới đây phải đi cùng nhau. Dựng WebView cho trang ở hai chỗ mà chỉ
+/// một chỗ có chắn thì chỗ kia là một cửa mở, và không có gì báo.
+///
+/// | Chắn | Chặn cái gì |
+/// |---|---|
+/// | Điều hướng | Trang tự nhảy sang `file://`, `javascript:`, hay chính giao thức riêng của ta |
+/// | Cửa sổ mới | `window.open` / `target=_blank` mở ra một khung KHÔNG có chắn nào |
+/// | Tải tệp | Engine ghi thẳng ra đĩa, tên và đuôi do TRANG chọn |
+/// | Bảng nháp | Trang đọc trộm thứ người dùng vừa sao chép — thường là mật khẩu |
+/// | Tự phát | Âm thanh nổ ra từ một cửa sổ người dùng chưa nhìn tới |
+fn chan_lai(b: WebViewBuilder<'_>) -> WebViewBuilder<'_> {
+    b.with_navigation_handler(|url| allow_navigation(&url))
+        .with_new_window_req_handler(|url| allow_new_window(&url))
+        .with_download_started_handler(|url, _duong_dan| allow_download(&url))
+        // Mặc định của `wry` đã là `false`, nhưng viết ra: một trang đọc được
+        // bảng nháp là một trang đọc được thứ người dùng vừa sao chép, mà thứ
+        // ấy rất hay là mật khẩu.
+        .with_clipboard(false)
+        // Mặc định của `wry` là `true`. Tắt: tiếng nổ ra từ một cửa sổ người
+        // dùng chưa kịp nhìn là chuyện của quảng cáo, không phải của trình duyệt.
+        .with_autoplay(false)
+}
+
+/// Cho phép điều hướng tới đâu.
+///
+/// Kiểm LẠI mỗi lần, không chỉ lần nạp đầu: trang chuyển hướng được sau khi đã
+/// nạp, và lần chuyển ấy mới là lần nguy hiểm — nó đưa `file://` hay chính
+/// giao thức riêng của ta vào một khung người dùng tưởng là trang web thường.
+#[must_use]
+pub fn allow_navigation(url: &str) -> bool {
+    check_web_url(url).is_ok()
+}
+
+/// Cho mở cửa sổ mới không. **Không.**
+///
+/// `window.open` và `target=_blank` mở ra một WebView mà TA không dựng — nên
+/// không có chắn nào ở đó cả: không kiểm điều hướng, không chặn tải tệp.
+///
+/// Thà một liên kết không mở còn hơn một khung không ai canh. Người dùng dán
+/// địa chỉ vào thanh nếu muốn.
+#[must_use]
+pub const fn allow_new_window(_url: &str) -> bool {
+    false
+}
+
+/// Cho tải tệp không. **Chưa.**
+///
+/// Trả `false` là KHÔNG tải. Thà nói "chưa làm" còn hơn ghi ra đĩa một tệp mà
+/// tên, đuôi và chỗ đặt đều do TRANG chọn.
+#[must_use]
+pub const fn allow_download(_url: &str) -> bool {
+    false
 }
 
 /// Lấy địa chỉ ra khỏi thông điệp của thanh địa chỉ.
@@ -278,7 +335,13 @@ mod kiem_thu {
     /// `window.ipc.postMessage` và trả lời hộ người dùng.
     #[test]
     fn khong_co_ipc_va_kich_ban() {
-        let nguon = include_str!("web_tier.rs");
+        // Cắt bỏ khối kiểm thử TRƯỚC khi tìm dấu mốc: chính khối này cũng chứa
+        // hai chuỗi dấu mốc, nên không cắt thì nó tự soi lấy mình và báo là mã
+        // của trang thiếu chắn. Bản đầu tôi quên, và nó đỏ ngay.
+        let nguon = include_str!("web_tier.rs")
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap_or_default();
         // Soi ĐÚNG những khúc dựng WebView cho TRANG, đánh dấu bằng hai mốc.
         //
         // Bản đầu soi cả tệp, và nó đỏ ngay khi thanh địa chỉ ra đời — vì
@@ -305,5 +368,48 @@ mod kiem_thu {
             !ma.contains("with_initialization_script"),
             "WebView của trang đang cài kịch bản của khung"
         );
+        // Và MỌI chỗ dựng WebView cho trang phải đi qua `chan_lai`.
+        for khuc_mot in nguon
+            .split("▼▼▼ TRANG-BAT-DAU ▼▼▼")
+            .skip(1)
+            .filter_map(|p| p.split("▲▲▲ TRANG-KET-THUC ▲▲▲").next())
+        {
+            assert!(
+                khuc_mot.contains("chan_lai"),
+                "một chỗ dựng WebView cho trang KHÔNG đi qua `chan_lai`:\n{khuc_mot}"
+            );
+        }
+    }
+
+    /// **Cửa sổ mới và tải tệp đều bị TỪ CHỐI.**
+    ///
+    /// Kiểm đột biến tìm ra chỗ này: phép thử cũ chỉ chốt rằng `chan_lai` được
+    /// gọi, nên đổi `false` thành `true` vẫn xanh. Kiểm sự CÓ MẶT của một chắn
+    /// mà không kiểm nó QUYẾT ĐỊNH gì thì chắn ấy có thể mở toang.
+    #[test]
+    fn cua_so_moi_va_tai_tep_deu_bi_tu_choi() {
+        assert!(!allow_new_window("https://a.example"));
+        assert!(!allow_new_window("https://ai-cung-the.example"));
+        assert!(!allow_download("https://a.example/x.dmg"));
+        assert!(!allow_download("https://a.example/vo-hai.txt"));
+    }
+
+    /// **Điều hướng bị kiểm LẠI mỗi lần**, không chỉ lần nạp đầu.
+    ///
+    /// Trang chuyển hướng được sau khi đã nạp, và lần chuyển ấy mới là lần
+    /// nguy hiểm: nó đưa `file://` hay giao thức riêng của ta vào một khung
+    /// người dùng tưởng là trang web thường.
+    #[test]
+    fn chan_dieu_huong_dung_cung_luat_voi_lan_nap_dau() {
+        // Cùng vị từ với `check_web_url`, nên mọi ca của phép thử kia áp luôn.
+        for xau in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "http://a.example",
+            "tcc-goi://goi/x",
+        ] {
+            assert!(!allow_navigation(xau), "{xau} lọt qua");
+        }
+        assert!(allow_navigation("https://a.example/trang-khac"));
     }
 }

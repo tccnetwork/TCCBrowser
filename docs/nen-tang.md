@@ -115,3 +115,34 @@ scheme; và cách phân vùng dữ liệu giữa nhiều WebView ngoài Darwin.
   đừng kết luận đồ hoạ trên máy này.
 - **Khác biệt hành vi.** Có `CSS grid` không có nghĩa ba bộ máy vẽ ra cùng một
   thứ. Bộ 50 trang thật + so ảnh chụp (mục 5.2) mới trả lời được, và nó chưa làm.
+
+
+## Tầng 2 chặn gì, và không chặn được gì
+
+Khảo sát mã `wry` 0.52.1 (18/08/2026). Trang web mang mã của nó: không chữ ký,
+không cổng quyền năng, không ai kiểm trước.
+
+| Đòn | Chặn thế nào |
+|---|---|
+| Trang chạm `window.ipc` của khung | WebView **riêng**, không IPC, không kịch bản |
+| Nhảy sang `file://`, `javascript:`, giao thức riêng của ta | Kiểm **mỗi lần** điều hướng, không chỉ lần nạp đầu |
+| `window.open` / `target=_blank` | **Từ chối** — khung ấy ta không dựng nên không có chắn nào ở đó |
+| Tải tệp | **Từ chối** — chưa hỗ trợ, thà nói "chưa làm" còn hơn ghi ra đĩa một tệp mà tên và đuôi do trang chọn |
+| Đọc trộm bảng nháp | `with_clipboard(false)` |
+| Tự phát tiếng | `with_autoplay(false)` — mặc định của wry là **bật** |
+| `http://` | Từ chối. Chặt hơn `external_link` một bậc: đường trần thì ai cũng sửa được, mà ta đặt nó trong cửa sổ mang tên TCC |
+
+### ❌ Không chặn được: micro và camera trên macOS
+
+`wry` viết cứng `WKPermissionDecision::Grant`
+(`wkwebview/class/wry_web_view_ui_delegate.rs:74`), không cho ghi đè. Chắn duy
+nhất là **tầng hệ điều hành** — gói không khai `NS*UsageDescription` thì macOS
+từ chối. **Luật 20** canh điều đó. Xem `SECURITY.md` §3.
+
+### Chưa chặn, và phải nói ra
+
+- **Hộp thoại `alert`/`confirm`/`prompt`** của trang: `wry` không cho móc vào.
+- **Cookie và `localStorage` dùng chung** giữa mọi trang trong cùng `WebContext`
+  — chưa phân vùng theo nguồn gốc. `wry` chỉ có `clear_all_browsing_data`, xoá
+  sạch tất cả, không xoá theo tên miền.
+- **Cảnh báo chứng chỉ TLS**: không có móc.
