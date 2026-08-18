@@ -429,6 +429,29 @@ else
 fi
 
 echo
+echo "--- Luật 21: cờ nào được CI \`check\` thì cũng phải được CI \`test\` ---"
+# `cargo check` biên dịch mà KHÔNG chạy phép thử nào. Mã sau một cờ chỉ được
+# `check` thì mọi phép thử của nó là chữ trên giấy: chúng biên dịch được, và
+# không lần nào thực thi.
+#
+# Đã trả giá 18/08/2026: toàn bộ chắn của tầng 2 nằm sau cờ `window`, CI chỉ
+# `check`, nên sáu phép thử canh chúng chưa từng chạy ở đâu ngoài máy tôi. Một
+# phép thử chưa từng chạy không phải một chắn — nó là niềm tin rằng có một chắn.
+ci=".github/workflows/ci.yml"
+thieu=""
+while read -r goi co; do
+  grep -q "cargo test -p $goi --features $co" "$ci" || thieu="$thieu $goi:$co"
+done <<EOF
+$(grep -oE "cargo check -p [a-z0-9-]+ --features [a-z0-9-]+" "$ci" \
+  | awk '{print $4, $6}' | sort -u)
+EOF
+if [ -n "$thieu" ]; then
+  bao "cờ được check mà không được test:$thieu"
+else
+  dat "mọi cờ được CI check đều được CI test"
+fi
+
+echo
 if [ "$loi" = "0" ]; then
   echo "════ ĐẠT: $loi vi phạm ════"
 else

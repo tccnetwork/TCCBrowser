@@ -27,6 +27,7 @@
 //! được nội dung, mà ta lại đang đặt nó trong một cửa sổ mang tên TCC.
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use tao::platform::run_return::EventLoopExtRunReturn as _;
 use tao::{
@@ -188,7 +189,16 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
     // ▲▲▲ TRANG-KET-THUC ▲▲▲
 
     vong.run_return(move |su_kien, _, dieu_khien| {
-        *dieu_khien = ControlFlow::Wait;
+        // ⚠️ `WaitUntil`, KHÔNG phải `Wait`.
+        //
+        // Tin nhắn từ ô địa chỉ đi vào hàng đợi qua bộ xử lý IPC, mà việc đẩy
+        // vào hàng đợi KHÔNG sinh ra một sự kiện cửa sổ nào. Với `Wait` thì
+        // vòng lặp ngủ cho tới khi có sự kiện khác — nên người dùng bấm "Đi"
+        // và **không có gì xảy ra**, cho tới khi họ tình cờ rê chuột qua cửa sổ.
+        //
+        // Đã trả giá 18/08/2026. `window.rs::run_loop` dùng `WaitUntil` đúng vì
+        // lý do này, và tôi đã không nhìn sang đó.
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
         match su_kien {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -218,10 +228,23 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
         for tin in cho {
             // Địa chỉ đến từ ô nhập của KHUNG, nhưng vẫn kiểm lại: ô nhập là nơi
             // người dùng gõ, và người dùng dán vào đó bất cứ thứ gì.
-            if let Some(url) = doc_dia_chi(&tin)
-                && check_web_url(&url).is_ok()
-            {
-                let _ = trang.load_url(&url);
+            let Some(go) = doc_dia_chi(&tin) else {
+                continue;
+            };
+            match normalise_url(&go) {
+                Ok(url) => {
+                    let _ = trang.load_url(&url);
+                }
+                // Nói ra. Bản đầu bỏ qua im lặng, và người dùng gõ một địa chỉ
+                // hợp lý rồi thấy KHÔNG có gì xảy ra — không biết mình gõ sai,
+                // hay trình duyệt hỏng.
+                Err(e) => {
+                    let _ = khung.evaluate_script(&format!(
+                        "(function(){{var o=document.querySelector('input[aria-label]');\
+                          if(o){{o.value={};}}}})()",
+                        serde_json::Value::from(format!("{go}  ← {e}"))
+                    ));
+                }
             }
         }
     });
@@ -284,6 +307,44 @@ pub const fn allow_new_window(_url: &str) -> bool {
 #[must_use]
 pub const fn allow_download(_url: &str) -> bool {
     false
+}
+
+/// Chuẩn hoá thứ người dùng gõ thành một địa chỉ mở được.
+///
+/// # Vì sao KHÔNG bắt người dùng gõ `https://`
+///
+/// Không ai gõ `https://` khi nhớ một trang. Bắt gõ đủ thì mọi lần quên là một
+/// lần "bấm Đi mà không có gì xảy ra" — và người dùng học rằng trình duyệt này
+/// hỏng, chứ không học rằng mình gõ thiếu.
+///
+/// Nhưng **chỉ thêm `https://`**, không bao giờ thêm `http://`: đoán xuống
+/// đường trần là tự hạ bảo vệ hộ người dùng. Ai thật sự muốn `http://` thì gõ
+/// đủ, và lúc ấy [`check_web_url`] từ chối — cố ý.
+///
+/// # Errors
+/// Sau khi thêm lược đồ vẫn không hợp lệ.
+pub fn normalise_url(go: &str) -> Result<String, WebTierError> {
+    let go = go.trim();
+    // Đã có lược đồ thì KHÔNG đụng vào: `http://a` phải bị từ chối, không được
+    // lặng lẽ nâng thành `https://a` — người dùng gõ gì thì đi tới đúng thứ đó.
+    if go.contains("://") {
+        check_web_url(go)?;
+        return Ok(go.to_owned());
+    }
+    // ⚠️ `javascript:alert(1)` không có `://`, nên nếu chỉ ghép lược đồ vào thì
+    // nó thành `https://javascript:alert(1)` — một chuỗi vô hại vì không phân
+    // giải được, NHƯNG người dùng gõ một thứ và trình duyệt mở một thứ khác.
+    // Thà từ chối: chỗ duy nhất được phép có `:` trong tên máy là cổng, và cổng
+    // là số.
+    let may = go.split('/').next().unwrap_or(go);
+    if let Some((_, cong)) = may.split_once(':')
+        && (cong.is_empty() || !cong.bytes().all(|b| b.is_ascii_digit()))
+    {
+        return Err(WebTierError::NotHttps);
+    }
+    let du = format!("https://{go}");
+    check_web_url(&du)?;
+    Ok(du)
 }
 
 /// Lấy địa chỉ ra khỏi thông điệp của thanh địa chỉ.
@@ -379,6 +440,34 @@ mod kiem_thu {
                 "một chỗ dựng WebView cho trang KHÔNG đi qua `chan_lai`:\n{khuc_mot}"
             );
         }
+    }
+
+    /// **Gõ tên miền trơn thì vẫn mở được** — không bắt gõ `https://`.
+    #[test]
+    fn ten_mien_tron_duoc_them_https() {
+        assert_eq!(
+            normalise_url("vnexpress.net").unwrap(),
+            "https://vnexpress.net"
+        );
+        assert_eq!(
+            normalise_url("  vnexpress.net/tin  ").unwrap(),
+            "https://vnexpress.net/tin"
+        );
+    }
+
+    /// Nhưng **không bao giờ tự hạ xuống `http://`**.
+    ///
+    /// Đoán xuống đường trần là tự hạ bảo vệ hộ người dùng.
+    #[test]
+    fn khong_tu_ha_xuong_http() {
+        assert!(normalise_url("http://a.example").is_err());
+        assert!(normalise_url("file:///etc/passwd").is_err());
+        assert!(normalise_url("javascript:alert(1)").is_err());
+        // Đã có lược đồ thì giữ nguyên, không nâng cấp hộ.
+        assert_eq!(
+            normalise_url("https://a.example").unwrap(),
+            "https://a.example"
+        );
     }
 
     /// **Cửa sổ mới và tải tệp đều bị TỪ CHỐI.**

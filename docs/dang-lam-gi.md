@@ -7,7 +7,20 @@
 >
 > Cập nhật lần cuối: **17/08/2026**.
 
-### ✅ Gõ tiếng Việt trên MÀN HÌNH ỨNG DỤNG THẬT (17/08/2026)
+### Bẫy 18/08/2026 — hai lần cùng một kiểu
+
+**`ControlFlow::Wait` làm nút "Đi" thành nút chết.** Tin nhắn từ ô địa chỉ vào
+hàng đợi qua IPC, mà đẩy vào hàng đợi KHÔNG sinh sự kiện cửa sổ. Vòng lặp ngủ
+tiếp. Người dùng bấm và **không có gì xảy ra**, tới khi họ tình cờ rê chuột qua
+cửa sổ. `window.rs::run_loop` dùng `WaitUntil(50ms)` đúng vì lý do này — tôi
+viết tệp mới mà không nhìn sang tệp cũ đã giải bài đó rồi.
+
+**CI chỉ `cargo check` cờ `window`.** Toàn bộ chắn tầng 2 nằm sau cờ ấy, nên sáu
+phép thử canh chúng chưa từng chạy ở đâu ngoài máy tôi. Cùng một hình dạng với
+bẫy trên: thứ trông như đang canh thì không canh. Luật 21 chặn lại; 144 phép thử
+từ nay mới thật sự chạy trong CI.
+
+## ✅ Gõ tiếng Việt trên MÀN HÌNH ỨNG DỤNG THẬT (17/08/2026)
 
 Người dùng gõ `chào buổi sáng bạn iu` bằng Telex vào
 `tcc-browser examples/hello-tcc`. Ca khó nhất trong câu là **ổ** — hai tầng
@@ -39,7 +52,7 @@ Cổng chặn cứng vẫn nguyên: không giao dịch mainnet trước kiểm �
 
 Xong: `tcc-spec`, `tcc-crypto`, `tcc-manifest`, `tcc-capability`, `tcc-runtime`,
 `tcc-cli`, `tcc-ui`, `tcc-render-webview`, `tcc-shell`, `apps/tcc-browser`.
-**238 phép thử + 136 vector tuân thủ**, clippy sạch, 19 luật kiến trúc 0 vi phạm.
+**238 phép thử + 136 vector tuân thủ**, clippy sạch, 20 luật kiến trúc 0 vi phạm.
 **Đường ống đã nối đủ**: gói đã ký trên đĩa → kiểm chữ ký → hộp thoại hỏi quyền
 trong cửa sổ thật → cú bấm quay về → cấp quyền → **vẽ màn hình ứng dụng**.
 

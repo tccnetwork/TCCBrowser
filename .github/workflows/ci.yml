@@ -226,6 +226,13 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
       - run: cargo check -p tcc-render-webview --features window --all-targets
       - run: cargo check -p tcc-shell --features window --all-targets
+      # ⚠️ `check` KHÔNG chạy phép thử nào. Cả nhóm chắn của tầng 2 — chặn điều
+      # hướng, chặn cửa sổ mới, chặn tải tệp — nằm sau cờ `window`, và suốt thời
+      # gian ở đây chỉ có `check` thì chúng biên dịch được mà chưa lần nào thực
+      # thi. Một phép thử chưa từng chạy không phải một chắn. Luật 21 canh việc
+      # mỗi cờ được `check` thì cũng phải được `test`.
+      - run: cargo test -p tcc-render-webview --features window
+      - run: cargo test -p tcc-shell --features window
 
 
       # The adversarial examples on a SECOND platform. They are the checks that
@@ -283,6 +290,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo check -p tcc-render-webview --features window --all-targets
       - run: cargo check -p tcc-shell --features window --all-targets
+      # ⚠️ `check` KHÔNG chạy phép thử nào. Cả nhóm chắn của tầng 2 — chặn điều
+      # hướng, chặn cửa sổ mới, chặn tải tệp — nằm sau cờ `window`, và suốt thời
+      # gian ở đây chỉ có `check` thì chúng biên dịch được mà chưa lần nào thực
+      # thi. Một phép thử chưa từng chạy không phải một chắn. Luật 21 canh việc
+      # mỗi cờ được `check` thì cũng phải được `test`.
+      - run: cargo test -p tcc-render-webview --features window
+      - run: cargo test -p tcc-shell --features window
       # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
       # đủ ba — xem docs/nen-tang.md.
       - name: Measure the web platform (WebView2)
