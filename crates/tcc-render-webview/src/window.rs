@@ -34,6 +34,46 @@ use wry::WebViewBuilder;
 
 use crate::package_server;
 
+/// Dựng một `WebView` phủ kín cửa sổ — **chọn đúng đường của từng nền**.
+///
+/// # Vì sao không gọi thẳng `build()` ở mọi nơi
+///
+/// Trên Linux, `wry` dựng `WebView` vào một widget GTK, không vào cửa sổ. Gọi
+/// `build(&window)` ở đó trả về *"the underlying handle is not available"* —
+/// một câu không nhắc gì tới GTK, nên nó **đọc y như một lỗi của màn hình ảo**.
+///
+/// Và suốt một thời gian tôi đã đọc đúng như thế: bước đo nền tảng trên Linux
+/// mang `continue-on-error` kèm chú thích nói rằng WebKitGTK dưới `xvfb` không
+/// ổn định. Nó không hề chập chờn — nó **trượt đều 3/3 lượt**, và trượt vì mã
+/// này, không vì máy chạy. Một phép thử được miễn vì "hạ tầng chập chờn" là
+/// chỗ tốt nhất để một lỗi thật nằm im.
+///
+/// # Errors
+/// Không dựng được `WebView`, hoặc trên Linux cửa sổ không có hộp chứa mặc định.
+pub(crate) trait BuildFilling<'a> {
+    /// # Errors
+    /// Không dựng được `WebView`, hoặc trên Linux cửa sổ không có hộp chứa GTK.
+    fn build_filling(self, window: &'a tao::window::Window) -> Result<wry::WebView, String>;
+}
+
+impl<'a> BuildFilling<'a> for WebViewBuilder<'a> {
+    fn build_filling(self, window: &'a tao::window::Window) -> Result<wry::WebView, String> {
+        #[cfg(target_os = "linux")]
+        {
+            use tao::platform::unix::WindowExtUnix as _;
+            use wry::WebViewBuilderExtUnix as _;
+            let hop = window
+                .default_vbox()
+                .ok_or_else(|| "cửa sổ không có hộp chứa GTK mặc định".to_owned())?;
+            self.build_gtk(hop).map_err(|e| e.to_string())
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            self.build(window).map_err(|e| e.to_string())
+        }
+    }
+}
+
 /// Mở một cửa sổ và nạp tài liệu đã dựng.
 ///
 /// `tu_dong_dong` để kiểm khói: đặt một khoảng thời gian thì cửa sổ tự đóng sau
@@ -64,7 +104,7 @@ pub fn open(
         .with_custom_protocol(package_server::SCHEME.to_owned(), move |_id, yc| {
             serve(&doc_tep, &yc)
         })
-        .build(&window)?;
+        .build_filling(&window)?;
 
     let han = tu_dong_dong.map(|d| Instant::now() + d);
     // ⚠️ Cần cờ này. Vòng lặp chạy lại cho MỖI sự kiện, và dòng đặt `ControlFlow`
@@ -176,7 +216,7 @@ pub fn check_escaping(document: &str, cho_toi_da: Duration) -> Result<EscapeRepo
                 *o = Some(yeu_cau.body().clone());
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     // `run_return` chứ KHÔNG phải `run`: `run` gọi thẳng `exit()` và không bao
@@ -271,7 +311,7 @@ pub fn probe_text_input(
                 *o = Some(yeu_cau.body().clone());
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut vong = vong;
@@ -347,7 +387,7 @@ pub fn probe_document(
                 *o = Some(yeu_cau.body().clone());
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let het_gio = Instant::now() + cho_toi_da;
@@ -578,7 +618,7 @@ pub fn dialog_sequence_driven(
                 q.push(t);
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut dang_thoat = false;
@@ -677,7 +717,7 @@ pub fn ask_dialog(
                 *o = Some(t);
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut dang_thoat = false;
@@ -787,7 +827,7 @@ pub fn run_loop(
                 q.push(t);
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let mut dang_thoat = false;
@@ -921,7 +961,7 @@ fn chay_mot_lan(
                 *o = Some(t);
             }
         })
-        .build(&window)
+        .build_filling(&window)
         .map_err(|e| format!("không dựng được WebView: {e}"))?;
 
     let han = Instant::now() + cho_toi_da;
