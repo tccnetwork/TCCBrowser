@@ -161,7 +161,7 @@ thật.
 | 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** — ✅ **xong ở `tcc-render-raster`** (17/08/2026): đo bề rộng thật, ngắt dòng, dấu chồng đúng |
 | 4.3 | Bố cục, hợp thành — ✅ **xong** (17/08): hàng/cột, xuống dòng, ngắt giữa từ, căn giữa dọc, nút cùng hàng rộng bằng nhau, và **bất biến KHÔNG vẽ đè**. "Căn lề" cố ý không vào tiêu chuẩn — [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 |
-| 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08/2026), sau cờ `accesskit`. **Còn nối adapter của nền tảng vào cửa sổ thật** — cửa sổ ấy giờ đã có (19/08/2026, `tcc-render-raster/src/window.rs`), nên việc này hết bị chặn |
+| 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08), **adapter macOS đã nối** (19/08/2026, cờ `cua-so-raster-tro-nang`). Còn Windows, Linux, và `ActionHandler` (cố ý để trống — xem dưới) |
 
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
 Đó là lúc chứng minh được đường thoát là thật.
@@ -193,9 +193,28 @@ Cờ `cua-so-raster` **tách khỏi** cờ `window` có chủ ý: `window` kéo 
 và cả một máy dựng web. `cargo tree` với `cua-so-raster` cho **0 crate `wry`** —
 cây phụ thuộc tự nói ra rằng đường thoát không tựa vào thứ nó định thoát khỏi.
 
-❌ **Chưa đạt phần trợ năng.** Cây trợ năng dựng đúng trong lúc vẽ và có phép
-kiểm ngang bằng, nhưng **adapter của hệ điều hành chưa nối vào cửa sổ này** —
-nên VoiceOver chưa đọc được màn hình raster. Mục 4.4 vẫn mở.
+🔶 **Trợ năng: đã nối trên macOS** (19/08/2026), cờ `cua-so-raster-tro-nang`.
+`accesskit_macos::SubclassingAdapter` gắn vào `NSView` của cửa sổ **trước khi
+cửa sổ hiện lần đầu**, và cây được đẩy lại mỗi lần công tắc đổi — gạt một quyền
+mà không báo lại thì VoiceOver vẫn đọc trạng thái cũ, tức là nghe một đằng cấp
+một nẻo.
+
+❌ **Windows và Linux chưa nối.** Nói ra bằng `cfg` chứ không bằng chú thích: hai
+nền ấy dựng ra một bản **không có mã trợ năng nào**, và đó là sự thật cần nhìn
+thấy được.
+
+⚠️ **Chỗ CỐ Ý để trống:** `ActionHandler` **không nhận hành động nào**. Hệ điều
+hành có thể yêu cầu "bấm nút này" thay người dùng; nhận yêu cầu ấy là mở một
+đường bấm nút **không qua chuột**, mà trên màn xác nhận giao dịch đó là một
+đường **ký hộ**. Đường ấy sẽ phải mở — người dùng bàn phím và VoiceOver cần nó —
+nhưng nó có mô hình đe doạ riêng, nên đi cùng phép thử của chính nó, không đi
+kèm một dòng thêm lúc nối adapter.
+
+**`unsafe` đầu tiên và duy nhất của dự án** nằm ở đây: trao con trỏ `NSView` cho
+AccessKit. `SECURITY.md` §3.1b đã lường trước đúng đánh đổi này — *"làm bây giờ
+nghĩa là thêm `unsafe` FFI, chỉ phủ macOS"* — và hoãn nó tới giai đoạn 4. Đây là
+giai đoạn 4. Dùng `#[expect]` chứ không `#[allow]`: ngày có bọc an toàn, lint tự
+báo ngoại lệ này đã thừa.
 
 ---
 

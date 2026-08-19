@@ -21,10 +21,16 @@ accesskit = { version = "0.24", optional = true }
 # một máy dựng web nào.
 tao = { version = "0.34", features = ["rwh_06"], optional = true }
 softbuffer = { version = "0.4", optional = true }
+# Adapter trợ năng của macOS. Sau cờ RIÊNG, không gộp vào `window`: một bản dựng
+# có cửa sổ mà chưa nối trợ năng vẫn phải dựng được, để chỗ chưa xong nhìn thấy
+# được ở cây phụ thuộc chứ không nằm trong một chú thích.
+accesskit_macos = { version = "0.26", optional = true }
 
 [features]
 accesskit = ["dep:accesskit"]
 window = ["dep:tao", "dep:softbuffer"]
+accesskit-platform = ["window", "accesskit", "dep:accesskit_macos"]
+accesskit_macos = ["dep:accesskit_macos"]
 
 [dev-dependencies]
 png = "0.18"

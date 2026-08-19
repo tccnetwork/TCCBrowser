@@ -78,6 +78,12 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
     let mut be_mat =
         Surface::new(&ngu_canh, &window).map_err(|e| format!("không mở được bề mặt: {e}"))?;
 
+    // ⚠️ Nối trợ năng TRƯỚC khi cửa sổ được hiện hay nhận tiêu điểm lần đầu —
+    // `SubclassingAdapter::new` nói rõ điều đó. Nối muộn thì VoiceOver đã hỏi
+    // xong và nhận câu "không có gì ở đây", rồi không hỏi lại.
+    #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+    let mut adapter = noi_tro_nang(&window, &bo_dung);
+
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
     // Vị trí chuột gần nhất, đơn vị LOGIC. `tao` báo vị trí theo pixel vật lý,
@@ -136,23 +142,19 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
                     ve_lai = false;
                     if let Ok(cay_moi) = tree.with_toggles(&bat) {
                         let _ = bo_dung.render(&cay_moi);
+                        // Gạt một công tắc mà không báo lại thì VoiceOver vẫn
+                        // đọc trạng thái CŨ — người dùng nghe "tắt" trong khi
+                        // màn hình hiện "bật". Ở màn hỏi quyền, đó là nghe một
+                        // đằng cấp một nẻo.
+                        #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+                        if let Some(moi) = cay_accesskit(&bo_dung)
+                            && let Some(su_kien) = adapter.update_if_active(|| moi)
+                        {
+                            su_kien.raise();
+                        }
                     }
                 }
-                let co = window.inner_size();
-                let (Some(w), Some(h)) = (
-                    core::num::NonZeroU32::new(co.width),
-                    core::num::NonZeroU32::new(co.height),
-                ) else {
-                    return;
-                };
-                if be_mat.resize(w, h).is_err() {
-                    return;
-                }
-                let Ok(mut dem) = be_mat.buffer_mut() else {
-                    return;
-                };
-                to_mau(&bo_dung, &mut dem, w.get(), h.get(), window.scale_factor());
-                let _ = dem.present();
+                trinh_bay(&bo_dung, &mut be_mat, &window);
             }
             _ => {}
         }
@@ -162,6 +164,93 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
         action: da_bam,
         toggles_on: bat,
     })
+}
+
+/// Nối adapter trợ năng của macOS vào cửa sổ.
+///
+/// ⚠️ Gọi **TRƯỚC** khi cửa sổ được hiện hay nhận tiêu điểm lần đầu —
+/// `SubclassingAdapter::new` nói rõ điều đó. Nối muộn thì VoiceOver đã hỏi xong
+/// và nhận câu "không có gì ở đây", rồi không hỏi lại.
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn noi_tro_nang(
+    window: &tao::window::Window,
+    bo_dung: &RasterRenderer,
+) -> accesskit_macos::SubclassingAdapter {
+    use tao::platform::macos::WindowExtMacOS as _;
+
+    let cay_tro_nang = cay_accesskit(bo_dung).unwrap_or_else(|| accesskit::TreeUpdate {
+        nodes: Vec::new(),
+        tree_id: accesskit::TreeId::ROOT,
+        tree: None,
+        focus: accesskit::NodeId(0),
+    });
+    // ⚠️ ĐÂY LÀ CHỖ `unsafe` DUY NHẤT CỦA DỰ ÁN.
+    //
+    // `Cargo.toml` đặt `unsafe_code = "deny"` toàn workspace, và `SECURITY.md`
+    // §3.1b đã lường trước đúng đánh đổi này: *"làm bây giờ nghĩa là thêm
+    // `unsafe` FFI, chỉ phủ macOS"* — rồi hoãn nó tới giai đoạn 4. Đây là
+    // giai đoạn 4.
+    //
+    // Không có đường vòng: trao con trỏ `NSView` cho một API của hệ điều
+    // hành thì không có bọc an toàn nào, và AccessKit cũng không có bản nào
+    // cho `tao`. Chọn giữa MỘT dòng FFI và một bộ dựng VoiceOver không đọc
+    // được thì chọn dòng FFI — nhưng chọn công khai, hẹp, và có lý do viết
+    // ra ngay đây.
+    //
+    // Dùng `expect` chứ không `allow`: ngày nào có bọc an toàn, lint tự báo
+    // rằng ngoại lệ này thừa, thay vì nằm lại mãi.
+    //
+    // SAFETY: `ns_view` của `tao` trả về NSView của cửa sổ vừa dựng xong.
+    // `window` sống tới cuối hàm — sau `run_return` — nên con trỏ còn hợp lệ
+    // suốt đời adapter, và adapter rơi trước `window`.
+    #[expect(
+        unsafe_code,
+        reason = "trao con trỏ NSView cho AccessKit — không có bọc an toàn nào cho tao"
+    )]
+    unsafe {
+        accesskit_macos::SubclassingAdapter::new(
+            window.ns_view(),
+            tro_nang::KhiKichHoat(cay_tro_nang),
+            tro_nang::ChuaNhanHanhDong,
+        )
+    }
+}
+
+/// Đưa lần vẽ gần nhất lên màn hình.
+fn trinh_bay(
+    bo_dung: &RasterRenderer,
+    be_mat: &mut Surface<&tao::window::Window, &tao::window::Window>,
+    window: &tao::window::Window,
+) {
+    let co = window.inner_size();
+    let (Some(w), Some(h)) = (
+        core::num::NonZeroU32::new(co.width),
+        core::num::NonZeroU32::new(co.height),
+    ) else {
+        return;
+    };
+    if be_mat.resize(w, h).is_err() {
+        return;
+    }
+    let Ok(mut dem) = be_mat.buffer_mut() else {
+        return;
+    };
+    to_mau(bo_dung, &mut dem, w.get(), h.get(), window.scale_factor());
+    let _ = dem.present();
+}
+
+/// Cây trợ năng của lần vẽ gần nhất, ở dạng AccessKit.
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn cay_accesskit(bd: &RasterRenderer) -> Option<accesskit::TreeUpdate> {
+    use tcc_ui::Renderer as _;
+    // Chưa vẽ thì chưa có cây. Trả `None` chứ không hoảng loạn: thiếu trợ năng
+    // là một màn hình đọc không được, còn hoảng loạn là một cửa sổ biến mất —
+    // và cái sau tệ hơn cho đúng người mà tính năng này sinh ra để phục vụ.
+    let goc = bd.published_accessibility()?;
+    Some(crate::accesskit_bridge::to_accesskit(
+        &goc,
+        &crate::accesskit_bridge::AccessText::default(),
+    ))
 }
 
 /// Đổ ảnh xám của bộ dựng vào đệm màu của cửa sổ.
@@ -195,5 +284,55 @@ fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64) 
                 *o = (xam << 16) | (xam << 8) | xam;
             }
         }
+    }
+}
+
+/// Nối cây trợ năng vào **hệ điều hành**.
+///
+/// # Vì sao đây là mục cuối của giai đoạn 4
+///
+/// `spec/0.1/05-interface.md` có mục **"Accessibility — no opt-out"**. Một bộ
+/// dựng mà VoiceOver không đọc được thì không thể thành mặc định, dù nó vẽ đẹp
+/// tới đâu — nên chừng nào chưa nối được, đường thoát khỏi WebView vẫn còn
+/// thiếu một chân.
+///
+/// Cây trợ năng đã đúng từ 17/08/2026: nó được ghi lại **trong lúc vẽ**, không
+/// gọi lại `Node::accessibility_tree()`. Thiếu đúng đoạn cuối này — đưa nó cho
+/// hệ điều hành.
+///
+/// # Chỉ macOS
+///
+/// Windows (`accesskit_windows`) và Linux (`accesskit_unix`) chưa nối. Nói ra
+/// bằng `cfg` chứ không bằng một chú thích: bản dựng trên hai nền kia **không có
+/// mã trợ năng nào cả**, và đó là sự thật cần nhìn thấy được.
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+mod tro_nang {
+    use accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
+
+    /// Trả cây đầu tiên khi hệ điều hành hỏi tới.
+    ///
+    /// Giữ sẵn một bản: hệ điều hành hỏi vào lúc nó muốn, không vào lúc ta vẽ.
+    pub struct KhiKichHoat(pub TreeUpdate);
+
+    impl ActivationHandler for KhiKichHoat {
+        fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
+            Some(self.0.clone())
+        }
+    }
+
+    /// ⚠️ **KHÔNG làm gì cả**, và đó là quyết định chứ không phải chỗ bỏ trống.
+    ///
+    /// Hệ điều hành có thể yêu cầu "bấm nút này" thay người dùng. Nhận yêu cầu
+    /// ấy nghĩa là mở một đường **bấm được nút mà không qua chuột** — trên màn
+    /// xác nhận giao dịch, đó là một đường ký hộ.
+    ///
+    /// Đường ấy sẽ phải mở, vì người dùng bàn phím và VoiceOver cần nó. Nhưng
+    /// mở nó là một thay đổi có mô hình đe doạ riêng, không phải một dòng thêm
+    /// vào lúc nối adapter. Tới lúc đó thì nó đi cùng chỗ khác trong khung, và
+    /// đi cùng phép thử của chính nó.
+    pub struct ChuaNhanHanhDong;
+
+    impl ActionHandler for ChuaNhanHanhDong {
+        fn do_action(&mut self, _yeu_cau: ActionRequest) {}
     }
 }
