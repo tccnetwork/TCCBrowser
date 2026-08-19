@@ -34,6 +34,19 @@ use tcc_ui::{Node, Renderer as _};
 
 use crate::{RasterRenderer, WIDTH};
 
+/// Chuỗi bộ dựng cần, **tiêm từ ngoài vào**.
+///
+/// Cố ý **KHÔNG có `Default`**: mặc định là chỗ một câu tiếng Anh lọt vào màn
+/// hình tiếng Việt mà không ai thấy. Đã xảy ra đúng một lần — xem `SECURITY.md`
+/// §3.1c — và một kiểu dữ liệu không có mặc định thì không tái diễn được.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScreenText {
+    /// Câu mô tả hành động không hoàn tác. Đọc SAU nhãn.
+    pub destructive_note: String,
+    /// Tên vai trò cho nút không hoàn tác. Đọc THAY chữ "nút".
+    pub destructive_role: String,
+}
+
 /// Kết thúc của một màn hình raster.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ScreenOutcome {
@@ -61,7 +74,7 @@ pub struct ScreenOutcome {
 ///
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
-pub fn open_screen(tree: &Node, tieu_de: &str, cau_mat_mat: &str) -> Result<ScreenOutcome, String> {
+pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<ScreenOutcome, String> {
     // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
     //
     // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
@@ -98,7 +111,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, cau_mat_mat: &str) -> Result<Scre
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
     let mut bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-    let mut adapter = noi_tro_nang(&window, &bo_dung, cau_mat_mat, Arc::clone(&hang_tro_nang));
+    let mut adapter = noi_tro_nang(&window, &bo_dung, chu, Arc::clone(&hang_tro_nang));
 
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
@@ -186,7 +199,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, cau_mat_mat: &str) -> Result<Scre
                             bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
                         }
                         #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                        if let Some(moi) = cay_accesskit(&bo_dung, cau_mat_mat)
+                        if let Some(moi) = cay_accesskit(&bo_dung, chu)
                             && let Some(su_kien) = adapter.update_if_active(|| moi)
                         {
                             su_kien.raise();
@@ -290,18 +303,17 @@ fn rut_yeu_cau_tro_nang(
 fn noi_tro_nang(
     window: &tao::window::Window,
     bo_dung: &RasterRenderer,
-    cau_mat_mat: &str,
+    chu: &ScreenText,
     hang: Arc<Mutex<Vec<u64>>>,
 ) -> accesskit_macos::SubclassingAdapter {
     use tao::platform::macos::WindowExtMacOS as _;
 
-    let cay_tro_nang =
-        cay_accesskit(bo_dung, cau_mat_mat).unwrap_or_else(|| accesskit::TreeUpdate {
-            nodes: Vec::new(),
-            tree_id: accesskit::TreeId::ROOT,
-            tree: None,
-            focus: accesskit::NodeId(0),
-        });
+    let cay_tro_nang = cay_accesskit(bo_dung, chu).unwrap_or_else(|| accesskit::TreeUpdate {
+        nodes: Vec::new(),
+        tree_id: accesskit::TreeId::ROOT,
+        tree: None,
+        focus: accesskit::NodeId(0),
+    });
     // ⚠️ ĐÂY LÀ CHỖ `unsafe` DUY NHẤT CỦA DỰ ÁN.
     //
     // `Cargo.toml` đặt `unsafe_code = "deny"` toàn workspace, và `SECURITY.md`
@@ -375,7 +387,7 @@ fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (S
 
 /// Cây trợ năng của lần vẽ gần nhất, ở dạng AccessKit.
 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-fn cay_accesskit(bd: &RasterRenderer, cau_mat_mat: &str) -> Option<accesskit::TreeUpdate> {
+fn cay_accesskit(bd: &RasterRenderer, chu: &ScreenText) -> Option<accesskit::TreeUpdate> {
     use tcc_ui::Renderer as _;
     // Chưa vẽ thì chưa có cây. Trả `None` chứ không hoảng loạn: thiếu trợ năng
     // là một màn hình đọc không được, còn hoảng loạn là một cửa sổ biến mất —
@@ -384,7 +396,8 @@ fn cay_accesskit(bd: &RasterRenderer, cau_mat_mat: &str) -> Option<accesskit::Tr
     Some(crate::accesskit_bridge::to_accesskit(
         &goc,
         &crate::accesskit_bridge::AccessText {
-            cau_mat_mat: cau_mat_mat.to_owned(),
+            cau_mat_mat: chu.destructive_note.clone(),
+            vai_tro_mat_mat: chu.destructive_role.clone(),
         },
     ))
 }

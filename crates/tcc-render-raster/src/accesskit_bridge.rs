@@ -39,6 +39,15 @@ use tcc_ui::{AccessNode, Role};
 pub struct AccessText {
     /// Câu mô tả hành động mất mát.
     pub cau_mat_mat: String,
+    /// **Tên VAI TRÒ** cho nút không hoàn tác — thứ trình đọc màn hình đọc thay
+    /// cho chữ "nút".
+    ///
+    /// Tách khỏi [`Self::cau_mat_mat`] vì hai chỗ khác nhau: mô tả đọc SAU nhãn,
+    /// còn vai trò đọc THAY chữ "nút". Đường WebView đặt cả hai
+    /// (`aria-description` và `aria-roledescription`); bỏ vai trò ở đây thì
+    /// VoiceOver đọc "Xoá dữ liệu, nút" — y hệt "Huỷ, nút" — trên đúng bộ dựng
+    /// mà ta định thay thế WebView bằng.
+    pub vai_tro_mat_mat: String,
 }
 
 impl Default for AccessText {
@@ -47,6 +56,7 @@ impl Default for AccessText {
     fn default() -> Self {
         Self {
             cau_mat_mat: "This cannot be undone.".to_owned(),
+            vai_tro_mat_mat: "button — this cannot be undone".to_owned(),
         }
     }
 }
@@ -134,6 +144,9 @@ fn them(
         // AccessKit không có vai trò cho "không hoàn tác". Không nói ra thì
         // "Xoá dữ liệu, nút" nghe y hệt "Huỷ, nút".
         nut.set_description(chu.cau_mat_mat.clone());
+        // `role_description` → `accessibilityRoleDescription` trên macOS: đọc
+        // THAY chữ "nút", nên hai nút nghe khác nhau ngay từ vai trò.
+        nut.set_role_description(chu.vai_tro_mat_mat.clone());
     }
 
     let con: Vec<NodeId> = n
@@ -257,10 +270,19 @@ mod kiem_thu {
     fn cau_mat_mat_tiem_tu_ngoai() {
         let chu = AccessText {
             cau_mat_mat: "Hành động này không hoàn tác được.".to_owned(),
+            vai_tro_mat_mat: "nút — không hoàn tác được".to_owned(),
         };
         let u = to_accesskit(&cay(Role::Button { destructive: true }, Some("Xoá")), &chu);
         let n = &u.nodes.first().unwrap().1;
         assert_eq!(n.description(), Some(chu.cau_mat_mat.as_str()));
+        // VAI TRÒ cũng phải đi từ ngoài vào. Thiếu nó thì trình đọc màn hình
+        // đọc "Xoá, nút" — y hệt "Huỷ, nút" — trên đúng bộ dựng ta định dùng
+        // để thay thế WebView.
+        assert_eq!(
+            n.role_description(),
+            Some(chu.vai_tro_mat_mat.as_str()),
+            "nút không hoàn tác nghe y hệt một nút thường"
+        );
     }
 
     /// Mỗi nút một `NodeId` riêng — trùng id là AccessKit dựng sai cây.

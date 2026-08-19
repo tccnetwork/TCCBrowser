@@ -36,7 +36,7 @@ pub fn open_app_screen_raster(
     Ok(tcc_render_raster::window::open_screen(
         &cay,
         &app_window_title(m),
-        crate::text::destructive_note(ngon_ngu),
+        &crate::text::raster_text(ngon_ngu),
     )?)
 }
 
@@ -57,6 +57,6 @@ pub fn open_permission_dialog_raster(
     Ok(tcc_render_raster::window::open_screen(
         &cay,
         crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu),
-        crate::text::destructive_note(ngon_ngu),
+        &crate::text::raster_text(ngon_ngu),
     )?)
 }

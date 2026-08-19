@@ -496,15 +496,18 @@ pub fn renderer_text(n: Language) -> tcc_render_webview::markup::RendererText {
     }
 }
 
-/// Câu mô tả hành động **không hoàn tác**, cho bộ dựng ra pixel.
+/// Chuỗi cho bộ dựng ra pixel — **cùng KHOÁ với [`renderer_text`]**.
 ///
-/// Cùng khoá với [`renderer_text`], và có phép thử chốt điều đó: hai bộ dựng
-/// nói hai câu khác nhau cho cùng một nút là đúng thứ phép kiểm chéo sinh ra để
-/// chặn — người dùng nghe "Không hoàn tác được" ở một bộ dựng và một câu khác ở
-/// bộ dựng kia thì không biết tin bên nào.
+/// Có phép thử chốt điều đó. Hai bộ dựng nói hai câu khác nhau cho cùng một nút
+/// là đúng thứ phép kiểm chéo sinh ra để chặn: người dùng nghe một câu ở bộ
+/// dựng này và một câu khác ở bộ dựng kia thì không biết tin bên nào.
+#[cfg(feature = "cua-so-raster")]
 #[must_use]
-pub fn destructive_note(n: Language) -> &'static str {
-    label(TextKey::CauMatMat, n)
+pub fn raster_text(n: Language) -> tcc_render_raster::window::ScreenText {
+    tcc_render_raster::window::ScreenText {
+        destructive_note: label(TextKey::CauMatMat, n).to_owned(),
+        destructive_role: label(TextKey::VaiTroMatMat, n).to_owned(),
+    }
 }
 
 #[cfg(test)]
@@ -625,20 +628,25 @@ mod kiem_thu {
     ///
     /// Phép thử này chốt chúng về cùng một khoá. Ai đổi một bên mà quên bên kia
     /// thì nó đỏ.
+    #[cfg(feature = "cua-so-raster")]
     #[test]
     fn hai_bo_dung_noi_cung_cau_mat_mat() {
         for n in [Language::En, Language::Vi] {
             assert_eq!(
                 renderer_text(n).cau_mat_mat,
-                destructive_note(n),
+                raster_text(n).destructive_note,
                 "hai bộ dựng mô tả nút không hoàn tác bằng hai câu khác nhau ({n:?})"
             );
-            assert!(!destructive_note(n).is_empty());
+            assert_eq!(
+                renderer_text(n).vai_tro_mat_mat,
+                raster_text(n).destructive_role
+            );
+            assert!(!raster_text(n).destructive_note.is_empty());
         }
         // Và hai ngôn ngữ phải KHÁC nhau — nếu không, "đã dịch" chỉ là lời nói.
         assert_ne!(
-            destructive_note(Language::En),
-            destructive_note(Language::Vi)
+            raster_text(Language::En).destructive_note,
+            raster_text(Language::Vi).destructive_note
         );
     }
 
@@ -652,7 +660,7 @@ mod kiem_thu {
     fn cho_goi_raster_dung_cau_da_dich() {
         let nguon = include_str!("window_raster.rs");
         assert_eq!(
-            nguon.matches("destructive_note(ngon_ngu)").count(),
+            nguon.matches("raster_text(ngon_ngu)").count(),
             2,
             "cửa sổ raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
         );

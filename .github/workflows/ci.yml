@@ -233,6 +233,13 @@ jobs:
       # mỗi cờ được `check` thì cũng phải được `test`.
       - run: cargo test -p tcc-render-webview --features window
       - run: cargo test -p tcc-shell --features window
+      # Bộ dựng RA PIXEL: cửa sổ riêng, trợ năng riêng, KHÔNG `wry`. Luật 21 đòi
+      # cờ nào được `check` thì cũng phải được `test` — và những phép thử chốt
+      # hai bộ dựng nói cùng một câu nằm sau đúng cờ này.
+      - run: cargo check -p tcc-shell --features cua-so-raster --all-targets
+      - run: cargo test -p tcc-shell --features cua-so-raster
+      - run: cargo check -p tcc-render-raster --features window --all-targets
+      - run: cargo test -p tcc-render-raster --features window
 
 
       # The adversarial examples on a SECOND platform. They are the checks that
@@ -311,6 +318,13 @@ jobs:
       # mỗi cờ được `check` thì cũng phải được `test`.
       - run: cargo test -p tcc-render-webview --features window
       - run: cargo test -p tcc-shell --features window
+      # Bộ dựng RA PIXEL: cửa sổ riêng, trợ năng riêng, KHÔNG `wry`. Luật 21 đòi
+      # cờ nào được `check` thì cũng phải được `test` — và những phép thử chốt
+      # hai bộ dựng nói cùng một câu nằm sau đúng cờ này.
+      - run: cargo check -p tcc-shell --features cua-so-raster --all-targets
+      - run: cargo test -p tcc-shell --features cua-so-raster
+      - run: cargo check -p tcc-render-raster --features window --all-targets
+      - run: cargo test -p tcc-render-raster --features window
       # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
       # đủ ba — xem docs/nen-tang.md.
       - name: Measure the web platform (WebView2)
