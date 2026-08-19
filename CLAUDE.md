@@ -31,10 +31,16 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh   # 18 luật, chạy trước biên dịch trong CI
+tools/kiem-luat-phu-thuoc.sh   # 22 luật, chạy trước biên dịch trong CI
 cargo test --workspace
 cargo run -p tcc-conformance
+tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
 ```
+
+`kiem-so-lieu.sh` nằm trong danh sách này từ 19/08/2026, sau khi CI đỏ vì đúng
+việc bỏ sót nó: thêm hai phép thử là ba tài liệu ghi sai con số. Nó chạy lâu
+nhất nên dễ bị bỏ qua — mà một cổng chỉ chạy trong CI thì nó không phải cổng của
+mình, nó là cổng của người khác.
 
 Thứ tự này có lý do: tôi từng đẩy một bản **không biên dịch được** vì chỉ chạy
 bộ kiểm định — mà bộ kiểm định dùng binary đã dựng sẵn nên im lặng hoàn toàn.
