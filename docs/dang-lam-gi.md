@@ -5,20 +5,73 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **17/08/2026**.
+> Cập nhật lần cuối: **19/08/2026**.
 
-### Bẫy 18/08/2026 — hai lần cùng một kiểu
+## Đứng ở đâu — 19/08/2026
 
-**`ControlFlow::Wait` làm nút "Đi" thành nút chết.** Tin nhắn từ ô địa chỉ vào
-hàng đợi qua IPC, mà đẩy vào hàng đợi KHÔNG sinh sự kiện cửa sổ. Vòng lặp ngủ
-tiếp. Người dùng bấm và **không có gì xảy ra**, tới khi họ tình cờ rê chuột qua
-cửa sổ. `window.rs::run_loop` dùng `WaitUntil(50ms)` đúng vì lý do này — tôi
-viết tệp mới mà không nhìn sang tệp cũ đã giải bài đó rồi.
+Nhánh `giai-doan-3.1`. `main` **cố ý** dừng ở `f738085` (chưa có ví) để người
+soát ngoài đọc một cây ổn định.
 
-**CI chỉ `cargo check` cờ `window`.** Toàn bộ chắn tầng 2 nằm sau cờ ấy, nên sáu
-phép thử canh chúng chưa từng chạy ở đâu ngoài máy tôi. Cùng một hình dạng với
-bẫy trên: thứ trông như đang canh thì không canh. Luật 21 chặn lại; 144 phép thử
-từ nay mới thật sự chạy trong CI.
+**383 phép thử · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
+
+| Giai đoạn | Tình trạng |
+|---|---|
+| 5 — tầng web hiện đại | ✅ **đóng** (19/08). Ba bộ máy đều đo được, đều **18/20** |
+| 4 — bộ dựng riêng | 🔶 cổng ra **đạt phần vẽ, bấm, gạt công tắc**; trợ năng nối xong trên macOS |
+| 3 — ví, danh tính | 🔶 ví và ký chạy thật; chứng thực chờ sổ khoá của 0.2 |
+
+### Giai đoạn 5 đóng thế nào
+
+Ba bộ máy — WKWebView, WebKitGTK, WebView2 — **thiếu đúng cùng hai mục**
+(`crypto.subtle`, `localStorage`). Ba bộ máy, một trong đó không chung dòng mã
+nào với hai cái kia: đó là xác nhận, không phải trùng hợp. Nguyên nhân nằm ở
+**cách nạp tài liệu** (`with_html` cho nguồn gốc mờ), không ở bộ máy.
+
+**Bộ 50 trang thật** đo *giá của chính sách ta đặt*, không so ảnh chụp — so điểm
+ảnh ở tầng 2 là đo WebKit của Apple. Kết quả: `https`-only tốn **0**, tải tệp
+**0**, nhưng **148 lần từ chối cửa sổ mới** dồn hết vào trang quảng cáo và
+**đúng 0 lần** trên mọi trang tài liệu.
+
+**Nhãn "TCC Ready" không làm** — bộ đếm không tách được "trang cần quyền ấy" khỏi
+"quảng cáo của trang thử đòi", nên nhãn đạt/trượt sẽ đổ lỗi cho trang vì quảng
+cáo của nó. Thay bằng tính chất gọi đúng tên: **"im khi nạp"**, 26/50.
+
+### Đường thoát khỏi WebView giờ là thật
+
+`cargo run -p tcc-shell --features cua-so-raster-tro-nang --example man-hinh-raster examples/hello-tcc hop-thoai`
+
+Gói **đã ký** lên màn hình, **bấm được**, **gạt công tắc được**, và **VoiceOver
+đọc được** — không một dòng `wry`. `cargo tree` xác nhận: 0 crate `wry`.
+
+Ba luật của hộp thoại giữ nguyên trên bộ dựng mới: mở ra **mọi mục tắt**, **đóng
+cửa sổ không phải đồng ý**, **gạt công tắc không đóng hộp thoại**.
+
+**`unsafe` đầu tiên và duy nhất** nằm ở đây — trao con trỏ `NSView` cho AccessKit.
+`SECURITY.md` §3.1b đã lường trước và hoãn tới giai đoạn 4; đây là giai đoạn 4.
+
+### Còn mở — và phần lớn cần NGƯỜI, không cần mã
+
+| Việc | Ai làm được |
+|---|---|
+| Kiểm định an ninh **độc lập** | người ngoài — **cổng chặn mainnet** |
+| Người ngoài dựng gói **chỉ từ `spec/0.1/`** | người ngoài — phép thử duy nhất của đặc tả |
+| Hồ sơ cấp phép Apple (`com.tcc.browser` + Keychain Sharing) | bạn — mở khoá ví trên máy thật |
+| Adapter trợ năng Windows, Linux | mã, nhưng **không thử được ở máy này** |
+| `ActionHandler` nhận hành động | mã — **cố ý hoãn**, xem dưới |
+
+`ActionHandler` để trống **có chủ ý**: nhận yêu cầu "bấm nút này" từ hệ điều
+hành là mở một đường bấm nút không qua chuột, mà trên màn xác nhận giao dịch đó
+là đường **ký hộ**. Nó sẽ phải mở, nhưng đi cùng mô hình đe doạ và phép thử
+riêng.
+
+### Đặc tả đã bịt bảy chỗ mơ hồ (18–19/08)
+
+Nặng nhất: **thứ tự ưu tiên lỗi**. Mọi vector trước đó chỉ phạm một luật, nên một
+bản cài đặt độc lập có thể **qua sạch bộ kiểm định** rồi bất đồng với bản gốc
+trên mọi gói hỏng thật. Sáu chỗ còn lại: chuỗi hiển thị của giao diện, khoá JSON
+trùng trong tệp giao diện, `children` mặc định, tệp thừa ngoài ba tên đã biết,
+một trích dẫn sai mục, và **tuyên bố cái gì mang tính quy phạm** (luật 23 cưỡng
+chế).
 
 ## ✅ Gõ tiếng Việt trên MÀN HÌNH ỨNG DỤNG THẬT (17/08/2026)
 
@@ -289,6 +342,39 @@ Việc kế tiếp của v2:
 ## Bẫy đã dẫm phải, đừng dẫm lại
 
 Chỉ những bẫy của v2. Bẫy của v1 (chặn quảng cáo, Electron) nằm ở ghi chú của v1.
+
+### 18–19/08/2026 — bốn cái, ba cùng một hình dạng
+
+**`ControlFlow::Wait` làm nút "Đi" thành nút chết.** Tin nhắn từ ô địa chỉ vào
+hàng đợi qua IPC, mà đẩy vào hàng đợi **không sinh sự kiện cửa sổ** nào. Vòng
+lặp ngủ tiếp; người dùng bấm và **không có gì xảy ra**, tới khi họ tình cờ rê
+chuột qua cửa sổ. `window.rs::run_loop` dùng `WaitUntil(50ms)` đúng vì lý do
+này — tôi viết tệp mới mà không nhìn sang tệp cũ đã có đáp án.
+
+**CI chỉ `cargo check` cờ `window`.** `check` biên dịch mà **không chạy phép thử
+nào**, nên toàn bộ chắn tầng 2 chưa từng chạy ở đâu ngoài máy tôi. Luật 21 chặn
+lại; 144 phép thử từ đó mới thật sự chạy.
+
+**Bước đo Linux mang `continue-on-error` kèm chú thích SAI.** Chú thích nói
+WebKitGTK dưới màn hình ảo không ổn định. Nó **không hề chập chờn** — trượt đều
+**3/3** vì mã ta gọi `build(&window)` trong khi Linux cần `build_gtk`. Câu lỗi
+`the underlying handle is not available` không nhắc chữ GTK nào, nên đọc y hệt
+một màn hình ảo chưa lên. *Một phép thử được miễn vì "hạ tầng không đáng tin" là
+chỗ tốt nhất để một lỗi thật nằm im.*
+
+Ba cái trên **cùng một hình dạng**: thứ trông như đang canh thì không canh.
+
+**Cách phát hiện đáng nhớ hơn cả ba bản vá:** chạy **cùng một tệp nhị phân ba
+lượt trong một job**. Một lượt xanh không phân biệt được "đã sửa" với "vừa may",
+và một lượt đỏ cũng thế.
+
+### Sửa mã bằng script thì phải kiểm NGAY
+
+Dẫm **hai lần trong một tuần**. Cả hai lần lệnh `python`/`perl` khớp vào **hư
+không** — sai tên biến, và `cargo fmt` đã tách một `println!` thành nhiều dòng
+nên chuỗi neo không còn tồn tại. Bản dựng **vẫn xanh**, vì chẳng có gì thay đổi.
+Lần một chỉ lộ ra khi **kiểm đột biến** thấy đột biến sống sót; lần hai chỉ lộ
+ra nhờ một cảnh báo `unused import`.
 
 
 - **Phép thử có thể VÔ DỤNG mà vẫn xanh (13/08/2026).** Tôi viết phép thử "đổi
