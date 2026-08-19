@@ -161,10 +161,24 @@ thật.
 | 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** — ✅ **xong ở `tcc-render-raster`** (17/08/2026): đo bề rộng thật, ngắt dòng, dấu chồng đúng |
 | 4.3 | Bố cục, hợp thành — ✅ **xong** (17/08): hàng/cột, xuống dòng, ngắt giữa từ, căn giữa dọc, nút cùng hàng rộng bằng nhau, và **bất biến KHÔNG vẽ đè**. "Căn lề" cố ý không vào tiêu chuẩn — [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 |
-| 4.4 | Trợ năng qua AccessKit — ✅ **ánh xạ xong** (17/08/2026), sau cờ `accesskit`; còn nối adapter của nền tảng vào cửa sổ thật |
+| 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08/2026), sau cờ `accesskit`. **Còn nối adapter của nền tảng vào cửa sổ thật** — cửa sổ ấy giờ đã có (19/08/2026, `tcc-render-raster/src/window.rs`), nên việc này hết bị chặn |
 
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
 Đó là lúc chứng minh được đường thoát là thật.
+
+🔶 **Đạt phần vẽ và bấm** (19/08/2026). `cargo run -p tcc-shell --features
+cua-so-raster --example man-hinh-raster examples/hello-tcc` mở gói `hello-tcc`
+**đã ký** trong một cửa sổ thật, vẽ hoàn toàn bằng Rust (`cosmic-text` +
+`softbuffer`), bấm nút chạy đúng hành động. Cùng thư mục gói, cùng chữ ký, cùng
+`ui.json` với đường WebView — khác đúng một dòng chọn bộ dựng.
+
+Cờ `cua-so-raster` **tách khỏi** cờ `window` có chủ ý: `window` kéo theo `wry`
+và cả một máy dựng web. `cargo tree` với `cua-so-raster` cho **0 crate `wry`** —
+cây phụ thuộc tự nói ra rằng đường thoát không tựa vào thứ nó định thoát khỏi.
+
+❌ **Chưa đạt phần trợ năng.** Cây trợ năng dựng đúng trong lúc vẽ và có phép
+kiểm ngang bằng, nhưng **adapter của hệ điều hành chưa nối vào cửa sổ này** —
+nên VoiceOver chưa đọc được màn hình raster. Mục 4.4 vẫn mở.
 
 ---
 

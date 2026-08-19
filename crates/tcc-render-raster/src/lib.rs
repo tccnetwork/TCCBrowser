@@ -48,6 +48,9 @@ use tcc_ui::{AccessNode, Alt, Emphasis, Flow, Gap, Node, NodeKind, Renderer, Rol
 
 /// Bề rộng khung vẽ. Cố định: bộ dựng này để KIỂM ĐỊNH, không để co giãn theo
 /// cửa sổ người dùng.
+#[cfg(feature = "window")]
+pub mod window;
+
 pub const WIDTH: usize = 640;
 
 /// Trần chiều cao. Cây vượt quá thì báo lỗi chứ không cắt im lặng — cắt im lặng
@@ -125,6 +128,31 @@ impl RasterRenderer {
             .collect()
     }
 
+    /// Cú bấm ở `(x, y)` rơi vào hành động nào.
+    ///
+    /// Trả `None` khi rơi vào chữ, ảnh, ô nhập, hoặc khoảng trống.
+    ///
+    /// # Ô sau thắng ô trước
+    ///
+    /// Có bất biến **không vẽ đè** (xem `docs/vi-thiet-ke.md` §23), nên hai ô
+    /// bấm được không chồng nhau và thứ tự không đổi kết quả. Nhưng nếu bất
+    /// biến ấy hỏng thì ô **vẽ sau** là ô người dùng NHÌN THẤY, nên nó phải là
+    /// ô nhận cú bấm — bấm vào thứ bị che là chuyện tệ nhất có thể xảy ra ở đây.
+    #[must_use]
+    pub fn hit_test(&self, x: f32, y: f32) -> Option<&str> {
+        self.da_dat
+            .iter()
+            .rev()
+            .find(|d| {
+                d.o.hanh_dong.is_some()
+                    && x >= d.trai
+                    && x < d.trai + d.o.rong
+                    && y >= d.tren
+                    && y < d.tren + d.o.cao
+            })
+            .and_then(|d| d.o.hanh_dong.as_deref())
+    }
+
     /// Đếm pixel có mực. Dùng để chốt "có vẽ ra gì đó" mà không cần so ảnh.
     #[must_use]
     pub fn ink(&self) -> usize {
@@ -138,6 +166,13 @@ impl RasterRenderer {
 /// thành một cột, nên `Flow::Row` chỉ là `Flow::Column` đội tên khác.
 #[derive(Clone)]
 struct O {
+    /// Mã hành động, nếu ô này bấm được. `None` = chữ, ảnh, ô nhập.
+    ///
+    /// Ghi Ở ĐÂY chứ không tra lại cây khi có cú bấm: chỗ người dùng bấm là chỗ
+    /// bộ dựng **đã đặt**, không phải chỗ cây nói. Hai thứ ấy lệch nhau là lúc
+    /// bố cục sai — mà lúc ấy tra cây sẽ trả về một nút người dùng không nhìn
+    /// thấy, và cú bấm chạy một việc họ không định chạy.
+    hanh_dong: Option<String>,
     chu: String,
     co: f32,
     dam: bool,
@@ -275,6 +310,9 @@ impl RasterRenderer {
         let so_dong = so_dong.max(1);
 
         O {
+            // Mặc định KHÔNG bấm được. Nhánh nào bấm được thì tự gắn vào — quên
+            // gắn thì nút chết chứ không phải chữ thường bỗng bấm được.
+            hanh_dong: None,
             chu: chu.to_owned(),
             co,
             dam,
@@ -300,7 +338,11 @@ impl RasterRenderer {
                 });
                 self.do_o(content, co, dam, false, rong_toi_da)
             }
-            NodeKind::Button { label, tone, .. } => {
+            NodeKind::Button {
+                label,
+                tone,
+                action,
+            } => {
                 access.push(AccessNode {
                     role: Role::Button {
                         destructive: *tone == Tone::Danger,
@@ -308,7 +350,9 @@ impl RasterRenderer {
                     label: Some(label.clone()),
                     children: Vec::new(),
                 });
-                self.do_o(label, CO_CHU, false, true, rong_toi_da)
+                let mut o = self.do_o(label, CO_CHU, false, true, rong_toi_da);
+                o.hanh_dong = Some(action.as_str().to_owned());
+                o
             }
             NodeKind::Field {
                 label,
@@ -335,14 +379,16 @@ impl RasterRenderer {
                     rong_toi_da,
                 )
             }
-            NodeKind::Toggle { label, on, .. } => {
+            NodeKind::Toggle { label, on, action } => {
                 access.push(AccessNode {
                     role: Role::Switch { on: *on },
                     label: Some(label.clone()),
                     children: Vec::new(),
                 });
                 let chu = format!("[{}] {label}", if *on { "x" } else { " " });
-                self.do_o(&chu, CO_CHU, false, false, rong_toi_da)
+                let mut o = self.do_o(&chu, CO_CHU, false, false, rong_toi_da);
+                o.hanh_dong = Some(action.as_str().to_owned());
+                o
             }
             NodeKind::Image { alt, .. } => {
                 let (chu, nhan) = match alt {
@@ -1139,5 +1185,60 @@ mod kiem_thu_hop_thanh {
             ]),
             3
         );
+    }
+
+    /// **Bấm vào nút thì trúng nút ấy, bấm ra ngoài thì không trúng gì.**
+    ///
+    /// Phép thử hỏi HÌNH HỌC ĐÃ VẼ, không hỏi cây: chỗ người dùng bấm là chỗ bộ
+    /// dựng đã đặt. Nếu hai thứ ấy lệch nhau thì cú bấm chạy một việc người
+    /// dùng không định chạy, và một phép thử tra cây sẽ không bao giờ thấy.
+    #[test]
+    fn bam_trung_nut_da_ve() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::text("một dòng chữ thường").unwrap())
+            .unwrap()
+            .child(Node::button("Ký và gửi", "ky-gui", Tone::Primary).unwrap())
+            .unwrap()
+            .child(Node::button("Huỷ", "huy", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let o = bd.placed_boxes();
+        assert_eq!(o.len(), 3, "phải đặt ba ô");
+
+        // Tâm của từng ô, tính từ chính hình học bộ dựng khai ra.
+        let tam = |i: usize| (o[i].0 + o[i].2 / 2.0, o[i].1 + o[i].3 / 2.0);
+
+        assert_eq!(
+            bd.hit_test(tam(0).0, tam(0).1),
+            None,
+            "chữ thường mà bấm được"
+        );
+        assert_eq!(bd.hit_test(tam(1).0, tam(1).1), Some("ky-gui"));
+        assert_eq!(bd.hit_test(tam(2).0, tam(2).1), Some("huy"));
+
+        // Ngoài mọi ô.
+        assert_eq!(bd.hit_test(-5.0, -5.0), None);
+        assert_eq!(bd.hit_test(0.0, bd.height() as f32 + 50.0), None);
+    }
+
+    /// **Công tắc bấm được**; ô nhập và ảnh thì không.
+    ///
+    /// Ô nhập không có hành động trong tiêu chuẩn 0.1 — cho nó "bấm được" là
+    /// bịa ra một hành động không ai khai báo.
+    #[test]
+    fn cong_tac_bam_duoc_o_nhap_thi_khong() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::toggle("Cho phép micro", false, "bat-micro").unwrap())
+            .unwrap()
+            .child(Node::field("Địa chỉ", "x", false).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let o = bd.placed_boxes();
+        let tam = |i: usize| (o[i].0 + o[i].2 / 2.0, o[i].1 + o[i].3 / 2.0);
+        assert_eq!(bd.hit_test(tam(0).0, tam(0).1), Some("bat-micro"));
+        assert_eq!(bd.hit_test(tam(1).0, tam(1).1), None, "ô nhập mà bấm được");
     }
 }

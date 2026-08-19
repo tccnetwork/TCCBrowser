@@ -14,9 +14,17 @@ cosmic-text = "0.19"
 # Cầu nối trợ năng tới hệ điều hành. Sau cờ, vì nó chỉ cần khi có cửa sổ thật —
 # phép kiểm ngang bằng trợ năng chạy được mà không cần nó.
 accesskit = { version = "0.24", optional = true }
+# Cửa sổ và đưa điểm ảnh lên màn hình. Sau cờ, vì `cargo test` không mở được cửa
+# sổ trên macOS — vòng lặp sự kiện phải ở luồng chính.
+#
+# KHÔNG có `wry` ở đây, và đó là cả điểm: bộ dựng này hiện ra được mà không cần
+# một máy dựng web nào.
+tao = { version = "0.34", features = ["rwh_06"], optional = true }
+softbuffer = { version = "0.4", optional = true }
 
 [features]
 accesskit = ["dep:accesskit"]
+window = ["dep:tao", "dep:softbuffer"]
 
 [dev-dependencies]
 png = "0.18"

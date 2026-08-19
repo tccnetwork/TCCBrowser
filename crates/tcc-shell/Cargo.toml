@@ -11,6 +11,10 @@ accesskit = ["tcc-render-raster/accesskit"]
 # Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
 # tcc-render-webview trực tiếp.
 window = ["tcc-render-webview/window"]
+# Cửa sổ của bộ dựng RA PIXEL. Tách khỏi `window` có chủ ý: `window` kéo theo
+# `wry` và cả một máy dựng web, mà cổng ra giai đoạn 4 phải chứng minh được
+# KHÔNG cần thứ đó. Bật riêng thì cây phụ thuộc tự nói ra điều ấy.
+cua-so-raster = ["tcc-render-raster/window"]
 # Nhập ví cũ từ ví web. Chuyển tiếp xuống tcc-chain — tầng trên không bao giờ
 # khai thẳng cờ của crate dưới.
 import-web-wallet = ["tcc-chain/import-web-wallet"]
@@ -51,6 +55,10 @@ tcc-render-webview = { workspace = true }
 tcc-ui = { workspace = true }
 tcc-crypto = { workspace = true }
 tcc-runtime = { workspace = true }
+
+[[example]]
+name = "man-hinh-raster"
+required-features = ["cua-so-raster"]
 
 [[example]]
 name = "kiem-khoi-tan-cong"
