@@ -17,6 +17,8 @@
 //! Cả tệp này chỉ dùng `tao` (cửa sổ) và `softbuffer` (đưa điểm ảnh lên màn
 //! hình). Không `wry`, không WebKit, không máy dựng nào của hệ điều hành.
 
+use std::collections::BTreeSet;
+
 use softbuffer::{Context, Surface};
 use tao::{
     dpi::LogicalSize,
@@ -29,15 +31,38 @@ use tcc_ui::{Node, Renderer as _};
 
 use crate::{RasterRenderer, WIDTH};
 
-/// Mở màn hình `tree` bằng bộ dựng ra pixel, trả về hành động người dùng bấm.
+/// Kết thúc của một màn hình raster.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ScreenOutcome {
+    /// Nút người dùng bấm. `None` = đóng cửa sổ mà không bấm nút nào.
+    pub action: Option<String>,
+    /// Các công tắc đang **BẬT** lúc màn hình kết thúc.
+    ///
+    /// Trả về kể cả khi `action` là `None`, và bên gọi phải bỏ chúng đi trong
+    /// trường hợp ấy: đóng cửa sổ **không phải** là đồng ý. Nói ra ở đây vì kiểu
+    /// dữ liệu không tự nói được — nó chỉ là một tập hợp.
+    pub toggles_on: BTreeSet<String>,
+}
+
+/// Mở màn hình `tree` bằng bộ dựng ra pixel.
 ///
-/// `Ok(None)` = người dùng đóng cửa sổ mà không bấm gì.
+/// **Nút** kết thúc màn hình. **Công tắc** đổi câu trả lời rồi vẽ lại, ở lại.
 ///
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
-pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<Option<String>, String> {
+pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> {
+    // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
+    //
+    // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
+    // xác nhận. Ở đây không có ai giữ hộ. Bắt đầu bằng tập RỖNG chứ không đọc
+    // trạng thái ban đầu của cây: mặc định của một câu hỏi chưa trả lời là
+    // "không", và một hộp thoại quyền mở ra với sẵn vài mục bật là một hộp thoại
+    // đã tự trả lời hộ người dùng.
+    let mut bat: BTreeSet<String> = BTreeSet::new();
     let mut bo_dung = RasterRenderer::new();
-    bo_dung.render(tree).map_err(|e| e.to_string())?;
+    bo_dung
+        .render(&tree.with_toggles(&bat).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
     let cao = bo_dung.height();
 
     let mut vong = EventLoopBuilder::new().build();
@@ -54,6 +79,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<Option<String>, String>
         Surface::new(&ngu_canh, &window).map_err(|e| format!("không mở được bề mặt: {e}"))?;
 
     let mut da_bam: Option<String> = None;
+    let mut ve_lai = false;
     // Vị trí chuột gần nhất, đơn vị LOGIC. `tao` báo vị trí theo pixel vật lý,
     // mà bộ dựng làm việc theo đơn vị logic — trên màn hình Retina hai thứ ấy
     // lệch nhau đúng hệ số 2, và bấm sẽ trúng ô khác.
@@ -83,19 +109,35 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<Option<String>, String>
                         ..
                     },
                 ..
-            } =>
-            {
+            } => {
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "toạ độ màn hình, luôn nằm gọn trong f32"
                 )]
                 if let Some(h) = bo_dung.hit_test(chuot.0 as f32, chuot.1 as f32) {
-                    da_bam = Some(h.to_owned());
-                    *dieu_khien = ControlFlow::Exit;
+                    if h.toggle {
+                        // Gạt rồi Ở LẠI. Vẽ lại ngay: một công tắc gạt mà màn
+                        // hình không đổi là người dùng bấm tiếp lần nữa, và gạt
+                        // ngược lại thứ họ vừa bật.
+                        let a = h.action.to_owned();
+                        if !bat.remove(&a) {
+                            bat.insert(a);
+                        }
+                        ve_lai = true;
+                    } else {
+                        da_bam = Some(h.action.to_owned());
+                        *dieu_khien = ControlFlow::Exit;
+                    }
                 }
             }
 
             Event::RedrawRequested(_) | Event::MainEventsCleared => {
+                if ve_lai {
+                    ve_lai = false;
+                    if let Ok(cay_moi) = tree.with_toggles(&bat) {
+                        let _ = bo_dung.render(&cay_moi);
+                    }
+                }
                 let co = window.inner_size();
                 let (Some(w), Some(h)) = (
                     core::num::NonZeroU32::new(co.width),
@@ -116,7 +158,10 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<Option<String>, String>
         }
     });
 
-    Ok(da_bam)
+    Ok(ScreenOutcome {
+        action: da_bam,
+        toggles_on: bat,
+    })
 }
 
 /// Đổ ảnh xám của bộ dựng vào đệm màu của cửa sổ.

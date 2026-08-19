@@ -132,6 +132,8 @@ impl RasterRenderer {
     ///
     /// Trả `None` khi rơi vào chữ, ảnh, ô nhập, hoặc khoảng trống.
     ///
+    /// Bên gọi phải phân biệt **nút** với **công tắc**: xem [`Hit::toggle`].
+    ///
     /// # Ô sau thắng ô trước
     ///
     /// Có bất biến **không vẽ đè** (xem `docs/vi-thiet-ke.md` §23), nên hai ô
@@ -139,7 +141,7 @@ impl RasterRenderer {
     /// biến ấy hỏng thì ô **vẽ sau** là ô người dùng NHÌN THẤY, nên nó phải là
     /// ô nhận cú bấm — bấm vào thứ bị che là chuyện tệ nhất có thể xảy ra ở đây.
     #[must_use]
-    pub fn hit_test(&self, x: f32, y: f32) -> Option<&str> {
+    pub fn hit_test(&self, x: f32, y: f32) -> Option<Hit<'_>> {
         self.da_dat
             .iter()
             .rev()
@@ -150,7 +152,12 @@ impl RasterRenderer {
                     && y >= d.tren
                     && y < d.tren + d.o.cao
             })
-            .and_then(|d| d.o.hanh_dong.as_deref())
+            .and_then(|d| {
+                d.o.hanh_dong.as_deref().map(|a| Hit {
+                    action: a,
+                    toggle: d.o.cong_tac,
+                })
+            })
     }
 
     /// Đếm pixel có mực. Dùng để chốt "có vẽ ra gì đó" mà không cần so ảnh.
@@ -158,6 +165,15 @@ impl RasterRenderer {
     pub fn ink(&self) -> usize {
         self.pixel.iter().filter(|p| **p < 250).count()
     }
+}
+
+/// Cú bấm rơi vào cái gì.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hit<'a> {
+    pub action: &'a str,
+    /// `true` = công tắc: đổi câu trả lời rồi **ở lại màn hình**.
+    /// `false` = nút: kết thúc màn hình.
+    pub toggle: bool,
 }
 
 /// Một ô chữ **đã đo xong**: biết mình rộng bao nhiêu, cao bao nhiêu.
@@ -173,6 +189,13 @@ struct O {
     /// bố cục sai — mà lúc ấy tra cây sẽ trả về một nút người dùng không nhìn
     /// thấy, và cú bấm chạy một việc họ không định chạy.
     hanh_dong: Option<String>,
+    /// Ô này là CÔNG TẮC chứ không phải nút.
+    ///
+    /// Hai thứ phải tách được: bấm nút là kết thúc màn hình, gạt công tắc là
+    /// đổi một câu trả lời rồi ở lại. Gộp chúng làm một thì gạt một quyền sẽ
+    /// đóng luôn hộp thoại — và người dùng vừa "trả lời" cả những mục họ chưa
+    /// kịp đọc.
+    cong_tac: bool,
     chu: String,
     co: f32,
     dam: bool,
@@ -313,6 +336,7 @@ impl RasterRenderer {
             // Mặc định KHÔNG bấm được. Nhánh nào bấm được thì tự gắn vào — quên
             // gắn thì nút chết chứ không phải chữ thường bỗng bấm được.
             hanh_dong: None,
+            cong_tac: false,
             chu: chu.to_owned(),
             co,
             dam,
@@ -388,6 +412,7 @@ impl RasterRenderer {
                 let chu = format!("[{}] {label}", if *on { "x" } else { " " });
                 let mut o = self.do_o(&chu, CO_CHU, false, false, rong_toi_da);
                 o.hanh_dong = Some(action.as_str().to_owned());
+                o.cong_tac = true;
                 o
             }
             NodeKind::Image { alt, .. } => {
@@ -1215,12 +1240,18 @@ mod kiem_thu_hop_thanh {
             None,
             "chữ thường mà bấm được"
         );
-        assert_eq!(bd.hit_test(tam(1).0, tam(1).1), Some("ky-gui"));
-        assert_eq!(bd.hit_test(tam(2).0, tam(2).1), Some("huy"));
+        assert_eq!(
+            bd.hit_test(tam(1).0, tam(1).1).map(|h| h.action),
+            Some("ky-gui")
+        );
+        assert_eq!(
+            bd.hit_test(tam(2).0, tam(2).1).map(|h| h.action),
+            Some("huy")
+        );
 
         // Ngoài mọi ô.
-        assert_eq!(bd.hit_test(-5.0, -5.0), None);
-        assert_eq!(bd.hit_test(0.0, bd.height() as f32 + 50.0), None);
+        assert!(bd.hit_test(-5.0, -5.0).is_none());
+        assert!(bd.hit_test(0.0, bd.height() as f32 + 50.0).is_none());
     }
 
     /// **Công tắc bấm được**; ô nhập và ảnh thì không.
@@ -1238,7 +1269,17 @@ mod kiem_thu_hop_thanh {
         bd.render(&cay).unwrap();
         let o = bd.placed_boxes();
         let tam = |i: usize| (o[i].0 + o[i].2 / 2.0, o[i].1 + o[i].3 / 2.0);
-        assert_eq!(bd.hit_test(tam(0).0, tam(0).1), Some("bat-micro"));
-        assert_eq!(bd.hit_test(tam(1).0, tam(1).1), None, "ô nhập mà bấm được");
+        let h = bd
+            .hit_test(tam(0).0, tam(0).1)
+            .expect("công tắc phải bấm được");
+        assert_eq!(h.action, "bat-micro");
+        assert!(
+            h.toggle,
+            "công tắc bị coi là nút — gạt một quyền sẽ đóng hộp thoại"
+        );
+        assert!(
+            bd.hit_test(tam(1).0, tam(1).1).is_none(),
+            "ô nhập mà bấm được"
+        );
     }
 }

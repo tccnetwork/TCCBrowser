@@ -27,6 +27,7 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use tcc_crypto::HybridEd25519MlDsa;
+use tcc_shell::Language;
 
 fn main() -> ExitCode {
     let Some(duong_dan) = std::env::args().nth(1).map(PathBuf::from) else {
@@ -56,6 +57,55 @@ fn main() -> ExitCode {
         }
     };
 
+    // `hop-thoai` — chạy HỘP THOẠI HỎI QUYỀN qua bộ dựng ra pixel.
+    //
+    // Đây mới là màn hình đáng chạy nhất trên bộ dựng thứ hai: nó có CÔNG TẮC,
+    // và công tắc là chỗ hai bộ dựng khác nhau thật sự. WebView để trình duyệt
+    // giữ trạng thái trong tài liệu; ở đây khung phải tự giữ. Một màn hình chỉ
+    // có chữ và nút thì không đá vào chỗ ấy.
+    if std::env::args().nth(2).as_deref() == Some("hop-thoai") {
+        let hoi = match tcc_shell::permission_dialog::build(app.manifest(), Language::Vi) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("✗ không dựng được hộp thoại: {e}");
+                return ExitCode::FAILURE;
+            }
+        };
+        println!(
+            "Hộp thoại hỏi quyền của \"{}\" — RA PIXEL",
+            app.manifest().name
+        );
+        println!("  gạt công tắc rồi bấm một nút.");
+        return match tcc_render_raster::window::open_screen(&hoi, "Hỏi quyền — raster") {
+            Ok(ket) => {
+                match ket.action {
+                    Some(h) => {
+                        println!("✓ bấm: {h}");
+                        println!(
+                            "  quyền được BẬT: {}",
+                            if ket.toggles_on.is_empty() {
+                                "(không mục nào)".to_owned()
+                            } else {
+                                ket.toggles_on
+                                    .iter()
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                                    .join(", ")
+                            }
+                        );
+                    }
+                    // Đóng cửa sổ KHÔNG phải đồng ý.
+                    None => println!("✓ đóng cửa sổ — KHÔNG cấp quyền nào, mọi công tắc bỏ đi."),
+                }
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("✗ {e}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
     println!(
         "Màn hình của \"{}\" — bộ dựng RA PIXEL",
         app.manifest().name
@@ -64,13 +114,25 @@ fn main() -> ExitCode {
     println!("  bấm một nút để đóng, hoặc đóng cửa sổ.");
 
     match tcc_render_raster::window::open_screen(&cay, app.manifest().name.as_str()) {
-        Ok(Some(h)) => {
-            println!("✓ Người dùng bấm hành động: {h}");
-            println!("✓ Gói đã ký lên màn hình và BẤM ĐƯỢC, không qua WebView.");
-            ExitCode::SUCCESS
-        }
-        Ok(None) => {
-            println!("✓ Cửa sổ đóng, không bấm hành động nào.");
+        Ok(ket) => {
+            match ket.action {
+                Some(h) => {
+                    println!("✓ Người dùng bấm hành động: {h}");
+                    if !ket.toggles_on.is_empty() {
+                        println!(
+                            "  công tắc đang bật     : {}",
+                            ket.toggles_on
+                                .iter()
+                                .cloned()
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                    }
+                    println!("✓ Gói đã ký lên màn hình và BẤM ĐƯỢC, không qua WebView.");
+                }
+                // Đóng cửa sổ KHÔNG phải đồng ý — nên công tắc bị bỏ đi, không in ra.
+                None => println!("✓ Cửa sổ đóng, không bấm nút nào. Mọi công tắc bỏ đi."),
+            }
             ExitCode::SUCCESS
         }
         Err(e) => {

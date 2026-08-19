@@ -45,6 +45,7 @@
 pub mod wire;
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use tcc_spec::{SpecError, TextKind, check_display_text, tree::TreeError, tree::check_path_public};
 
 // `ActionId` sống ở `tcc-spec`, không ở đây: mã hành động xuất hiện ở CẢ cây
@@ -471,6 +472,43 @@ impl Node {
     #[must_use]
     pub fn children(&self) -> &[Node] {
         &self.children
+    }
+
+    /// Dựng lại cây với các công tắc trong `bat` ở trạng thái **bật**, còn lại
+    /// **tắt**.
+    ///
+    /// # Vì sao trạng thái công tắc do BÊN NGOÀI giữ, không do cây giữ
+    ///
+    /// Bộ dựng WebView để trình duyệt giữ trạng thái công tắc trong tài liệu, rồi
+    /// hỏi lại lúc người dùng bấm xác nhận. Bộ dựng ra pixel không có ai giữ hộ,
+    /// nên khung phải tự giữ — và hàm này là chỗ trạng thái ấy quay lại thành
+    /// một cây vẽ được.
+    ///
+    /// Cây **bất biến**: hàm trả về cây MỚI. Sửa tại chỗ thì một màn hình đã vẽ
+    /// và một màn hình sắp vẽ dùng chung một đối tượng, mà hai thứ ấy phải so
+    /// được với nhau — đó là cách bắt được một công tắc bị gạt mà màn hình không
+    /// đổi.
+    ///
+    /// # Errors
+    /// Không có: cây vào đã hợp lệ nên cây ra cũng hợp lệ. Kiểu trả về giữ
+    /// `Result` vì các hàm dựng đều kiểm, và bỏ qua lỗi của chúng bằng `unwrap`
+    /// ở đây là đặt một chỗ hoảng loạn vào đường chạy giao diện.
+    pub fn with_toggles(&self, bat: &BTreeSet<String>) -> Result<Self, UiError> {
+        let mut moi = match &self.kind {
+            NodeKind::Toggle { label, action, .. } => Self::toggle(
+                label.clone(),
+                bat.contains(action.as_str()),
+                action.as_str(),
+            )?,
+            // Mọi loại khác giữ nguyên. Dựng qua `la` chứ không dựng thẳng
+            // `Self { .. }`: `count` và `depth` là bất biến của cây, và đặt tay
+            // hai con số ấy là chỗ trần độ sâu lặng lẽ hỏng.
+            khac => Self::la(khac.clone()),
+        };
+        for c in &self.children {
+            moi = moi.child(c.with_toggles(bat)?)?;
+        }
+        Ok(moi)
     }
 
     /// Tổng số nút, kể cả nút này.
@@ -988,5 +1026,64 @@ mod kiem_thu {
             matches!(ket, Err(UiError::TooManyNodes(_))),
             "ghép hai cây con lại thì vượt trần mà không bị chặn"
         );
+    }
+
+    /// **Gạt một công tắc thì CHỈ công tắc ấy đổi.**
+    ///
+    /// Cây dựng lại phải giống hệt cây cũ ở mọi chỗ khác — cùng số nút, cùng
+    /// chữ, cùng thứ tự. Một hàm dựng lại cây mà đánh rơi một nút là một màn
+    /// hình thiếu mất một dòng người dùng cần đọc trước khi cấp quyền.
+    #[test]
+    fn gat_cong_tac_chi_doi_dung_cong_tac_ay() {
+        fn di(n: &Node, ra: &mut Vec<(String, bool)>) {
+            if let NodeKind::Toggle { label, on, .. } = n.kind() {
+                ra.push((label.clone(), *on));
+            }
+            for c in n.children() {
+                di(c, ra);
+            }
+        }
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::text("Ứng dụng này xin:").unwrap())
+            .unwrap()
+            .child(Node::toggle("Micro", false, "micro").unwrap())
+            .unwrap()
+            .child(Node::toggle("Camera", false, "camera").unwrap())
+            .unwrap()
+            .child(Node::button("Xong", "xong", Tone::Primary).unwrap())
+            .unwrap();
+
+        let mut bat = std::collections::BTreeSet::new();
+        bat.insert("micro".to_owned());
+        let moi = cay.with_toggles(&bat).unwrap();
+
+        assert_eq!(moi.node_count(), cay.node_count(), "dựng lại làm rơi nút");
+        let trang_thai = |n: &Node| {
+            let mut ra = Vec::new();
+            di(n, &mut ra);
+            ra
+        };
+        assert_eq!(
+            trang_thai(&moi),
+            vec![("Micro".to_owned(), true), ("Camera".to_owned(), false)]
+        );
+        // Cây gốc KHÔNG đổi: hai màn hình phải so được với nhau.
+        assert_eq!(
+            trang_thai(&cay),
+            vec![("Micro".to_owned(), false), ("Camera".to_owned(), false)]
+        );
+    }
+
+    /// Tập rỗng thì **mọi công tắc tắt** — kể cả công tắc vốn đang bật.
+    ///
+    /// Mặc định của một câu hỏi chưa trả lời là "không", và hàm này không được
+    /// có một đường nào giữ lại trạng thái bật cũ.
+    #[test]
+    fn tap_rong_thi_moi_cong_tac_tat() {
+        let cay = Node::toggle("Micro", true, "micro").unwrap();
+        let moi = cay
+            .with_toggles(&std::collections::BTreeSet::new())
+            .unwrap();
+        assert!(matches!(moi.kind(), NodeKind::Toggle { on: false, .. }));
     }
 }

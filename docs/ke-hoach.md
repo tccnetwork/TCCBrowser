@@ -166,11 +166,28 @@ thật.
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
 Đó là lúc chứng minh được đường thoát là thật.
 
-🔶 **Đạt phần vẽ và bấm** (19/08/2026). `cargo run -p tcc-shell --features
+🔶 **Đạt phần vẽ, bấm và GẠT CÔNG TẮC** (19/08/2026). `cargo run -p tcc-shell --features
 cua-so-raster --example man-hinh-raster examples/hello-tcc` mở gói `hello-tcc`
 **đã ký** trong một cửa sổ thật, vẽ hoàn toàn bằng Rust (`cosmic-text` +
 `softbuffer`), bấm nút chạy đúng hành động. Cùng thư mục gói, cùng chữ ký, cùng
 `ui.json` với đường WebView — khác đúng một dòng chọn bộ dựng.
+
+Và chạy được **hộp thoại hỏi quyền** — màn hình đáng chạy nhất trên bộ dựng thứ
+hai, vì nó có **công tắc**:
+
+```
+cargo run -p tcc-shell --features cua-so-raster \
+  --example man-hinh-raster examples/hello-tcc hop-thoai
+```
+
+Công tắc là chỗ hai bộ dựng **khác nhau thật sự**. WebView để trình duyệt giữ
+trạng thái trong tài liệu rồi hỏi lại lúc bấm xác nhận; bộ dựng ra pixel không
+có ai giữ hộ, nên khung phải tự giữ và `Node::with_toggles` đưa trạng thái ấy
+quay lại thành một cây vẽ được. Màn hình chỉ có chữ và nút thì không đá vào chỗ
+này — nên nếu chỉ chạy `hello-tcc` thì cổng ra vẫn còn một nửa chưa kiểm.
+
+Ba luật của hộp thoại giữ nguyên trên bộ dựng mới: mở ra **mọi mục tắt**,
+**đóng cửa sổ không phải đồng ý**, và **gạt công tắc không đóng hộp thoại**.
 
 Cờ `cua-so-raster` **tách khỏi** cờ `window` có chủ ý: `window` kéo theo `wry`
 và cả một máy dựng web. `cargo tree` với `cua-so-raster` cho **0 crate `wry`** —
