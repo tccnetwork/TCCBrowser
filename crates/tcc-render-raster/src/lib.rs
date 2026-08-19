@@ -358,6 +358,7 @@ impl RasterRenderer {
                 access.push(AccessNode {
                     role: Role::Text,
                     label: Some(content.clone()),
+                    action: None,
                     children: Vec::new(),
                 });
                 self.do_o(content, co, dam, false, rong_toi_da)
@@ -372,6 +373,7 @@ impl RasterRenderer {
                         destructive: *tone == Tone::Danger,
                     },
                     label: Some(label.clone()),
+                    action: Some(action.as_str().to_owned()),
                     children: Vec::new(),
                 });
                 let mut o = self.do_o(label, CO_CHU, false, true, rong_toi_da);
@@ -393,6 +395,7 @@ impl RasterRenderer {
                 access.push(AccessNode {
                     role: Role::TextInput { secret: *secret },
                     label: Some(label.clone()),
+                    action: None,
                     children: Vec::new(),
                 });
                 self.do_o(
@@ -407,6 +410,7 @@ impl RasterRenderer {
                 access.push(AccessNode {
                     role: Role::Switch { on: *on },
                     label: Some(label.clone()),
+                    action: Some(action.as_str().to_owned()),
                     children: Vec::new(),
                 });
                 let chu = format!("[{}] {label}", if *on { "x" } else { " " });
@@ -423,6 +427,7 @@ impl RasterRenderer {
                 access.push(AccessNode {
                     role: Role::Image,
                     label: nhan,
+                    action: None,
                     children: Vec::new(),
                 });
                 self.do_o(&chu, CO_CHU, false, true, rong_toi_da)
@@ -468,6 +473,7 @@ impl RasterRenderer {
         access.push(AccessNode {
             role: Role::Group,
             label: None,
+            action: None,
             children: con_access,
         });
         cao

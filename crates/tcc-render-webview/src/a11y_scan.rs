@@ -192,6 +192,7 @@ pub fn scan(markup: &str) -> Result<AccessNode, ScanError> {
                 AccessNode {
                     role: Role::Group,
                     label: None,
+                    action: None,
                     children: Vec::new(),
                 },
                 the.ten,
@@ -290,9 +291,19 @@ fn dung_nut(the: &The) -> Result<AccessNode, ScanError> {
         khac => return Err(ScanError::TheLa(khac.to_owned())),
     };
 
+    // Mã hành động đọc TỪ TÀI LIỆU ĐÃ DỰNG, không lấy lại từ cây gốc.
+    //
+    // Đó là cả điểm của phép kiểm ngang bằng: nếu lượt dựng đánh rơi hay đổi
+    // nhầm mã hành động của một nút, so cây với chính cây gốc sẽ không thấy —
+    // còn đọc ngược ra từ tài liệu thì thấy. Một nút hiện đúng chữ mà mang mã
+    // hành động của nút bên cạnh là chỗ tệ nhất có thể sai.
+    let action = matches!(role, Role::Button { .. } | Role::Switch { .. })
+        .then(|| the.lay("data-hanh-dong").unwrap_or_default().to_owned());
+
     Ok(AccessNode {
         role,
         label,
+        action,
         children: Vec::new(),
     })
 }

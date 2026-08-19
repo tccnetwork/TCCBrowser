@@ -51,14 +51,41 @@ impl Default for AccessText {
     }
 }
 
-/// Đổi cây trợ năng của ta thành một `TreeUpdate` của AccessKit.
+/// Đổi cây trợ năng của ta thành `TreeUpdate` **kèm bảng tra mã hành động**.
 ///
-/// Trả về cả cây, sẵn sàng đẩy cho adapter của nền tảng.
+/// # Vì sao phải trả về bảng tra
+///
+/// Hệ điều hành yêu cầu bấm bằng `NodeId` — một con số do hàm này phát ra. Bên
+/// nhận yêu cầu phải đổi ngược con số ấy thành mã hành động, và **đoán ngược từ
+/// vị trí trên màn hình là chỗ hỏng**: bấm nhầm một nút không hoàn tác thì không
+/// có đường lùi. Bảng tra do chính chỗ phát số dựng ra, nên không lệch được.
+///
+/// `bool` là **có phải công tắc không** — nút và công tắc kết thúc màn hình khác
+/// nhau.
+#[must_use]
+pub fn to_accesskit_with_actions(
+    goc: &AccessNode,
+    chu: &AccessText,
+) -> (TreeUpdate, std::collections::BTreeMap<u64, (String, bool)>) {
+    let mut bang = std::collections::BTreeMap::new();
+    let cap_nhat = to_accesskit_inner(goc, chu, &mut bang);
+    (cap_nhat, bang)
+}
+
+/// Như [`to_accesskit_with_actions`] nhưng bỏ bảng tra.
 #[must_use]
 pub fn to_accesskit(goc: &AccessNode, chu: &AccessText) -> TreeUpdate {
+    to_accesskit_with_actions(goc, chu).0
+}
+
+fn to_accesskit_inner(
+    goc: &AccessNode,
+    chu: &AccessText,
+    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+) -> TreeUpdate {
     let mut nodes = Vec::new();
     let mut dem = 0u64;
-    let id_goc = them(goc, chu, &mut nodes, &mut dem);
+    let id_goc = them(goc, chu, &mut nodes, &mut dem, bang);
     TreeUpdate {
         nodes,
         // `TreeId::ROOT` — cây gốc của cửa sổ. Ta chỉ có một cây; ngày có
@@ -69,9 +96,18 @@ pub fn to_accesskit(goc: &AccessNode, chu: &AccessText) -> TreeUpdate {
     }
 }
 
-fn them(n: &AccessNode, chu: &AccessText, ra: &mut Vec<(NodeId, AkNode)>, dem: &mut u64) -> NodeId {
+fn them(
+    n: &AccessNode,
+    chu: &AccessText,
+    ra: &mut Vec<(NodeId, AkNode)>,
+    dem: &mut u64,
+    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+) -> NodeId {
     let id = NodeId(*dem);
     *dem += 1;
+    if let Some(a) = &n.action {
+        bang.insert(id.0, (a.clone(), matches!(n.role, Role::Switch { .. })));
+    }
 
     let mut nut = AkNode::new(match n.role {
         Role::Text => AkRole::Label,
@@ -100,7 +136,11 @@ fn them(n: &AccessNode, chu: &AccessText, ra: &mut Vec<(NodeId, AkNode)>, dem: &
         nut.set_description(chu.cau_mat_mat.clone());
     }
 
-    let con: Vec<NodeId> = n.children.iter().map(|c| them(c, chu, ra, dem)).collect();
+    let con: Vec<NodeId> = n
+        .children
+        .iter()
+        .map(|c| them(c, chu, ra, dem, bang))
+        .collect();
     nut.set_children(con);
 
     ra.push((id, nut));
@@ -120,6 +160,10 @@ mod kiem_thu {
         AccessNode {
             role,
             label: nhan.map(str::to_owned),
+            // Nút và công tắc mang mã hành động; phép thử dưới dùng nó để chốt
+            // bảng tra không lệch khỏi `NodeId` mà chính hàm này phát ra.
+            action: matches!(role, Role::Button { .. } | Role::Switch { .. })
+                .then(|| "thu".to_owned()),
             children: Vec::new(),
         }
     }
@@ -186,11 +230,13 @@ mod kiem_thu {
     fn cay_con_sang_du() {
         let goc = AccessNode {
             role: Role::Group,
+            action: None,
             label: None,
             children: vec![
                 cay(Role::Text, Some("một")),
                 AccessNode {
                     role: Role::Group,
+                    action: None,
                     label: None,
                     children: vec![cay(Role::Text, Some("hai"))],
                 },
@@ -222,6 +268,7 @@ mod kiem_thu {
     fn moi_nut_mot_id_rieng() {
         let goc = AccessNode {
             role: Role::Group,
+            action: None,
             label: None,
             children: vec![cay(Role::Text, Some("a")), cay(Role::Text, Some("b"))],
         };

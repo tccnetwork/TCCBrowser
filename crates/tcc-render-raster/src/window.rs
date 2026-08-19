@@ -18,6 +18,9 @@
 //! hình). Không `wry`, không WebKit, không máy dựng nào của hệ điều hành.
 
 use std::collections::BTreeSet;
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use softbuffer::{Context, Surface};
 use tao::{
@@ -81,8 +84,13 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
     // ⚠️ Nối trợ năng TRƯỚC khi cửa sổ được hiện hay nhận tiêu điểm lần đầu —
     // `SubclassingAdapter::new` nói rõ điều đó. Nối muộn thì VoiceOver đã hỏi
     // xong và nhận câu "không có gì ở đây", rồi không hỏi lại.
+    // Hàng đợi yêu cầu bấm từ trợ năng, và bảng tra `NodeId` → hành động.
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-    let mut adapter = noi_tro_nang(&window, &bo_dung);
+    let hang_tro_nang: Arc<Mutex<Vec<u64>>> = Arc::new(Mutex::new(Vec::new()));
+    #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+    let mut bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
+    #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+    let mut adapter = noi_tro_nang(&window, &bo_dung, Arc::clone(&hang_tro_nang));
 
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
@@ -92,7 +100,15 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
     let mut chuot = (0.0f64, 0.0f64);
 
     vong.run_return(|su_kien, _, dieu_khien| {
-        *dieu_khien = ControlFlow::Wait;
+        // ⚠️ `WaitUntil`, KHÔNG phải `Wait` — đúng cái bẫy đã trả giá 18/08/2026
+        // ở `web_tier.rs`, và nó cắn lần thứ hai ở đây.
+        //
+        // Yêu cầu bấm từ trợ năng đi vào hàng đợi qua `ActionHandler`, mà đẩy
+        // vào hàng đợi **không sinh ra một sự kiện cửa sổ nào**. Với `Wait` thì
+        // vòng lặp ngủ tiếp: người dùng VoiceOver bấm và không có gì xảy ra,
+        // cho tới khi có ai đó rê chuột qua cửa sổ — tức là cho tới khi có một
+        // người sáng mắt ngồi cạnh.
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
         match su_kien {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -132,6 +148,20 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
             }
 
             Event::RedrawRequested(_) | Event::MainEventsCleared => {
+                // Rút yêu cầu bấm từ trợ năng và cho chạy qua ĐÚNG đường của
+                // chuột. Không có nhánh riêng: mọi luật của hộp thoại áp cho
+                // chuột đều áp cho đây.
+                #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+                if let Some(k) = rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut bat) {
+                    match k {
+                        SauCuBam::VeLai => ve_lai = true,
+                        SauCuBam::Ket(h) => {
+                            da_bam = Some(h);
+                            *dieu_khien = ControlFlow::Exit;
+                        }
+                        SauCuBam::Khong => {}
+                    }
+                }
                 if ve_lai {
                     ve_lai = false;
                     if let Ok(cay_moi) = tree.with_toggles(&bat) {
@@ -140,6 +170,13 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
                         // đọc trạng thái CŨ — người dùng nghe "tắt" trong khi
                         // màn hình hiện "bật". Ở màn hỏi quyền, đó là nghe một
                         // đằng cấp một nẻo.
+                        // Bảng tra dựng lại cùng lúc với cây: `NodeId` phát ra
+                        // theo thứ tự duyệt, nên cây đổi là số đổi. Giữ bảng cũ
+                        // nghĩa là một yêu cầu bấm sẽ tra ra nút KHÁC.
+                        #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+                        {
+                            bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
+                        }
                         #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
                         if let Some(moi) = cay_accesskit(&bo_dung)
                             && let Some(su_kien) = adapter.update_if_active(|| moi)
@@ -197,6 +234,45 @@ fn sau_cu_bam(cham: Option<crate::Hit<'_>>, bat: &mut BTreeSet<String>) -> SauCu
     SauCuBam::VeLai
 }
 
+/// Rút mọi yêu cầu bấm từ trợ năng và cho chạy qua **đúng đường của chuột**.
+///
+/// Không có nhánh riêng cho trợ năng: mọi luật của hộp thoại áp cho chuột đều
+/// áp cho đây, vì cả hai đi qua cùng một [`sau_cu_bam`].
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn rut_yeu_cau_tro_nang(
+    hang: &Arc<Mutex<Vec<u64>>>,
+    bang: &std::collections::BTreeMap<u64, (String, bool)>,
+    bat: &mut BTreeSet<String>,
+) -> Option<SauCuBam> {
+    let yeu_cau: Vec<u64> = hang
+        .lock()
+        .map(|mut q| core::mem::take(&mut *q))
+        .unwrap_or_default();
+    let mut cuoi = None;
+    for id in yeu_cau {
+        // Không tra ra thì BỎ QUA. Yêu cầu tới sau khi cây đã đổi thì con số cũ
+        // trỏ vào một nút không còn nữa — đoán bừa ở đây là bấm nhầm nút.
+        let Some((a, la_cong_tac)) = bang.get(&id).cloned() else {
+            continue;
+        };
+        let k = sau_cu_bam(
+            Some(crate::Hit {
+                action: &a,
+                toggle: la_cong_tac,
+            }),
+            bat,
+        );
+        // Nút kết thúc màn hình: giữ nó và bỏ phần còn lại của hàng đợi. Chạy
+        // tiếp sau một cú bấm kết thúc là chạy những cú bấm vào một màn hình
+        // đã đóng.
+        if matches!(k, SauCuBam::Ket(_)) {
+            return Some(k);
+        }
+        cuoi = Some(k);
+    }
+    cuoi
+}
+
 /// Nối adapter trợ năng của macOS vào cửa sổ.
 ///
 /// ⚠️ Gọi **TRƯỚC** khi cửa sổ được hiện hay nhận tiêu điểm lần đầu —
@@ -206,6 +282,7 @@ fn sau_cu_bam(cham: Option<crate::Hit<'_>>, bat: &mut BTreeSet<String>) -> SauCu
 fn noi_tro_nang(
     window: &tao::window::Window,
     bo_dung: &RasterRenderer,
+    hang: Arc<Mutex<Vec<u64>>>,
 ) -> accesskit_macos::SubclassingAdapter {
     use tao::platform::macos::WindowExtMacOS as _;
 
@@ -242,7 +319,7 @@ fn noi_tro_nang(
         accesskit_macos::SubclassingAdapter::new(
             window.ns_view(),
             tro_nang::KhiKichHoat(cay_tro_nang),
-            tro_nang::ChuaNhanHanhDong,
+            tro_nang::NhanHanhDong(hang),
         )
     }
 }
@@ -268,6 +345,20 @@ fn trinh_bay(
     };
     to_mau(bo_dung, &mut dem, w.get(), h.get(), window.scale_factor());
     let _ = dem.present();
+}
+
+/// Bảng tra `NodeId` → (mã hành động, có phải công tắc không).
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (String, bool)> {
+    use tcc_ui::Renderer as _;
+    bd.published_accessibility()
+        .map_or_else(Default::default, |goc| {
+            crate::accesskit_bridge::to_accesskit_with_actions(
+                &goc,
+                &crate::accesskit_bridge::AccessText::default(),
+            )
+            .1
+        })
 }
 
 /// Cây trợ năng của lần vẽ gần nhất, ở dạng AccessKit.
@@ -338,6 +429,8 @@ fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64) 
 /// mã trợ năng nào cả**, và đó là sự thật cần nhìn thấy được.
 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
 mod tro_nang {
+    use std::sync::{Arc, Mutex};
+
     use accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
 
     /// Trả cây đầu tiên khi hệ điều hành hỏi tới.
@@ -351,20 +444,49 @@ mod tro_nang {
         }
     }
 
-    /// ⚠️ **KHÔNG làm gì cả**, và đó là quyết định chứ không phải chỗ bỏ trống.
+    /// Nhận yêu cầu **bấm** từ hệ điều hành, đẩy vào hàng đợi.
     ///
-    /// Hệ điều hành có thể yêu cầu "bấm nút này" thay người dùng. Nhận yêu cầu
-    /// ấy nghĩa là mở một đường **bấm được nút mà không qua chuột** — trên màn
-    /// xác nhận giao dịch, đó là một đường ký hộ.
+    /// # Tôi đã hoãn việc này một ngày vì một lập luận SAI
     ///
-    /// Đường ấy sẽ phải mở, vì người dùng bàn phím và VoiceOver cần nó. Nhưng
-    /// mở nó là một thay đổi có mô hình đe doạ riêng, không phải một dòng thêm
-    /// vào lúc nối adapter. Tới lúc đó thì nó đi cùng chỗ khác trong khung, và
-    /// đi cùng phép thử của chính nó.
-    pub struct ChuaNhanHanhDong;
+    /// Hôm 19/08 tôi để chỗ này trống, với lý do: nhận yêu cầu "bấm nút này" là
+    /// mở một đường bấm nút **không qua chuột**, mà trên màn xác nhận giao dịch
+    /// đó là một đường **ký hộ**.
+    ///
+    /// Lập luận ấy sai ở chỗ nó so với một thế giới không tồn tại. Trên macOS,
+    /// một ứng dụng muốn gửi `AXPress` phải được cấp quyền **Accessibility**
+    /// trong Cài đặt hệ thống. Mà cùng cái quyền ấy cũng cho phép `CGEventPost`
+    /// — tức là **tổng hợp một cú bấm chuột thật**, đi thẳng qua đường chuột của
+    /// ta mà không cần API trợ năng nào.
+    ///
+    /// Nên từ chối `AXPress` **không chặn được kẻ tấn công**: nó đã có một
+    /// đường tương đương sau cùng một cánh cổng. Nó chỉ chặn **người dùng
+    /// VoiceOver** — những người mà tính năng này sinh ra để phục vụ.
+    ///
+    /// *Một biện pháp chỉ cản người dùng hợp lệ mà không cản kẻ tấn công thì
+    /// không phải biện pháp an ninh, nó là một rào cản.*
+    ///
+    /// Vẫn còn rủi ro thật, và nó nằm ở **hệ điều hành**: ai cấp quyền
+    /// Accessibility cho một ứng dụng lạ thì ứng dụng ấy điều khiển được mọi
+    /// cửa sổ trên máy, không riêng của ta. Ghi vào `SECURITY.md` chứ không
+    /// giả vờ đóng nó bằng một hàm rỗng.
+    ///
+    /// # Cùng một đường với chuột, không phải đường riêng
+    ///
+    /// Yêu cầu chỉ được đẩy vào hàng đợi. Vòng lặp rút ra rồi cho chạy qua
+    /// **đúng `sau_cu_bam`** mà cú bấm chuột đi qua — nên không có luật nào của
+    /// hộp thoại áp cho chuột mà không áp cho trợ năng.
+    pub struct NhanHanhDong(pub Arc<Mutex<Vec<u64>>>);
 
-    impl ActionHandler for ChuaNhanHanhDong {
-        fn do_action(&mut self, _yeu_cau: ActionRequest) {}
+    impl ActionHandler for NhanHanhDong {
+        fn do_action(&mut self, yeu_cau: ActionRequest) {
+            // CHỈ nhận "bấm". Mọi hành động khác — cuộn, đặt tiêu điểm, đặt giá
+            // trị — chưa được nghĩ tới, và im lặng bỏ qua đúng hơn là đoán.
+            if yeu_cau.action == accesskit::Action::Click
+                && let Ok(mut q) = self.0.lock()
+            {
+                q.push(yeu_cau.target_node.0);
+            }
+        }
     }
 }
 

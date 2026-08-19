@@ -578,9 +578,19 @@ impl Node {
             NodeKind::Toggle { label, on, .. } => (Role::Switch { on: *on }, Some(label.clone())),
             NodeKind::Group { .. } => (Role::Group, None),
         };
+        // Chỉ nút và công tắc mới kích hoạt được. Ô nhập KHÔNG: 0.1 không có
+        // hành động nào cho ô nhập, và bịa ra một hành động ở đây là bịa ra một
+        // thứ không ai khai báo.
+        let action = match &self.kind {
+            NodeKind::Button { action, .. } | NodeKind::Toggle { action, .. } => {
+                Some(action.as_str().to_owned())
+            }
+            _ => None,
+        };
         AccessNode {
             role,
             label,
+            action,
             children: self.children.iter().map(Node::accessibility_tree).collect(),
         }
     }
@@ -615,6 +625,18 @@ pub enum Role {
 pub struct AccessNode {
     pub role: Role,
     pub label: Option<String>,
+    /// Mã hành động, nếu nút này **kích hoạt được**. `None` = chữ, ảnh, nhóm.
+    ///
+    /// # Vì sao cây trợ năng phải mang mã hành động
+    ///
+    /// Trình đọc màn hình không chỉ ĐỌC — nó còn **bấm**. Một cây trợ năng chỉ
+    /// mang nhãn thì người dùng VoiceOver nghe được nút tên gì rồi không làm gì
+    /// được với nó, và bộ dựng phải đoán ngược từ vị trí trên màn hình để biết
+    /// hệ điều hành vừa yêu cầu bấm cái gì.
+    ///
+    /// Đoán ngược là chỗ hỏng: bấm nhầm một nút không hoàn tác thì không có
+    /// đường lùi. Nên mã hành động đi CÙNG nút, không tra lại.
+    pub action: Option<String>,
     pub children: Vec<AccessNode>,
 }
 
@@ -851,6 +873,7 @@ mod kiem_thu {
                 self.0 = Some(AccessNode {
                     role: Role::Group,
                     label: None,
+                    action: None,
                     children: vec![],
                 });
                 Ok(())

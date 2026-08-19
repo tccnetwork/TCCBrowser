@@ -203,12 +203,14 @@ một nẻo.
 nền ấy dựng ra một bản **không có mã trợ năng nào**, và đó là sự thật cần nhìn
 thấy được.
 
-⚠️ **Chỗ CỐ Ý để trống:** `ActionHandler` **không nhận hành động nào**. Hệ điều
-hành có thể yêu cầu "bấm nút này" thay người dùng; nhận yêu cầu ấy là mở một
-đường bấm nút **không qua chuột**, mà trên màn xác nhận giao dịch đó là một
-đường **ký hộ**. Đường ấy sẽ phải mở — người dùng bàn phím và VoiceOver cần nó —
-nhưng nó có mô hình đe doạ riêng, nên đi cùng phép thử của chính nó, không đi
-kèm một dòng thêm lúc nối adapter.
+✅ **`ActionHandler` đã nhận `Click`** (19/08/2026) — và tôi **đổi ý** so với hôm
+trước. Lập luận cũ ("nhận yêu cầu bấm là mở đường ký hộ") so với một thế giới
+không tồn tại: trên macOS, gửi `AXPress` cần quyền **Accessibility**, mà cùng
+quyền ấy cũng cho `CGEventPost` — **tổng hợp một cú bấm chuột thật**, đi thẳng
+qua đường chuột của ta. *Từ chối `AXPress` không chặn kẻ tấn công, nó chỉ chặn
+người dùng VoiceOver.* Xem `SECURITY.md` §3.1d.
+
+Yêu cầu **không có nhánh riêng**: nó chạy qua đúng `sau_cu_bam` mà chuột đi qua.
 
 **`unsafe` đầu tiên và duy nhất của dự án** nằm ở đây: trao con trỏ `NSView` cho
 AccessKit. `SECURITY.md` §3.1b đã lường trước đúng đánh đổi này — *"làm bây giờ

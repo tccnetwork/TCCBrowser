@@ -643,6 +643,41 @@ is not closed. Doing it now means adding `unsafe` FFI, covering macOS only, and
 rebuilding the entire accessibility layer just built — on top of the very thing
 scheduled for replacement.
 
+### 3.1d Assistive activation is accepted, and refusing it protected nobody
+
+The pixel renderer's accessibility adapter accepts `Action::Click` from the
+platform, so a VoiceOver user can press a button. The previous version refused
+every action on the reasoning that accepting "press this button" opens a path to
+pressing buttons without a mouse, and that on the transaction confirmation
+screen this is a path to signing on the user's behalf.
+
+That reasoning compared against a world that does not exist. On macOS an
+application must be granted **Accessibility** permission in System Settings
+before it can send `AXPress`, and that same permission allows `CGEventPost` —
+synthesising a real mouse click, which travels through our ordinary mouse path
+and needs no accessibility API at all. Refusing `AXPress` therefore stops no
+attacker: they already hold an equivalent path behind the same gate. It stops
+only VoiceOver users, who are the people the feature exists for.
+
+**A control that obstructs legitimate users without obstructing an attacker is
+not a security control.** It is a barrier, and removing it costs nothing an
+attacker was paying.
+
+The requests do not get their own code path. They are queued and drained through
+the same state machine a mouse click goes through, so every rule the permission
+dialog enforces for the mouse — a toggle does not dismiss, only a button ends the
+screen, closing grants nothing — applies unchanged. Only `Action::Click` is
+accepted; scroll, focus and set-value are ignored rather than guessed at. A
+request whose node id is no longer in the tree is dropped, because the tree is
+rebuilt whenever a toggle flips and a stale id would otherwise resolve to a
+different button.
+
+**Residual risk, stated rather than closed**: a user who grants Accessibility
+permission to a malicious application has given it control over every window on
+the machine, not only ours. That is an operating-system trust decision and no
+function in this codebase can take it back. It is written here rather than
+papered over with an empty handler that looked like a defence.
+
 ### 3.1c ⚠️ Window title spoofing — found while MEASURING the debt above
 
 An app declares its own `name`, and that name used to be the **entire** title of
