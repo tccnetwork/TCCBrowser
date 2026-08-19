@@ -115,25 +115,19 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
                         ..
                     },
                 ..
-            } => {
+            } =>
+            {
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "toạ độ màn hình, luôn nằm gọn trong f32"
                 )]
-                if let Some(h) = bo_dung.hit_test(chuot.0 as f32, chuot.1 as f32) {
-                    if h.toggle {
-                        // Gạt rồi Ở LẠI. Vẽ lại ngay: một công tắc gạt mà màn
-                        // hình không đổi là người dùng bấm tiếp lần nữa, và gạt
-                        // ngược lại thứ họ vừa bật.
-                        let a = h.action.to_owned();
-                        if !bat.remove(&a) {
-                            bat.insert(a);
-                        }
-                        ve_lai = true;
-                    } else {
-                        da_bam = Some(h.action.to_owned());
+                match sau_cu_bam(bo_dung.hit_test(chuot.0 as f32, chuot.1 as f32), &mut bat) {
+                    SauCuBam::VeLai => ve_lai = true,
+                    SauCuBam::Ket(a) => {
+                        da_bam = Some(a);
                         *dieu_khien = ControlFlow::Exit;
                     }
+                    SauCuBam::Khong => {}
                 }
             }
 
@@ -164,6 +158,43 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
         action: da_bam,
         toggles_on: bat,
     })
+}
+
+/// Cú bấm dẫn tới cái gì.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SauCuBam {
+    /// Không rơi vào thứ bấm được.
+    Khong,
+    /// Công tắc đã đổi — vẽ lại, **ở lại màn hình**.
+    VeLai,
+    /// Nút đã bấm — kết thúc màn hình với hành động này.
+    Ket(String),
+}
+
+/// Đổi trạng thái theo một cú bấm.
+///
+/// # Vì sao tách khỏi vòng lặp sự kiện
+///
+/// Ba luật an toàn của hộp thoại hỏi quyền sống ở đây: **gạt công tắc KHÔNG
+/// đóng hộp thoại**, gạt hai lần thì **về lại tắt**, và bấm nút mới kết thúc.
+/// Nằm trong vòng lặp sự kiện thì chúng chỉ được bảo đảm bằng mắt đọc mã — mà
+/// vòng lặp ấy cần một cửa sổ thật nên `cargo test` không chạm tới được.
+///
+/// Tách ra là chúng kiểm được, và kiểm đột biến được.
+fn sau_cu_bam(cham: Option<crate::Hit<'_>>, bat: &mut BTreeSet<String>) -> SauCuBam {
+    let Some(h) = cham else {
+        return SauCuBam::Khong;
+    };
+    if !h.toggle {
+        return SauCuBam::Ket(h.action.to_owned());
+    }
+    // Gạt: có thì bỏ, không thì thêm. `remove` trả về `true` khi nó đã có —
+    // nên một lần gọi làm cả hai việc, và không có nhánh nào quên mất một chiều.
+    let a = h.action.to_owned();
+    if !bat.remove(&a) {
+        bat.insert(a);
+    }
+    SauCuBam::VeLai
 }
 
 /// Nối adapter trợ năng của macOS vào cửa sổ.
@@ -334,5 +365,73 @@ mod tro_nang {
 
     impl ActionHandler for ChuaNhanHanhDong {
         fn do_action(&mut self, _yeu_cau: ActionRequest) {}
+    }
+}
+
+#[cfg(test)]
+mod kiem_thu {
+    use super::*;
+
+    fn nut(a: &str) -> crate::Hit<'_> {
+        crate::Hit {
+            action: a,
+            toggle: false,
+        }
+    }
+    fn cong_tac(a: &str) -> crate::Hit<'_> {
+        crate::Hit {
+            action: a,
+            toggle: true,
+        }
+    }
+
+    /// **Gạt công tắc KHÔNG đóng hộp thoại.**
+    ///
+    /// Đây là luật quan trọng nhất của màn hỏi quyền trên bộ dựng này: đóng khi
+    /// gạt nghĩa là người dùng vừa "trả lời" cả những mục họ chưa kịp đọc.
+    #[test]
+    fn gat_cong_tac_khong_dong_hop_thoai() {
+        let mut bat = BTreeSet::new();
+        assert_eq!(
+            sau_cu_bam(Some(cong_tac("micro")), &mut bat),
+            SauCuBam::VeLai
+        );
+        assert!(bat.contains("micro"));
+        assert_eq!(
+            sau_cu_bam(Some(cong_tac("camera")), &mut bat),
+            SauCuBam::VeLai
+        );
+        assert_eq!(bat.len(), 2);
+    }
+
+    /// Gạt hai lần thì **về lại tắt**.
+    #[test]
+    fn gat_hai_lan_thi_ve_lai_tat() {
+        let mut bat = BTreeSet::new();
+        sau_cu_bam(Some(cong_tac("micro")), &mut bat);
+        sau_cu_bam(Some(cong_tac("micro")), &mut bat);
+        assert!(bat.is_empty(), "gạt hai lần mà vẫn bật: {bat:?}");
+    }
+
+    /// **Nút mới kết thúc màn hình**, và nó KHÔNG đụng vào công tắc nào.
+    #[test]
+    fn nut_ket_thuc_va_khong_doi_cong_tac() {
+        let mut bat = BTreeSet::new();
+        sau_cu_bam(Some(cong_tac("micro")), &mut bat);
+        let truoc = bat.clone();
+        assert_eq!(
+            sau_cu_bam(Some(nut("cho-phep")), &mut bat),
+            SauCuBam::Ket("cho-phep".to_owned())
+        );
+        assert_eq!(bat, truoc, "bấm nút mà trạng thái công tắc đổi");
+    }
+
+    /// Bấm vào khoảng trống thì **không đổi gì cả**.
+    #[test]
+    fn bam_khoang_trong_khong_doi_gi() {
+        let mut bat = BTreeSet::new();
+        bat.insert("micro".to_owned());
+        assert_eq!(sau_cu_bam(None, &mut bat), SauCuBam::Khong);
+        assert_eq!(bat.len(), 1);
     }
 }
