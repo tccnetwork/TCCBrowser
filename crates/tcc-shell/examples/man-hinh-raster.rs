@@ -64,19 +64,16 @@ fn main() -> ExitCode {
     // giữ trạng thái trong tài liệu; ở đây khung phải tự giữ. Một màn hình chỉ
     // có chữ và nút thì không đá vào chỗ ấy.
     if std::env::args().nth(2).as_deref() == Some("hop-thoai") {
-        let hoi = match tcc_shell::permission_dialog::build(app.manifest(), Language::Vi) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("✗ không dựng được hộp thoại: {e}");
-                return ExitCode::FAILURE;
-            }
-        };
         println!(
             "Hộp thoại hỏi quyền của \"{}\" — RA PIXEL",
             app.manifest().name
         );
         println!("  gạt công tắc rồi bấm một nút.");
-        return match tcc_render_raster::window::open_screen(&hoi, "Hỏi quyền — raster") {
+        // Tiêu đề do KHUNG đặt, không truyền tay — xem `open_permission_dialog_raster`.
+        return match tcc_shell::window_raster::open_permission_dialog_raster(
+            app.manifest(),
+            Language::Vi,
+        ) {
             Ok(ket) => {
                 match ket.action {
                     Some(h) => {
@@ -113,7 +110,10 @@ fn main() -> ExitCode {
     println!("  nút trong cây khai báo : {}", cay.node_count());
     println!("  bấm một nút để đóng, hoặc đóng cửa sổ.");
 
-    match tcc_render_raster::window::open_screen(&cay, app.manifest().name.as_str()) {
+    // ⚠️ KHÔNG truyền `manifest().name` làm tiêu đề. Bản đầu của ví dụ này làm
+    // thế và mở lại đúng lỗ giả mạo tiêu đề mà `SECURITY.md` §3.1c đã vá cho
+    // đường WebView — mã ứng dụng đã ký phải đứng trước tên ứng dụng tự đặt.
+    match tcc_shell::window_raster::open_app_screen_raster(app.manifest(), byte) {
         Ok(ket) => {
             match ket.action {
                 Some(h) => {

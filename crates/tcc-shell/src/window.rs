@@ -19,27 +19,7 @@ use crate::{
     text::Language,
 };
 
-/// Tiêu đề cửa sổ CỦA ỨNG DỤNG.
-///
-/// # ⚠️ Mã ứng dụng đứng TRƯỚC, tên do ứng dụng đặt đứng SAU
-///
-/// Ứng dụng tự khai `name`. Đặt tên là "TCC — quyền đã cấp" thì cửa sổ của nó
-/// có tiêu đề y hệt màn hình quản lý quyền của trình duyệt — rồi nó vẽ một danh
-/// sách quyền giả với một nút "Cho phép" giả bên trong.
-///
-/// Mã ứng dụng thì KHÔNG giả được: nó nằm trong phạm vi chữ ký và bị
-/// `AppId::parse` ép về `a-z0-9.` — không có dấu cách, không có gạch ngang dài,
-/// nên nó không bắt chước nổi tiêu đề của trình duyệt.
-///
-/// Đặt nó ĐỨNG TRƯỚC vì thứ người ta đọc đầu tiên là thứ bên trái. Và cửa sổ
-/// của trình duyệt thì KHÔNG BAO GIỜ mang mã ứng dụng — đó là dấu phân biệt.
-///
-/// Đây không phải lời giải trọn vẹn cho việc giả mạo tiêu đề (không có lời giải
-/// trọn vẹn nào bằng phần mềm), nhưng nó chặn đúng đòn rẻ nhất.
-#[must_use]
-pub fn app_window_title(m: &Manifest) -> String {
-    format!("{} — {}", m.id.as_str(), m.name)
-}
+pub use crate::window_title::app_window_title;
 
 /// Hiện hộp thoại hỏi quyền trong một cửa sổ thật.
 ///
@@ -136,7 +116,21 @@ fn hoi_quyen_tung_muc(
         .map(|a| a.as_str().to_owned())
         .collect();
 
-    match bo_dung_cua_so::ask_dialog(bo_dung.document(), &m.name, &hop_le) {
+    // ⚠️ Tiêu đề là chuỗi CỦA TRÌNH DUYỆT, không phải `m.name`.
+    //
+    // Trước 19/08/2026 chỗ này truyền thẳng tên do ứng dụng tự khai, nên một gói
+    // đặt tên `"TCC — quyền đã cấp"` có được một cửa sổ **của trình duyệt** mang
+    // đúng tiêu đề màn hình quản lý quyền. `SECURITY.md` §3.1c đã vá đòn ấy cho
+    // cửa sổ CỦA ỨNG DỤNG và bỏ sót cửa sổ này — mà đây mới là cửa sổ người dùng
+    // bấm "Cho phép".
+    //
+    // Tên ứng dụng vẫn hiện, nhưng hiện TRONG hộp thoại, chỗ nó là nội dung
+    // được trình bày chứ không phải chỗ nó mạo danh khung.
+    match bo_dung_cua_so::ask_dialog(
+        bo_dung.document(),
+        crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu),
+        &hop_le,
+    ) {
         Ok(Some(t)) => (Some(t.hanh_dong), t.bat),
         Ok(None) => (None, Vec::new()),
         Err(e) => {
@@ -487,6 +481,49 @@ mod kiem_thu {
             "tên do ứng dụng đặt chiếm được đầu tiêu đề: {td}"
         );
         assert!(td.contains("TCC — quyền đã cấp"), "{td}");
+    }
+
+    /// **Tiêu đề cửa sổ của TRÌNH DUYỆT không được do ứng dụng đặt.**
+    ///
+    /// Đây là chỗ `SECURITY.md` §3.1c bỏ sót: nó vá cửa sổ CỦA ỨNG DỤNG, còn
+    /// hộp thoại hỏi quyền — cửa sổ người dùng bấm "Cho phép" — vẫn lấy thẳng
+    /// tên do ứng dụng tự khai làm tiêu đề.
+    #[test]
+    fn tieu_de_hoi_quyen_khong_do_ung_dung_dat() {
+        for n in [Language::En, Language::Vi] {
+            let td = crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, n);
+            // Không mang mã ứng dụng — dấu phân biệt cửa sổ khung với cửa sổ gói.
+            assert!(!td.contains('.'), "{td}");
+            // Và KHÔNG chứa tên do ứng dụng khai, dù tên ấy là gì.
+            let m = ke_khai("TCC — quyền đã cấp");
+            assert!(
+                !td.contains(m.name.as_str()),
+                "tên ứng dụng lọt vào tiêu đề cửa sổ của trình duyệt: {td}"
+            );
+        }
+    }
+
+    /// Và **chỗ gọi** phải thật sự dùng chuỗi ấy.
+    ///
+    /// Phép thử trên chỉ kiểm CHUỖI. Đổi chỗ gọi về `&m.name` thì chuỗi vẫn
+    /// đúng, phép thử vẫn xanh, và lỗ mở lại — kiểm đột biến chỉ ra đúng điều
+    /// đó. Nên phải soi chính đoạn mã dựng hộp thoại.
+    #[test]
+    fn cho_goi_hoi_quyen_dung_tieu_de_cua_khung() {
+        let nguon = include_str!("window.rs");
+        // Cắt bỏ phần kiểm thử trước khi soi — nếu không, chính phép thử này
+        // chứa dấu mốc và nó tự xác nhận mình.
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        let goi = than
+            .split("fn hoi_quyen_tung_muc")
+            .nth(1)
+            .expect("không tìm thấy `hoi_quyen_tung_muc`");
+        let goi = &goi[..goi.find("\n}").unwrap_or(goi.len())];
+        assert!(
+            goi.contains("HoiQuyenTieuDeCuaSo"),
+            "hộp thoại hỏi quyền không dùng tiêu đề của khung — chữ do ứng dụng \
+             đặt đang chiếm tiêu đề một cửa sổ của trình duyệt"
+        );
     }
 
     /// Cửa sổ của TRÌNH DUYỆT không bao giờ mang mã ứng dụng — đó là dấu phân biệt.

@@ -45,6 +45,12 @@ pub use text::Language;
 #[cfg(feature = "window")]
 pub mod window;
 
+/// Cửa sổ của bộ dựng RA PIXEL. Không kéo theo `wry`.
+#[cfg(feature = "cua-so-raster")]
+pub mod window_raster;
+
+pub mod window_title;
+
 /// Đường ra ngoài thật. Chỉ có khi bật cờ `mang`.
 ///
 /// Tách cờ riêng để dựng được một bản trình duyệt **không có mạng** — hữu ích

@@ -643,6 +643,46 @@ is not closed. Doing it now means adding `unsafe` FFI, covering macOS only, and
 rebuilding the entire accessibility layer just built — on top of the very thing
 scheduled for replacement.
 
+### 3.1c ⚠️ Window title spoofing — found while MEASURING the debt above
+
+An app declares its own `name`, and that name used to be the **entire** title of
+its window. An app named `"TCC — granted permissions"` gets a window titled
+identically to the browser's own permission management screen — and can then draw
+a fake permission list with a fake "Allow" button inside it.
+
+Stopping it from choosing that name is impossible (the name is the app's own
+text), but stopping that name from **occupying the whole title** is not. Now:
+`com.tcc.vi-du.hello — Xin chào TCC`.
+
+The app id cannot be faked: it sits inside the signature's scope and `AppId::parse`
+constrains it to `a-z0-9.` — no spaces, no em dashes, so it **cannot imitate** a
+browser title. Tests pin both directions: a spoofing name cannot occupy the front
+of the title, and the browser's own title does not look like an app id.
+
+This is **not a complete answer** to title spoofing — no complete answer exists in
+software. It blocks the cheapest attack.
+
+**Two places this fix had not reached, found 2026-08-19.**
+
+The permission dialog — the window where the user presses *Allow* — took the
+app's declared `name` as its entire title. So the rule protected the app's own
+window while leaving the browser's own window open to the same imitation, and
+that window is the more valuable one to imitate. Its title is now a browser
+string that never contains app-controlled text.
+
+The pixel renderer's first window passed `manifest().name` directly, reopening
+the original hole on the new renderer. The cause is worth more than the fix:
+`app_window_title` lived inside the module gated behind the WebView feature, so
+a renderer that does not pull in WebView could not reach it. **A security rule
+kept behind one renderer's feature flag is a rule that holds on one renderer.**
+It now lives in `window_title.rs`, which is always compiled, and both renderers
+route their windows through the shell rather than passing a title of their own.
+
+The test that pins the dialog title compares strings, and a mutation showed that
+is not enough: reverting the call site to `&m.name` leaves the string correct and
+the test green. A second test reads the source of the calling function, and that
+mutation dies.
+
 ### 3.1d Assistive activation is accepted, and refusing it protected nobody
 
 The pixel renderer's accessibility adapter accepts `Action::Click` from the
@@ -677,25 +717,6 @@ permission to a malicious application has given it control over every window on
 the machine, not only ours. That is an operating-system trust decision and no
 function in this codebase can take it back. It is written here rather than
 papered over with an empty handler that looked like a defence.
-
-### 3.1c ⚠️ Window title spoofing — found while MEASURING the debt above
-
-An app declares its own `name`, and that name used to be the **entire** title of
-its window. An app named `"TCC — granted permissions"` gets a window titled
-identically to the browser's own permission management screen — and can then draw
-a fake permission list with a fake "Allow" button inside it.
-
-Stopping it from choosing that name is impossible (the name is the app's own
-text), but stopping that name from **occupying the whole title** is not. Now:
-`com.tcc.vi-du.hello — Xin chào TCC`.
-
-The app id cannot be faked: it sits inside the signature's scope and `AppId::parse`
-constrains it to `a-z0-9.` — no spaces, no em dashes, so it **cannot imitate** a
-browser title. Tests pin both directions: a spoofing name cannot occupy the front
-of the title, and the browser's own title does not look like an app id.
-
-This is **not a complete answer** to title spoofing — no complete answer exists in
-software. It blocks the cheapest attack.
 
 ### 3.2 `ml-dsa` is still at 0.1.1
 

@@ -130,6 +130,8 @@ pub enum TextKey {
     VaiTroMatMat,
     /// Tiêu đề cửa sổ màn hình quản lý quyền.
     QuanLyTieuDeCuaSo,
+    /// Tiêu đề cửa sổ hộp thoại hỏi quyền — **của TRÌNH DUYỆT**.
+    HoiQuyenTieuDeCuaSo,
 }
 
 /// Bản dịch.
@@ -474,6 +476,8 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::VaiTroMatMat, Language::En) => "button — this cannot be undone",
         (TextKey::VaiTroMatMat, Language::Vi) => "nút — hành động này không hoàn tác được",
 
+        (TextKey::HoiQuyenTieuDeCuaSo, Language::En) => "TCC — permission request",
+        (TextKey::HoiQuyenTieuDeCuaSo, Language::Vi) => "TCC — hỏi quyền",
         (TextKey::QuanLyTieuDeCuaSo, Language::En) => "TCC — permissions granted",
         (TextKey::QuanLyTieuDeCuaSo, Language::Vi) => "TCC — quyền đã cấp",
     }
@@ -521,6 +525,7 @@ mod kiem_thu {
         TextKey::CauMatMat,
         TextKey::VaiTroMatMat,
         TextKey::QuanLyTieuDeCuaSo,
+        TextKey::HoiQuyenTieuDeCuaSo,
     ];
 
     /// Không chuỗi nào được rỗng, và hai ngôn ngữ không được trùng nhau —
