@@ -239,18 +239,21 @@ jobs:
       # drive a real WebKit view and ask it what it sees, so running them on one
       # operating system only proves the defence on that one operating system.
       #
-      # These stay continue-on-error, and the reason is worth recording.
+      # These were continue-on-error for months, behind a comment that said
+      # WebKitGTK under xvfb does not reliably get a window handle. That comment
+      # was wrong, and it is kept here in corrected form because the mistake is
+      # more useful than the fix.
       #
-      # All three passed the first time, so I removed the flag. The next run
-      # failed: "không dựng được WebView: the underlying handle is not
-      # available" — WebKitGTK under xvfb does not always get a usable window
-      # handle in time. It is a property of the virtual display, not of the
-      # defence being tested.
+      # The failure was "không dựng được WebView: the underlying handle is not
+      # available", which mentions nothing about GTK — so it read exactly like a
+      # virtual display that had not come up. It was not flaky at all: a probe
+      # that ran the same binary three times in one job failed 3/3, then passed
+      # 3/3 once the code built the WebView the way Linux requires. The bug was
+      # ours, and the exemption is what kept anyone from finding it.
       #
-      # One green run is not evidence of reliability, and I treated it as if it
-      # were. When they pass they are worth having: a second WebKit engine
-      # checking the same defences is what stops one resting on a WKWebView
-      # quirk. When they fail here, macOS is still enforcing them strictly.
+      # A check exempted because "the infrastructure is unreliable" is the best
+      # hiding place a real bug has. The flag is off. If Linux goes red here,
+      # that is now a fact to investigate rather than a footnote.
       - name: Virtual display
         run: sudo apt-get install -y xvfb
 
@@ -272,47 +275,17 @@ jobs:
             echo "GDK_BACKEND=x11"
           } >> "$GITHUB_ENV"
 
-      # ⚠️ Ba lượt, không phải một.
-      #
-      # Chỗ này từng bị đúng cái bẫy ấy: một lượt xanh, tôi gỡ `continue-on-error`,
-      # lượt sau đỏ. Nên phép kiểm "đã hết chập chờn chưa" phải chạy nhiều lượt
-      # TRONG CÙNG một job — một lượt xanh không phân biệt được "đã sửa" với
-      # "vừa may".
-      #
-      # Bước này không bao giờ làm đỏ CI: nó chỉ ĐẾM và in ra, để lần sau có số
-      # mà quyết định, thay vì lại quyết định bằng một lượt.
-      - name: Is WebKitGTK steady under a virtual display? (3 runs)
-        continue-on-error: true
-        run: |
-          dat=0
-          for i in 1 2 3; do
-            if xvfb-run -a cargo run -q -p tcc-shell --features window \
-                 --example do-nen-tang > "/tmp/nen-$i.log" 2>&1; then
-              dat=$((dat + 1)); echo "lượt $i: ĐẠT"
-            else
-              echo "lượt $i: TRƯỢT"; tail -3 "/tmp/nen-$i.log"
-            fi
-          done
-          echo "════ WebKitGTK dưới màn hình ảo: $dat/3 lượt đạt ════"
-
       # Measure the web engine rather than describing it. The published baseline
       # is the INTERSECTION of three engines, so it must be measured on each —
       # see docs/nen-tang.md.
       #
-      # continue-on-error like the other xvfb steps: WebKitGTK under a virtual
-      # display does not reliably get a window handle, and that is a property of
-      # the runner rather than of this code.
       - name: Measure the web platform (WebKitGTK)
-        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example do-nen-tang
       - name: App text cannot escape the document (Linux)
-        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
       - name: Content policy blocks script, layer 3 alone (Linux)
-        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
       - name: App screen through real WebKitGTK (Linux)
-        continue-on-error: true
         run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
 
   # Does the renderer build on Windows? It has never been compiled there.
@@ -341,5 +314,4 @@ jobs:
       # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
       # đủ ba — xem docs/nen-tang.md.
       - name: Measure the web platform (WebView2)
-        continue-on-error: true
         run: cargo run -p tcc-shell --features window --example do-nen-tang

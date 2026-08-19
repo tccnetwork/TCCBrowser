@@ -75,15 +75,44 @@ tính năng có mặt mà ta quên tắt là một tính năng người dùng b�
 | Nền | Bộ máy | Tình trạng |
 |---|---|---|
 | macOS | WKWebView | ✅ đo được, **18/20** |
-| Linux | WebKitGTK | ⚠️ chạy dưới màn hình ảo **không ổn định** — `the underlying handle is not available`. Cùng lý do các bước đối kháng trên Linux phải để `continue-on-error` |
+| Linux | WebKitGTK | ✅ đo được (19/08/2026), **18/20 — thiếu ĐÚNG hai mục ấy** |
 | Windows | WebView2 | ✅ đo được, **18/20 — thiếu ĐÚNG hai mục ấy** |
 
-**Hai bộ máy hoàn toàn khác nhau (WebKit và Chromium) thiếu cùng hai mục.** Đó
-không phải trùng hợp — nó xác nhận rằng hai mục ấy vắng vì **cách nạp**, không
-vì bộ máy.
+**Cả BA bộ máy — WKWebView, WebKitGTK, WebView2 (Chromium) — thiếu đúng cùng
+hai mục: `crypto.subtle` và `localStorage`.** Đó không phải trùng hợp: nó xác
+nhận hai mục ấy vắng vì **cách nạp tài liệu**, không vì bộ máy. `with_html` cho
+tài liệu một nguồn gốc mờ, mà cả hai thứ ấy đều đòi một nguồn gốc thật.
 
-**Chưa công bố bảng nền tảng nào**, vì phần giao cần đủ ba số đo. Công bố khi
-mới có một là công bố một bảng của macOS và gọi nó là nền tảng.
+### Vì sao Linux mãi mới đo được, và bài học đắt hơn con số
+
+Bước đo trên Linux mang `continue-on-error` suốt nhiều tháng, kèm chú thích nói
+rằng WebKitGTK dưới màn hình ảo không ổn định. **Chú thích ấy sai.**
+
+Câu lỗi là `the underlying handle is not available` — không nhắc một chữ nào về
+GTK, nên nó đọc y hệt một màn hình ảo chưa kịp lên. Nhưng trên Linux `wry` gắn
+`WebView` vào một widget GTK chứ không vào cửa sổ: `build(&window)` đơn giản là
+**gọi sai hàm**.
+
+Cách phát hiện đáng ghi lại hơn cả bản vá: thay vì chạy một lượt rồi đoán, chạy
+**cùng một tệp nhị phân ba lượt trong cùng một job**. Kết quả **0/3** — không
+phải chập chờn, mà **trượt đều**. Sau khi gọi đúng `build_gtk`: **3/3**.
+
+Chính chỗ này từng dẫm bẫy ngược lại: một lượt xanh, gỡ cờ, lượt sau đỏ, rồi kết
+luận "hạ tầng chập chờn". **Một lượt xanh không phân biệt được "đã sửa" với
+"vừa may"** — và một phép thử được miễn vì *"hạ tầng không đáng tin"* là chỗ tốt
+nhất để một lỗi thật nằm im.
+
+Bốn cờ `continue-on-error` trên Linux đã bỏ hết. Ba phép thử đối kháng trên
+WebKitGTK cũng đạt: chữ của ứng dụng không thoát ra khỏi tài liệu, chính sách
+nội dung một mình chặn được kịch bản, và màn hình ứng dụng lên đúng từ cây khai
+báo.
+
+**Đủ ba số đo từ 19/08/2026** — phần giao là **18/20**, giống nhau trên cả ba
+bộ máy. Bảng nền tảng công bố được. Câu dưới đây giữ lại nguyên văn vì nó là
+điều kiện đã đặt ra trước khi biết kết quả:
+
+> **Chưa công bố bảng nền tảng nào**, vì phần giao cần đủ ba số đo. Công bố khi
+> mới có một là công bố một bảng của macOS và gọi nó là nền tảng.
 
 ## Nạp thế nào để có ngữ cảnh an toàn
 
