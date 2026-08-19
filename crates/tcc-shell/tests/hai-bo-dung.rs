@@ -129,6 +129,7 @@ fn hai_bo_dung_doc_cung_cau_mat_mat() {
 
     for ngon_ngu in [Language::En, Language::Vi] {
         let cau = label(TextKey::CauMatMat, ngon_ngu).to_owned();
+        let vai_tro = label(TextKey::VaiTroMatMat, ngon_ngu).to_owned();
 
         let cay = tcc_ui::Node::button("Xoá hết", "xoa", tcc_ui::Tone::Danger).unwrap();
         let mut bd = RasterRenderer::new();
@@ -137,10 +138,15 @@ fn hai_bo_dung_doc_cung_cau_mat_mat() {
             &bd.published_accessibility().unwrap(),
             &AccessText {
                 cau_mat_mat: cau.clone(),
+                vai_tro_mat_mat: vai_tro.clone(),
             },
         );
         let nut = &cap_nhat.nodes.first().unwrap().1;
         assert_eq!(nut.description(), Some(cau.as_str()));
+        // VAI TRÒ cũng phải khớp: WebView đặt `aria-roledescription`, và bộ dựng
+        // ra pixel phải nói đúng chuỗi ấy — nếu không, một nút xoá nghe y hệt
+        // một nút huỷ trên đúng bộ dựng ta định dùng để thay thế WebView.
+        assert_eq!(nut.role_description(), Some(vai_tro.as_str()));
 
         // Và WebView phải nhả ra ĐÚNG chuỗi ấy trong tài liệu của nó.
         let mut web = tcc_render_webview::WebViewRenderer::new()

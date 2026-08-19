@@ -35,7 +35,19 @@ tools/kiem-luat-phu-thuoc.sh   # 22 luật, chạy trước biên dịch trong C
 cargo test --workspace
 cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
+
+# Và MỌI tổ hợp cờ CI có chạy — `cargo test --workspace` KHÔNG dựng chúng:
+cargo test -p tcc-shell --features accesskit --test hai-bo-dung
+cargo test -p tcc-shell --features cua-so-raster
+cargo test -p tcc-render-raster --features window
+cargo test -p tcc-render-webview --features window
+cargo test -p tcc-shell --features window
 ```
+
+Nhóm cờ ở cuối thêm 19/08/2026, sau lần CI đỏ thứ hai trong ngày: mã sau một cờ
+mà `cargo test --workspace` không dựng thì **không tồn tại** đối với lượt kiểm ở
+máy mình, và ta chỉ biết nó hỏng khi CI báo. Luật 21 đã bắt CI phải `test` mọi
+cờ nó `check`; dòng này bắt CHÍNH MÌNH làm điều đó trước khi đẩy.
 
 `kiem-so-lieu.sh` nằm trong danh sách này từ 19/08/2026, sau khi CI đỏ vì đúng
 việc bỏ sót nó: thêm hai phép thử là ba tài liệu ghi sai con số. Nó chạy lâu
