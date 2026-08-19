@@ -683,6 +683,19 @@ is not enough: reverting the call site to `&m.name` leaves the string correct an
 the test green. A second test reads the source of the calling function, and that
 mutation dies.
 
+**A third instance of the same class, found by looking for more.** The pixel
+renderer described a destructive button to VoiceOver using
+`AccessText::default()` — English, whatever language the user had chosen — while
+the WebView path injects the translated sentence. A Vietnamese VoiceOver user
+heard English, and the two renderers described the same button differently,
+which is the exact failure the cross-renderer check exists to catch. The
+sentence is injected now, and both renderers read it from one key.
+
+The first test for it compared the two functions and the mutation survived,
+because hardcoding English at the call site leaves both functions agreeing.
+Comparing a function against a function is not a substitute for looking at where
+it is used.
+
 ### 3.1d Assistive activation is accepted, and refusing it protected nobody
 
 The pixel renderer's accessibility adapter accepts `Action::Click` from the
@@ -1160,7 +1173,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 383 tests
+cargo test --workspace                              # 385 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

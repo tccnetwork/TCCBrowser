@@ -113,7 +113,7 @@ fn main() -> ExitCode {
     // ⚠️ KHÔNG truyền `manifest().name` làm tiêu đề. Bản đầu của ví dụ này làm
     // thế và mở lại đúng lỗ giả mạo tiêu đề mà `SECURITY.md` §3.1c đã vá cho
     // đường WebView — mã ứng dụng đã ký phải đứng trước tên ứng dụng tự đặt.
-    match tcc_shell::window_raster::open_app_screen_raster(app.manifest(), byte) {
+    match tcc_shell::window_raster::open_app_screen_raster(app.manifest(), byte, Language::Vi) {
         Ok(ket) => {
             match ket.action {
                 Some(h) => {

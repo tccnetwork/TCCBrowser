@@ -496,6 +496,17 @@ pub fn renderer_text(n: Language) -> tcc_render_webview::markup::RendererText {
     }
 }
 
+/// Câu mô tả hành động **không hoàn tác**, cho bộ dựng ra pixel.
+///
+/// Cùng khoá với [`renderer_text`], và có phép thử chốt điều đó: hai bộ dựng
+/// nói hai câu khác nhau cho cùng một nút là đúng thứ phép kiểm chéo sinh ra để
+/// chặn — người dùng nghe "Không hoàn tác được" ở một bộ dựng và một câu khác ở
+/// bộ dựng kia thì không biết tin bên nào.
+#[must_use]
+pub fn destructive_note(n: Language) -> &'static str {
+    label(TextKey::CauMatMat, n)
+}
+
 #[cfg(test)]
 mod kiem_thu {
     use super::*;
@@ -603,5 +614,47 @@ mod kiem_thu {
         let vi = label(TextKey::QuyenCanhBaoDanhTinh, Language::Vi);
         assert!(vi.contains("không bị sửa"), "thiếu vế chứng minh: {vi}");
         assert!(vi.contains("KHÔNG chứng minh"), "thiếu vế phủ định: {vi}");
+    }
+
+    /// **Hai bộ dựng nói CÙNG một câu cho nút không hoàn tác.**
+    ///
+    /// Bộ dựng ra pixel từng gọi `AccessText::default()` — tiếng Anh, bất kể
+    /// người dùng đang dùng ngôn ngữ nào — trong khi WebView nhận câu đã dịch.
+    /// Người dùng VoiceOver tiếng Việt nghe một câu tiếng Anh, và hai bộ dựng
+    /// mô tả cùng một nút bằng hai câu khác nhau.
+    ///
+    /// Phép thử này chốt chúng về cùng một khoá. Ai đổi một bên mà quên bên kia
+    /// thì nó đỏ.
+    #[test]
+    fn hai_bo_dung_noi_cung_cau_mat_mat() {
+        for n in [Language::En, Language::Vi] {
+            assert_eq!(
+                renderer_text(n).cau_mat_mat,
+                destructive_note(n),
+                "hai bộ dựng mô tả nút không hoàn tác bằng hai câu khác nhau ({n:?})"
+            );
+            assert!(!destructive_note(n).is_empty());
+        }
+        // Và hai ngôn ngữ phải KHÁC nhau — nếu không, "đã dịch" chỉ là lời nói.
+        assert_ne!(
+            destructive_note(Language::En),
+            destructive_note(Language::Vi)
+        );
+    }
+
+    /// Và **chỗ gọi** của bộ dựng raster phải thật sự dùng hàm ấy.
+    ///
+    /// Phép thử trên so hai HÀM. Chép cứng một câu tiếng Anh vào chỗ gọi thì
+    /// hai hàm vẫn khớp, phép thử vẫn xanh, và người dùng tiếng Việt vẫn nghe
+    /// tiếng Anh — kiểm đột biến chỉ ra đúng điều đó, lần thứ hai trong một
+    /// ngày. So hàm với hàm không thay được việc soi chỗ dùng.
+    #[test]
+    fn cho_goi_raster_dung_cau_da_dich() {
+        let nguon = include_str!("window_raster.rs");
+        assert_eq!(
+            nguon.matches("destructive_note(ngon_ngu)").count(),
+            2,
+            "cửa sổ raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
+        );
     }
 }

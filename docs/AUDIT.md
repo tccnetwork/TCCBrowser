@@ -42,7 +42,7 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 383 tests
+cargo test --workspace                              # 385 tests
 cargo test --workspace --features tcc-shell/window  # 380, three need a window
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check

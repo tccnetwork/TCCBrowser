@@ -30,11 +30,13 @@ use crate::window_title::app_window_title;
 pub fn open_app_screen_raster(
     m: &Manifest,
     diem_vao: &[u8],
+    ngon_ngu: Language,
 ) -> Result<tcc_render_raster::window::ScreenOutcome, Box<dyn std::error::Error>> {
     let cay = tcc_ui::wire::decode(diem_vao)?;
     Ok(tcc_render_raster::window::open_screen(
         &cay,
         &app_window_title(m),
+        crate::text::destructive_note(ngon_ngu),
     )?)
 }
 
@@ -55,5 +57,6 @@ pub fn open_permission_dialog_raster(
     Ok(tcc_render_raster::window::open_screen(
         &cay,
         crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu),
+        crate::text::destructive_note(ngon_ngu),
     )?)
 }

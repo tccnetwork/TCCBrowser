@@ -51,9 +51,17 @@ pub struct ScreenOutcome {
 ///
 /// **Nút** kết thúc màn hình. **Công tắc** đổi câu trả lời rồi vẽ lại, ở lại.
 ///
+/// `cau_mat_mat` là câu mô tả hành động **không hoàn tác**, tiêm từ ngoài vào.
+///
+/// ⚠️ Đừng để nó mặc định. Bản đầu tệp này gọi `AccessText::default()` — tức là
+/// tiếng Anh — bất kể người dùng đang dùng ngôn ngữ nào, trong khi đường WebView
+/// tiêm câu đã dịch. Người dùng VoiceOver tiếng Việt nghe một câu tiếng Anh, và
+/// **hai bộ dựng nói hai câu khác nhau cho cùng một nút** — đúng thứ mà chú
+/// thích đầu `accesskit_bridge.rs` đã cảnh báo.
+///
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
-pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> {
+pub fn open_screen(tree: &Node, tieu_de: &str, cau_mat_mat: &str) -> Result<ScreenOutcome, String> {
     // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
     //
     // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
@@ -90,7 +98,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
     let mut bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-    let mut adapter = noi_tro_nang(&window, &bo_dung, Arc::clone(&hang_tro_nang));
+    let mut adapter = noi_tro_nang(&window, &bo_dung, cau_mat_mat, Arc::clone(&hang_tro_nang));
 
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
@@ -178,7 +186,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str) -> Result<ScreenOutcome, String> 
                             bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
                         }
                         #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                        if let Some(moi) = cay_accesskit(&bo_dung)
+                        if let Some(moi) = cay_accesskit(&bo_dung, cau_mat_mat)
                             && let Some(su_kien) = adapter.update_if_active(|| moi)
                         {
                             su_kien.raise();
@@ -282,16 +290,18 @@ fn rut_yeu_cau_tro_nang(
 fn noi_tro_nang(
     window: &tao::window::Window,
     bo_dung: &RasterRenderer,
+    cau_mat_mat: &str,
     hang: Arc<Mutex<Vec<u64>>>,
 ) -> accesskit_macos::SubclassingAdapter {
     use tao::platform::macos::WindowExtMacOS as _;
 
-    let cay_tro_nang = cay_accesskit(bo_dung).unwrap_or_else(|| accesskit::TreeUpdate {
-        nodes: Vec::new(),
-        tree_id: accesskit::TreeId::ROOT,
-        tree: None,
-        focus: accesskit::NodeId(0),
-    });
+    let cay_tro_nang =
+        cay_accesskit(bo_dung, cau_mat_mat).unwrap_or_else(|| accesskit::TreeUpdate {
+            nodes: Vec::new(),
+            tree_id: accesskit::TreeId::ROOT,
+            tree: None,
+            focus: accesskit::NodeId(0),
+        });
     // ⚠️ ĐÂY LÀ CHỖ `unsafe` DUY NHẤT CỦA DỰ ÁN.
     //
     // `Cargo.toml` đặt `unsafe_code = "deny"` toàn workspace, và `SECURITY.md`
@@ -351,6 +361,8 @@ fn trinh_bay(
 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
 fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (String, bool)> {
     use tcc_ui::Renderer as _;
+    // Bảng tra không phụ thuộc chữ nghĩa — chỉ cần `NodeId`. Nên chỗ này dùng
+    // mặc định là ĐÚNG, khác hẳn `cay_accesskit` bên dưới.
     bd.published_accessibility()
         .map_or_else(Default::default, |goc| {
             crate::accesskit_bridge::to_accesskit_with_actions(
@@ -363,7 +375,7 @@ fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (S
 
 /// Cây trợ năng của lần vẽ gần nhất, ở dạng AccessKit.
 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-fn cay_accesskit(bd: &RasterRenderer) -> Option<accesskit::TreeUpdate> {
+fn cay_accesskit(bd: &RasterRenderer, cau_mat_mat: &str) -> Option<accesskit::TreeUpdate> {
     use tcc_ui::Renderer as _;
     // Chưa vẽ thì chưa có cây. Trả `None` chứ không hoảng loạn: thiếu trợ năng
     // là một màn hình đọc không được, còn hoảng loạn là một cửa sổ biến mất —
@@ -371,7 +383,9 @@ fn cay_accesskit(bd: &RasterRenderer) -> Option<accesskit::TreeUpdate> {
     let goc = bd.published_accessibility()?;
     Some(crate::accesskit_bridge::to_accesskit(
         &goc,
-        &crate::accesskit_bridge::AccessText::default(),
+        &crate::accesskit_bridge::AccessText {
+            cau_mat_mat: cau_mat_mat.to_owned(),
+        },
     ))
 }
 
