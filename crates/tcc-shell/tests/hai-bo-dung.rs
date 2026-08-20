@@ -206,3 +206,207 @@ fn hai_nut_canh_nhau_khong_hich_nguoi_dung() {
         "hàng lẫn nhãn bị đánh dấu là hàng nút"
     );
 }
+
+// ─────────────────── Phủ HẾT màn hình, không phủ vài cái ───────────────────
+
+/// Bản kê khai mẫu, có một quyền để hộp thoại hỏi quyền không rỗng.
+fn ke_khai_mau() -> tcc_spec::Manifest {
+    serde_json::from_str(&format!(
+        r#"{{"spec_version":"0.1","id":"com.tcc.vi-du","name":"Ứng dụng mẫu","version":"1",
+"publisher":"{}","scheme":"hybrid-ed25519-mldsa65-v1","content_hash":"{}",
+"entry":"ui.json","capabilities":[
+  {{"name":"network","reason":"Tải một trang mẫu","scope":{{"kind":"network","hosts":["a.example"]}}}}
+]}}"#,
+        "aa".repeat(1992),
+        "bb".repeat(48)
+    ))
+    .expect("bản kê khai mẫu hỏng")
+}
+
+/// **MỌI màn hình của khung, trên CẢ HAI bộ dựng, trong CẢ HAI ngôn ngữ.**
+///
+/// # Vì sao phải liệt kê hết thay vì kiểm vài cái
+///
+/// Trước 20/08/2026 tệp này kiểm ba màn hình. Mười một màn hình còn lại chưa
+/// từng chạy qua bộ dựng thứ hai — trong đó có màn nhập ví, màn khôi phục cụm
+/// từ, và màn hỏi quyền. Nghĩa là câu *"ứng dụng chạy trên cả hai bộ dựng"* đúng
+/// với những màn hình ai đó nhớ ra, không đúng với những màn hình còn lại.
+///
+/// Bốn lỗi tìm được ngày 19/08 đều thuộc dạng *"chính sách chỉ đúng trên một bộ
+/// dựng"*. Phép kiểm chéo chỉ chạy trên vài màn hình thì đúng là chỗ dạng lỗi ấy
+/// nấp được.
+#[test]
+fn moi_man_hinh_qua_duoc_ca_hai_bo_dung() {
+    let m = ke_khai_mau();
+    for ngon_ngu in [Language::En, Language::Vi] {
+        let man: Vec<(&str, tcc_ui::Node)> = vec![
+            (
+                "permission_dialog::build",
+                tcc_shell::permission_dialog::build(&m, ngon_ngu).unwrap(),
+            ),
+            (
+                "permission_screen::build",
+                tcc_shell::permission_screen::build(&[], ngon_ngu).unwrap(),
+            ),
+            (
+                "address_bar::build",
+                tcc_shell::address_bar::build("https://a.example", ngon_ngu).unwrap(),
+            ),
+            (
+                "external_link::build_confirm",
+                tcc_shell::external_link::build_confirm("https://a.example/x", ngon_ngu).unwrap(),
+            ),
+            (
+                "recovery_screen::build_entry",
+                tcc_shell::recovery_screen::build_entry(None, ngon_ngu).unwrap(),
+            ),
+            (
+                "recovery_screen::build_entry (có lỗi)",
+                tcc_shell::recovery_screen::build_entry(Some("sai cụm từ"), ngon_ngu).unwrap(),
+            ),
+            (
+                "recovery_screen::build_session_entry",
+                tcc_shell::recovery_screen::build_session_entry(None, ngon_ngu).unwrap(),
+            ),
+            (
+                "recovery_screen::build_confirm",
+                tcc_shell::recovery_screen::build_confirm("0xabc", ngon_ngu).unwrap(),
+            ),
+            (
+                "recovery_screen::build_failure",
+                tcc_shell::recovery_screen::build_failure("hỏng", ngon_ngu).unwrap(),
+            ),
+            (
+                "transaction_screen::build_sent",
+                tcc_shell::transaction_screen::build_sent("0xdeadbeef", ngon_ngu).unwrap(),
+            ),
+        ];
+        // `import_screen` nằm sau cờ `import-web-wallet`. Thêm vào cùng danh
+        // sách chứ không thành một phép thử riêng: một màn hình sau cờ vẫn là
+        // một màn hình người dùng nhìn thấy.
+        #[cfg(feature = "import-web-wallet")]
+        let man = {
+            let mut man = man;
+            man.push((
+                "import_screen::build_choice",
+                tcc_shell::import_screen::build_choice(&[], ngon_ngu).unwrap(),
+            ));
+            man.push((
+                "import_screen::build_pin",
+                tcc_shell::import_screen::build_pin("0xabc", ngon_ngu).unwrap(),
+            ));
+            man
+        };
+        for (ten, cay) in man {
+            let mut raster = RasterRenderer::new();
+            tcc_ui::check_accessibility_parity(&mut raster, &cay)
+                .unwrap_or_else(|e| panic!("{ten} ({ngon_ngu:?}) trượt trên bộ dựng pixel: {e:?}"));
+            let mut web = tcc_render_webview::WebViewRenderer::new();
+            tcc_ui::check_accessibility_parity(&mut web, &cay)
+                .unwrap_or_else(|e| panic!("{ten} ({ngon_ngu:?}) trượt trên WebView: {e:?}"));
+            assert_eq!(
+                raster.published_accessibility(),
+                web.published_accessibility(),
+                "{ten} ({ngon_ngu:?}): hai bộ dựng công bố hai cây trợ năng KHÁC nhau"
+            );
+            // Và màn hình phải có MỰC: một cây trợ năng đúng trên một ảnh trắng
+            // trơn vẫn là màn hình hỏng, mà cây trợ năng không nói được điều đó.
+            assert!(
+                raster.ink() > 100,
+                "{ten} ({ngon_ngu:?}) gần như trắng trơn"
+            );
+        }
+    }
+}
+
+/// **Danh sách trên KHÔNG được trôi khỏi số màn hình thật có.**
+///
+/// Một phép kiểm "phủ hết" mà danh sách viết tay thì nó phủ hết cho tới lúc ai
+/// đó thêm một màn hình. Phép thử này đọc mã nguồn của khung và đếm.
+#[test]
+fn khong_bo_sot_man_hinh_nao() {
+    let mut thay: Vec<String> = Vec::new();
+    for tep in std::fs::read_dir("src").expect("đọc được src/") {
+        let tep = tep.expect("mục hỏng").path();
+        if tep.extension().is_none_or(|e| e != "rs") {
+            continue;
+        }
+        let ten_tep = tep.file_stem().unwrap().to_string_lossy().to_string();
+        let noi_dung = std::fs::read_to_string(&tep).expect("đọc được tệp");
+        let phan_that = noi_dung.split("#[cfg(test)]").next().unwrap_or(&noi_dung);
+        for dong in phan_that.lines() {
+            let d = dong.trim_start();
+            if let Some(sau) = d.strip_prefix("pub fn build") {
+                // ⚠️ GIỮ dấu gạch dưới. Bản đầu `trim_start_matches('_')` và
+                // sinh ra `buildwith_signer` — không khớp tên nào trong danh
+                // sách, nên phép thử báo "bỏ sót" đúng những màn hình ĐÃ phủ.
+                let ten_ham = sau.split(['(', '<']).next().unwrap_or_default();
+                thay.push(format!("{ten_tep}::build{ten_ham}"));
+            }
+        }
+    }
+
+    // Những màn hình phép thử trên KHÔNG dựng được, kèm lý do. Danh sách này
+    // phải NGẮN và mỗi dòng phải nói được vì sao — nó là chỗ "phủ hết" tự nới
+    // lỏng nếu không ai canh.
+    let mien: &[(&str, &str)] = &[
+        (
+            "permission_dialog::build_with_signer",
+            "biến thể của `build`, khác đúng một dòng cảnh báo đổi khoá",
+        ),
+        (
+            "import_screen::build_done",
+            "cần một `ImportedWallet`, tức là một khoá bí mật thật — dựng một \
+             khoá thật chỉ để vẽ một màn hình là đúng thứ không nên có trong \
+             phép thử",
+        ),
+        (
+            "transaction_screen::build",
+            "đã có phép thử riêng `man_xac_nhan_giao_dich`, vì nó cần một \
+             `Transfer` và bản tin ký",
+        ),
+    ];
+
+    // Màn hình sau cờ `import-web-wallet` chỉ kiểm được khi bật cờ ấy. Không
+    // coi là "đã phủ" khi cờ tắt — nếu không, phép thử này lại đúng vì lý do
+    // sai, y hệt thứ nó sinh ra để chặn.
+    #[cfg(not(feature = "import-web-wallet"))]
+    let mien: Vec<(&str, &str)> = mien
+        .iter()
+        .copied()
+        .chain([
+            ("import_screen::build_choice", "cần cờ `import-web-wallet`"),
+            ("import_screen::build_pin", "cần cờ `import-web-wallet`"),
+        ])
+        .collect();
+    #[cfg(not(feature = "import-web-wallet"))]
+    let mien: &[(&str, &str)] = &mien;
+
+    let da_phu = [
+        "permission_dialog::build",
+        "permission_screen::build",
+        "address_bar::build",
+        "external_link::build_confirm",
+        "recovery_screen::build_entry",
+        "recovery_screen::build_session_entry",
+        "recovery_screen::build_confirm",
+        "recovery_screen::build_failure",
+        "transaction_screen::build_sent",
+    ];
+    #[cfg(feature = "import-web-wallet")]
+    let da_phu = {
+        let mut v = da_phu.to_vec();
+        v.push("import_screen::build_choice");
+        v.push("import_screen::build_pin");
+        v
+    };
+
+    let bo_sot: Vec<&String> = thay
+        .iter()
+        .filter(|t| !da_phu.contains(&t.as_str()) && !mien.iter().any(|(m, _)| m == &t.as_str()))
+        .collect();
+    assert!(
+        bo_sot.is_empty(),
+        "màn hình chưa qua phép kiểm chéo hai bộ dựng: {bo_sot:?}"
+    );
+}
