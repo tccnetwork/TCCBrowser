@@ -871,7 +871,11 @@ distribution for TCC packages meets it before their users do.
 maintenance warnings without failing, because none of them can be fixed from
 here.
 
-Current state: **0 vulnerabilities**, 14 warnings across 356 dependencies.
+Current state (re-checked 2026-08-20): **0 vulnerabilities**, 15 warnings across
+468 dependencies. The count rose because RustSec added RUSTSEC-2026-0097 on
+2026-04-09 against `rand 0.7.3`, which was already in the table below for a
+different advisory and is still build-time only. The dependency count rose with
+the second renderer and its window.
 
 | Warnings | Where they come from |
 |---|---|
