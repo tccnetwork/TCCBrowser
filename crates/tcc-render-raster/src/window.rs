@@ -75,6 +75,11 @@ pub struct ScreenOutcome {
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
 pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<ScreenOutcome, String> {
+    // `chu` chỉ tới tay trợ năng. Giữ tham số cho MỌI cờ chứ không đổi chữ ký
+    // theo cờ: một hàm đổi hình dạng theo cờ là một hàm bên gọi phải nhớ hai
+    // dạng, và sẽ có một dạng bị quên.
+    #[cfg(not(all(feature = "accesskit-platform", target_os = "macos")))]
+    let _ = chu;
     // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
     //
     // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
@@ -93,6 +98,14 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     let window = WindowBuilder::new()
         .with_title(tieu_de)
         .with_inner_size(LogicalSize::new(WIDTH as f64, cao as f64))
+        // ⚠️ DỰNG ẨN, hiện SAU khi đã nối trợ năng.
+        //
+        // `SubclassingAdapter::new` đòi được gọi trước khi khung nhìn được hiện
+        // hay nhận tiêu điểm lần đầu. Chú thích bên dưới từng KHẲNG ĐỊNH điều
+        // đó trong khi mã làm ngược lại — `build` của `tao` hiện và lấy tiêu
+        // điểm ngay. Hậu quả đúng như chú thích tự mô tả: VoiceOver hỏi trước,
+        // nhận "không có gì ở đây", rồi không hỏi lại. Rà soát 21/08/2026, F6.
+        .with_visible(false)
         .build(&vong)
         .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
 
@@ -111,7 +124,14 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
     let mut bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-    let mut adapter = noi_tro_nang(&window, &bo_dung, chu, Arc::clone(&hang_tro_nang));
+    let cay_chung: Arc<Mutex<accesskit::TreeUpdate>> = Arc::new(Mutex::new(
+        cay_accesskit(&bo_dung, chu).unwrap_or_else(cay_rong),
+    ));
+    #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+    let mut adapter = noi_tro_nang(&window, Arc::clone(&cay_chung), Arc::clone(&hang_tro_nang));
+
+    // Nối trợ năng xong mới hiện — thứ tự này là cả nội dung của F6.
+    window.set_visible(true);
 
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
@@ -172,8 +192,16 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 // Rút yêu cầu bấm từ trợ năng và cho chạy qua ĐÚNG đường của
                 // chuột. Không có nhánh riêng: mọi luật của hộp thoại áp cho
                 // chuột đều áp cho đây.
+                // ⚠️ `da_bam.is_none()` — màn hình đã kết thúc thì KHÔNG rút
+                // thêm gì nữa. `tao` còn giao vài sự kiện sau khi ta đặt `Exit`,
+                // và không có chắn này thì một yêu cầu còn trong hàng đợi **ghi
+                // đè lựa chọn của người dùng**: họ bấm "Từ chối", rồi một
+                // `AXPress("cho-phep")` xếp trước đó biến kết quả thành "Cho
+                // phép". Rà soát 21/08/2026, F3.
                 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                if let Some(k) = rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut bat) {
+                if da_bam.is_none()
+                    && let Some(k) = rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut bat)
+                {
                     match k {
                         SauCuBam::VeLai => ve_lai = true,
                         SauCuBam::Ket(h) => {
@@ -191,19 +219,8 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                         // đọc trạng thái CŨ — người dùng nghe "tắt" trong khi
                         // màn hình hiện "bật". Ở màn hỏi quyền, đó là nghe một
                         // đằng cấp một nẻo.
-                        // Bảng tra dựng lại cùng lúc với cây: `NodeId` phát ra
-                        // theo thứ tự duyệt, nên cây đổi là số đổi. Giữ bảng cũ
-                        // nghĩa là một yêu cầu bấm sẽ tra ra nút KHÁC.
                         #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                        {
-                            bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
-                        }
-                        #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                        if let Some(moi) = cay_accesskit(&bo_dung, chu)
-                            && let Some(su_kien) = adapter.update_if_active(|| moi)
-                        {
-                            su_kien.raise();
-                        }
+                        bao_tro_nang(&bo_dung, chu, &cay_chung, &mut adapter, &mut bang_hanh_dong);
                     }
                 }
                 trinh_bay(&bo_dung, &mut be_mat, &window);
@@ -289,7 +306,12 @@ fn rut_yeu_cau_tro_nang(
         if matches!(k, SauCuBam::Ket(_)) {
             return Some(k);
         }
-        cuoi = Some(k);
+        // Giữ `VeLai` chứ không để lần sau ghi đè: hàng đợi `[công tắc, nút]`
+        // mà đánh rơi `VeLai` thì công tắc đổi **không vẽ lại và không báo cho
+        // trình đọc màn hình**, rồi màn hình kết thúc mang theo thay đổi ấy.
+        if !matches!(cuoi, Some(SauCuBam::VeLai)) {
+            cuoi = Some(k);
+        }
     }
     cuoi
 }
@@ -302,18 +324,11 @@ fn rut_yeu_cau_tro_nang(
 #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
 fn noi_tro_nang(
     window: &tao::window::Window,
-    bo_dung: &RasterRenderer,
-    chu: &ScreenText,
+    cay: Arc<Mutex<accesskit::TreeUpdate>>,
     hang: Arc<Mutex<Vec<u64>>>,
 ) -> accesskit_macos::SubclassingAdapter {
     use tao::platform::macos::WindowExtMacOS as _;
 
-    let cay_tro_nang = cay_accesskit(bo_dung, chu).unwrap_or_else(|| accesskit::TreeUpdate {
-        nodes: Vec::new(),
-        tree_id: accesskit::TreeId::ROOT,
-        tree: None,
-        focus: accesskit::NodeId(0),
-    });
     // ⚠️ ĐÂY LÀ CHỖ `unsafe` DUY NHẤT CỦA DỰ ÁN.
     //
     // `Cargo.toml` đặt `unsafe_code = "deny"` toàn workspace, và `SECURITY.md`
@@ -340,7 +355,7 @@ fn noi_tro_nang(
     unsafe {
         accesskit_macos::SubclassingAdapter::new(
             window.ns_view(),
-            tro_nang::KhiKichHoat(cay_tro_nang),
+            tro_nang::KhiKichHoat(cay),
             tro_nang::NhanHanhDong(hang),
         )
     }
@@ -383,6 +398,39 @@ fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (S
             )
             .1
         })
+}
+
+/// Cây rỗng — dùng khi chưa vẽ được gì.
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn cay_rong() -> accesskit::TreeUpdate {
+    accesskit::TreeUpdate {
+        nodes: Vec::new(),
+        tree_id: accesskit::TreeId::ROOT,
+        tree: None,
+        focus: accesskit::NodeId(0),
+    }
+}
+
+/// Báo cây mới cho trợ năng: ghi vào cây CHIA SẺ trước, rồi mới đẩy.
+///
+/// Ghi trước và luôn luôn, vì `update_if_active` vứt cây khi chưa ai nghe.
+#[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+fn bao_tro_nang(
+    bo_dung: &RasterRenderer,
+    chu: &ScreenText,
+    cay_chung: &Arc<Mutex<accesskit::TreeUpdate>>,
+    adapter: &mut accesskit_macos::SubclassingAdapter,
+    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+) {
+    *bang = bang_hanh_dong_cua(bo_dung);
+    if let Some(moi) = cay_accesskit(bo_dung, chu) {
+        if let Ok(mut c) = cay_chung.lock() {
+            *c = moi.clone();
+        }
+        if let Some(su_kien) = adapter.update_if_active(|| moi) {
+            su_kien.raise();
+        }
+    }
 }
 
 /// Cây trợ năng của lần vẽ gần nhất, ở dạng AccessKit.
@@ -463,11 +511,22 @@ mod tro_nang {
     /// Trả cây đầu tiên khi hệ điều hành hỏi tới.
     ///
     /// Giữ sẵn một bản: hệ điều hành hỏi vào lúc nó muốn, không vào lúc ta vẽ.
-    pub struct KhiKichHoat(pub TreeUpdate);
+    /// # ⚠️ Phải là trạng thái CHIA SẺ, không phải một ảnh chụp
+    ///
+    /// Bản đầu giữ một `TreeUpdate` chụp trước vòng lặp và trả lại nó mãi. Sai,
+    /// và sai đúng theo cách nguy hiểm nhất: `Adapter::update_if_active` trả
+    /// `None` **và không gọi hàm dựng cây** khi chưa có ai nghe. Nên mọi lần vẽ
+    /// lại lúc VoiceOver còn tắt đều bị vứt, còn `request_initial_tree` — gọi
+    /// đúng một lần khi có người nghe — trả về cây của **lần vẽ số 0**.
+    ///
+    /// Trên màn hỏi quyền: người dùng gạt một quyền bằng chuột, rồi bật
+    /// VoiceOver, và nghe **"tắt"** trong khi màn hình hiện **"bật"**. Rà soát
+    /// 21/08/2026, F2.
+    pub struct KhiKichHoat(pub Arc<Mutex<TreeUpdate>>);
 
     impl ActivationHandler for KhiKichHoat {
         fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
-            Some(self.0.clone())
+            self.0.lock().ok().map(|t| t.clone())
         }
     }
 

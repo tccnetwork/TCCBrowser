@@ -387,3 +387,83 @@ hai đột biến đều chết.
 - Chi tiết còn lại: bộ đếm chưa có trần độ dài, WebView khung không đi qua
   `chan_lai` và không bật chế độ không giữ gì, `doc_dia_chi` không so mã hành
   động.
+
+
+## Rà soát đối kháng 21/08/2026 — bộ dựng raster: bốn lỗ
+
+Lượt soát thứ hai nhắm bộ dựng ra pixel và đường trợ năng. Nó **chạy mã thật**
+để chứng minh phát hiện đầu, và tôi dựng lại được y hệt.
+
+### F1 — bấm được vào một nút KHÔNG có điểm ảnh nào trên màn hình
+
+Luật *"nút cùng hàng rộng bằng nhau"* kéo mọi ô lên bằng ô rộng nhất — nhưng
+quyết định xuống dòng đã tính **trước** khi kéo. Một hàng "vừa" bị nới ra quá lề,
+và các ô sau trôi hẳn khỏi ảnh. Đo được:
+
+```
+ô 2: trái=681,8  rộng=326,9  phải=1008,7     ← ảnh rộng 640
+hit_test(700, 17)  = Some("ok2")
+hit_test(1000, 17) = Some("ok2")
+```
+
+Người dùng kéo rộng cửa sổ, bấm vào khoảng trắng bên phải, và **một nút họ chưa
+từng nhìn thấy chạy**.
+
+Phép thử cũ **về mặt cấu trúc không thể bắt được**: `ve_o` cắt phần vẽ ở
+`WIDTH - trai - 2`, nên phép kiểm "chạm mép phải" không bao giờ đỏ được; và bộ
+sinh cây ngẫu nhiên dùng **cùng một nhãn** cho mọi nút, nên không bao giờ tạo ra
+hàng có bề rộng lệch — đúng hình dạng duy nhất kích hoạt lỗi.
+
+Vá ở gốc: chỉ kéo bằng nhau **khi kéo xong vẫn vừa**. Không vừa thì để bề rộng
+tự nhiên — một hàng nút không đều đẹp hơn một nút vô hình bấm được.
+
+### F2 — VoiceOver bật muộn đọc ảnh chụp ĐẦU TIÊN, vĩnh viễn
+
+`update_if_active` trả `None` **và không gọi hàm dựng cây** khi chưa có ai nghe.
+Nên mọi lần vẽ lại lúc VoiceOver còn tắt đều bị vứt, còn `request_initial_tree`
+— gọi đúng một lần khi có người nghe — trả về cây của **lần vẽ số 0**.
+
+Trên màn hỏi quyền: gạt một quyền bằng chuột, rồi bật VoiceOver, và nghe **"tắt"**
+trong khi màn hình hiện **"bật"**. Đúng thứ chú thích trong mã nói là nó đang
+chặn — chắn ấy chỉ chạy khi adapter **đã** hoạt động sẵn.
+
+### F3 — yêu cầu trợ năng còn trong hàng đợi GHI ĐÈ lựa chọn của người dùng
+
+`tao` còn giao vài sự kiện sau khi ta đặt `Exit`, và phần rút hàng đợi không có
+chắn "màn hình đã kết thúc". Người dùng bấm chuột vào **Từ chối**; một
+`AXPress("cho-phep")` xếp trước đó biến kết quả thành **Cho phép**.
+
+### F6 — adapter gắn SAU khi cửa sổ đã hiện
+
+Hai chú thích khẳng định nó gắn *trước*. `tao` hiện và lấy tiêu điểm ngay trong
+`build`. Giờ dựng ẩn, nối trợ năng, rồi mới hiện.
+
+### Chỗ báo cáo xác nhận là SẠCH
+
+`unsafe` **đúng**: adapter rơi trước cửa sổ, thứ tự thả biến ngược thứ tự khai
+báo, và `run_return` chỉ mượn nên không đổi thứ tự ấy. `ControlFlow::Exit` không
+bị ghi đè — `tao` chốt nó lại. Máy trạng thái công tắc, xử lý toạ độ, và luật
+tiêu đề đều sạch.
+
+### Chưa xử — ghi ra để không quên
+
+- **F5: không ghép nhấn–nhả.** Nhấn ở "Từ chối", rê sang "Cho phép", nhả →
+  **"Cho phép" chạy**. Mọi bộ công cụ lớn đều đòi nhấn và nhả trên cùng một nút.
+  Cộng thêm `acceptsFirstMouse = YES`: một hộp thoại hiện ra dưới con trỏ giữa
+  một cú bấm sẽ vừa kích hoạt ứng dụng vừa bấm nút bên dưới.
+- **F4: `let _ = render(...)`.** Vẽ hỏng thì giữ nguyên hình học cũ, mà `bat` đã
+  đổi rồi — trạng thái trong bụng lệch khỏi thứ người dùng thấy, vĩnh viễn.
+  Cơ chế có thật; khả năng chạm tới **chưa chứng minh được**.
+- **F7: không cuộn.** Cây cao hơn màn hình thì nút Cho phép/Từ chối nằm ngoài
+  tầm. Hỏng theo hướng ĐÓNG (không bấm được gì thì `decide` trả Từ chối), nên là
+  chuyện dùng được, không phải chuyện an ninh.
+
+### Một chắn tôi giữ lại dù KHÔNG kiểm được
+
+`hit_test` từ chối mọi toạ độ ngoài ảnh. Kiểm đột biến: **bỏ hẳn nó đi thì mọi
+phép thử vẫn xanh** — vì một khi bố cục đúng thì không ô nào nằm ngoài ảnh, nên
+điểm ngoài ảnh trượt hết mọi ô dù có chắn hay không.
+
+Giữ lại có chủ ý, và nói ra rằng nó **không được kiểm**: giá trị của nó là ngày
+bố cục hỏng trở lại. Nó biến một lỗi bố cục thành một **nút chết** thay vì một
+**nút vô hình bấm được**.

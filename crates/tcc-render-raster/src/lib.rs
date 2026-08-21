@@ -142,6 +142,21 @@ impl RasterRenderer {
     /// ô nhận cú bấm — bấm vào thứ bị che là chuyện tệ nhất có thể xảy ra ở đây.
     #[must_use]
     pub fn hit_test(&self, x: f32, y: f32) -> Option<Hit<'_>> {
+        // Chắn thứ hai, sau khi đã vá nguyên nhân gốc ở `xa_dong`: cú bấm ngoài
+        // ảnh KHÔNG trúng gì.
+        //
+        // ⚠️ Chắn này KHÔNG kiểm được bằng phép thử, và tôi nói ra thay vì để nó
+        // trông như đã kiểm. Kiểm đột biến 21/08/2026: bỏ hẳn nó đi thì mọi phép
+        // thử vẫn xanh — vì một khi bố cục đúng thì không ô nào nằm ngoài ảnh,
+        // nên một điểm ngoài ảnh trượt hết mọi ô dù có chắn hay không.
+        //
+        // Giữ lại có chủ ý: giá trị của nó là **ngày bố cục hỏng trở lại**. Nó
+        // biến một lỗi bố cục thành một nút chết thay vì một nút vô hình bấm
+        // được. Đó là phòng thủ theo tầng, không phải một phép kiểm.
+        #[expect(clippy::cast_precision_loss, reason = "kích thước ảnh, luôn nhỏ")]
+        if x < 0.0 || y < 0.0 || x >= WIDTH as f32 || y >= self.height as f32 {
+            return None;
+        }
         self.da_dat
             .iter()
             .rev()
@@ -210,7 +225,14 @@ struct O {
 /// Căn giữa chứ không dính mép trên: một nhãn nhỏ cạnh một tiêu đề lớn mà dính
 /// mép trên thì trông như bị treo lơ lửng — và đó là thứ người ta nhìn thấy
 /// ngay, kể cả khi không biết gọi tên nó là gì.
-fn xa_dong(dong: &mut Vec<O>, trai: f32, tren: f32, khe: f32, ra: &mut Vec<DaDat>) -> f32 {
+fn xa_dong(
+    dong: &mut Vec<O>,
+    trai: f32,
+    tren: f32,
+    khe: f32,
+    rong_toi_da: f32,
+    ra: &mut Vec<DaDat>,
+) -> f32 {
     if dong.is_empty() {
         return 0.0;
     }
@@ -227,8 +249,23 @@ fn xa_dong(dong: &mut Vec<O>, trai: f32, tren: f32, khe: f32, ra: &mut Vec<DaDat
     // vô nghĩa.
     if dong.len() > 1 && dong.iter().all(|o| o.khung) {
         let rong_nhat = dong.iter().fold(0.0f32, |a, o| a.max(o.rong));
-        for o in dong.iter_mut() {
-            o.rong = rong_nhat;
+        // ⚠️ CHỈ kéo bằng nhau khi kéo xong VẪN VỪA.
+        //
+        // Quyết định xuống dòng ở `dat_hang` tính trên bề rộng TRƯỚC khi kéo.
+        // Kéo vô điều kiện thì một hàng "vừa" bị nới ra quá lề, và những ô sau
+        // trôi hẳn ra ngoài ảnh: đo được ngày 21/08/2026 là một nút nằm ở
+        // 681,8→1008,7 trên ảnh rộng 640 — **không một điểm ảnh nào được vẽ**,
+        // mà `hit_test` vẫn trả về nó. Người dùng bấm vào khoảng trắng và một
+        // nút họ chưa từng thấy chạy.
+        //
+        // Không vừa thì thà để bề rộng tự nhiên: một hàng nút không đều đẹp hơn
+        // một nút vô hình bấm được.
+        #[expect(clippy::cast_precision_loss, reason = "số ô trong một hàng, luôn nhỏ")]
+        let tong = rong_nhat.mul_add(dong.len() as f32, khe * (dong.len() - 1) as f32);
+        if tong <= rong_toi_da {
+            for o in dong.iter_mut() {
+                o.rong = rong_nhat;
+            }
         }
     }
 
@@ -520,7 +557,7 @@ impl RasterRenderer {
         for c in n.children() {
             // Nhóm lồng trong hàng: xả dòng đang gom, rồi đặt nhóm như một khối.
             if matches!(c.kind(), NodeKind::Group { .. }) {
-                y += xa_dong(&mut dong, trai, y, khe, ra);
+                y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra);
                 rong_dong = 0.0;
                 if !ra.is_empty() {
                     y += khe;
@@ -535,7 +572,7 @@ impl RasterRenderer {
                 khe + o.rong
             };
             if !dong.is_empty() && rong_dong + them > rong_toi_da {
-                y += xa_dong(&mut dong, trai, y, khe, ra) + khe;
+                y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra) + khe;
                 rong_dong = 0.0;
             }
             rong_dong += if dong.is_empty() {
@@ -545,7 +582,7 @@ impl RasterRenderer {
             };
             dong.push(o);
         }
-        y += xa_dong(&mut dong, trai, y, khe, ra);
+        y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra);
         (y - tren).max(0.0)
     }
 
@@ -1215,6 +1252,79 @@ mod kiem_thu_hop_thanh {
                 (2.0, 2.0, 9.0, 9.0)
             ]),
             3
+        );
+    }
+
+    /// **KHÔNG ô nào được nằm ngoài ảnh — và không cú bấm nào ngoài ảnh trúng.**
+    ///
+    /// Đo được ngày 21/08/2026: một hàng ba nút với một nhãn dài làm luật "nút
+    /// cùng hàng rộng bằng nhau" kéo mọi ô lên 326,9 px, và ô thứ ba trôi ra
+    /// **681,8 → 1008,7 trên một ảnh rộng 640** — không một điểm ảnh nào được
+    /// vẽ, mà `hit_test` vẫn trả về nó, kể cả ở x = 1000.
+    ///
+    /// Người dùng kéo rộng cửa sổ, bấm vào khoảng trắng bên phải, và một nút họ
+    /// **chưa từng nhìn thấy** chạy.
+    ///
+    /// Phép thử cũ không thể bắt được: `ve_o` cắt phần vẽ ở `WIDTH - trai - 2`
+    /// nên phép kiểm "chạm mép phải" **về mặt cấu trúc không bao giờ đỏ được**,
+    /// và bộ sinh cây ngẫu nhiên dùng CÙNG một nhãn cho mọi nút nên không bao
+    /// giờ tạo ra hàng có bề rộng lệch — đúng hình dạng duy nhất kích hoạt lỗi.
+    #[test]
+    fn khong_o_nao_troi_ra_ngoai_anh() {
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(
+                Node::button(
+                    "Send everything in my wallet to the address above",
+                    "gui-het",
+                    Tone::Neutral,
+                )
+                .unwrap(),
+            )
+            .unwrap()
+            .child(Node::button("No", "huy", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Ok", "ok2", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        #[expect(clippy::cast_precision_loss, reason = "kích thước ảnh, luôn nhỏ")]
+        let rong = WIDTH as f32;
+        for (i, o) in bd.placed_boxes().iter().enumerate() {
+            assert!(
+                o.0 + o.2 <= rong,
+                "ô {i} trôi ra ngoài ảnh: trái={} rộng={} phải={} > {rong}",
+                o.0,
+                o.2,
+                o.0 + o.2
+            );
+        }
+        // Và cú bấm ngoài ảnh không trúng gì, dù hình học có sai thế nào.
+        assert!(bd.hit_test(700.0, 17.0).is_none());
+        assert!(bd.hit_test(1000.0, 17.0).is_none());
+        assert!(bd.hit_test(-5.0, 17.0).is_none());
+    }
+
+    /// Nhưng luật "nút cùng hàng rộng bằng nhau" vẫn giữ KHI NÓ VỪA.
+    ///
+    /// Bản vá dễ hỏng theo hướng ngược lại: bỏ luôn việc kéo bằng nhau thì hết
+    /// tràn, mà mất đi thứ chặn "một nút to hơn hẳn nút kia vẫn là một cái hích".
+    #[test]
+    fn van_keo_bang_nhau_khi_vua() {
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::button("Ký giao dịch này", "ky", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Huỷ", "huy", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let o = bd.placed_boxes();
+        assert_eq!(o.len(), 2);
+        assert!(
+            (o[0].2 - o[1].2).abs() < 0.01,
+            "hai nút cùng hàng không còn rộng bằng nhau: {} vs {}",
+            o[0].2,
+            o[1].2
         );
     }
 
