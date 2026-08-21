@@ -313,3 +313,77 @@ phút. Vì trang tin thay quảng cáo mỗi lượt tải, và mạng mỗi lú
 Ghi ra chứ không chọn con số đẹp hơn: **một phép đo dao động gấp đôi giữa hai
 lượt là phép đo không được phép công bố dưới dạng một con số.** Nó dùng để so
 xu hướng qua nhiều lượt, không dùng để tuyên bố "trình duyệt chặn 148 cửa sổ".
+
+
+## Rà soát đối kháng 21/08/2026 — bốn lỗ ở tầng 2
+
+Một lượt soát nhắm riêng tầng 2. Bốn phát hiện, tôi **kiểm tay từng cái** trước
+khi tin, và cả bốn đều đúng.
+
+### 1. Thanh địa chỉ KHÔNG BAO GIỜ cập nhật — nó nói dối được
+
+Đây là lỗ đúng vào thứ cả tầng được đặt tên theo. `open_browser` vẽ tài liệu
+khung **một lần**, từ tham số dòng lệnh, và chỗ duy nhất ghi lại vào ô nhập là
+nhánh **lỗi**. Không có `on_page_load_handler` nào trên WebView của trang.
+
+Nên: người dùng mở `vnexpress.net`; một mẩu quảng cáo chạy
+`location.href = "https://vnexpress-net.evil.example/dang-nhap"`; chắn điều
+hướng **cho qua** vì đó vẫn là `https`; trang lừa đảo hiện ra **dưới một thanh
+địa chỉ vẫn ghi `vnexpress.net`**.
+
+Tệ hơn không có thanh địa chỉ nào — vì thanh này được dựng **để tin**: có phép
+thử chốt rằng nó hiện địa chỉ ĐỦ, không bao giờ cắt ngắn.
+
+Đã vá: máy dựng báo địa chỉ **thật** sau mỗi lần nạp xong, và thanh hiện đúng
+chỗ đó. Đây là địa chỉ của máy dựng, không phải chuỗi người dùng gõ.
+
+### 2. `@` trong tên máy đi lọt
+
+`vnexpress.net@evil.example` → tải **evil.example**. Phép kiểm cổng cũ tình cờ
+chặn dạng `user:pass@host` (phần sau `:` không toàn chữ số) mà **để lọt** dạng
+`user@host`.
+
+Đã vá ở `check_web_url`, nên **cả hai** đường — gõ tay và địa chỉ mở đầu — cùng
+chặn. `https://a.com/@ai` vẫn mở được: `@` trong **đường dẫn** là địa chỉ bình
+thường.
+
+### 3. `://` trong truy vấn bị chặn nhầm
+
+`example.com/r?u=https://x` bị từ chối, vì phép kiểm xét `contains("://")` trên
+cả chuỗi. **Một thanh địa chỉ từ chối địa chỉ hợp lệ là một thanh địa chỉ người
+dùng học cách vòng qua** — đó là lý do đây là lỗi an ninh, không phải lỗi tiện
+dụng. Giờ xét tiền tố.
+
+### 4. Phép thử canh cả tệp không bắt được đòn tệ nhất
+
+`khong_co_ipc_va_kich_ban` chứng minh *khúc đã đánh dấu thì sạch*. Nó **không**
+chứng minh *mọi WebView nạp trang ngoài đều được đánh dấu*, và nó để lọt đột
+biến nguy hiểm nhất: đổi WebView của **khung** — nơi có IPC và kịch bản — từ
+`with_html` sang `with_url`. Một trang web bất kỳ chạy trong WebView có
+`window.ipc`, đúng thứ cả tệp sinh ra để chặn, mà phép thử vẫn xanh.
+
+Phép thử mới khẳng định điều **ngược lại**, đếm trên toàn tệp: mọi `with_url`
+phải nằm trong dấu mốc, và mọi `with_ipc_handler` phải đi cùng `with_html`. Cả
+hai đột biến đều chết.
+
+### Còn lại từ báo cáo, chưa xử — ghi ra để không quên
+
+- **Micro/camera có thể được cấp qua tiến trình cha.** macOS quy trách nhiệm cho
+  *responsible process*; chạy `tcc-browser` từ terminal đã được cấp camera thì
+  `getUserMedia()` của trang có thể qua, bất kể gói ta không khai
+  `NS*UsageDescription`. **Cần đo thật**, chưa đo.
+- **Luật 20 quét hẹp hơn lời nó nói**: chỉ soi `<key>NS…UsageDescription</key>`
+  trong `tools/` và `apps/`. Bỏ sót plist trong `crates/`, khoá
+  `[package.metadata.bundle]` trong `Cargo.toml`, và cách nhúng plist thẳng vào
+  binary bằng `#[link_section]`.
+- **`with_clipboard(false)` là lệnh rỗng trên macOS** — `wry` chỉ cài nó cho
+  Linux và Windows. Bảng "chặn gì" đang kể công một thứ không tồn tại ở đây.
+- **148 "cửa sổ mới bị từ chối"** nhiều khả năng phần lớn là **iframe bị chặn**,
+  không phải `window.open`: `wry` định tuyến mọi điều hướng khung con vào
+  `new_window_req_handler`. Nếu đúng thì tầng 2 đang **chặn mọi iframe** — một
+  hỏng hóc chức năng mà báo cáo cũ đọc thành một thắng lợi.
+- **Chắn điều hướng chưa từng được thấy nổ**: 0/50 trang. Phép thử đơn vị kiểm
+  *vị từ*, không kiểm *dây nối*.
+- Chi tiết còn lại: bộ đếm chưa có trần độ dài, WebView khung không đi qua
+  `chan_lai` và không bật chế độ không giữ gì, `doc_dia_chi` không so mã hành
+  động.

@@ -51,6 +51,13 @@ pub enum WebTierError {
     /// người thử biết cái gì đã được nghĩ tới.
     NotHttps,
     BadChars,
+    /// Tên máy chứa `@` — dạng `user@host`.
+    ///
+    /// Đây là đòn giả mạo cổ điển: `https://vnexpress.net@evil.example` **tải
+    /// evil.example**, nhưng người đọc thấy `vnexpress.net` ở đầu và dừng đọc ở
+    /// đó. Trình duyệt lớn xử bằng cách hiện tên máy thật cho nổi hơn; ta chưa
+    /// vẽ được thanh địa chỉ như thế, nên ta **từ chối**.
+    UserInfo,
 }
 
 impl core::fmt::Display for WebTierError {
@@ -58,6 +65,7 @@ impl core::fmt::Display for WebTierError {
         match self {
             Self::NotHttps => write!(f, "tầng 2 chỉ mở https://"),
             Self::BadChars => write!(f, "địa chỉ chứa ký tự không được phép"),
+            Self::UserInfo => write!(f, "địa chỉ có \"@\" trong tên máy — dễ giả mạo, bị từ chối"),
         }
     }
 }
@@ -75,6 +83,19 @@ pub fn check_web_url(url: &str) -> Result<(), WebTierError> {
         return Err(WebTierError::BadChars);
     }
     if !url.to_ascii_lowercase().starts_with("https://") || url.len() <= 8 {
+        return Err(WebTierError::NotHttps);
+    }
+    // `@` TRONG TÊN MÁY, không phải trong đường dẫn: `https://a.com/@ai` là địa
+    // chỉ bình thường của Mastodon và không được chặn.
+    let sau_luoc_do = &url[8..];
+    let may = sau_luoc_do.split('/').next().unwrap_or(sau_luoc_do);
+    if may.contains('@') {
+        return Err(WebTierError::UserInfo);
+    }
+    // Tên máy rỗng: `https:///etc/passwd` qua được phép kiểm lược đồ vì nó dài
+    // hơn 8 ký tự và đúng tiền tố. Nó không tải được gì, nhưng nói "hợp lệ" về
+    // một địa chỉ không tải được thì người dùng nhận im lặng thay vì một câu lỗi.
+    if may.is_empty() {
         return Err(WebTierError::NotHttps);
     }
     Ok(())
@@ -316,6 +337,14 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
     let co = window.inner_size().to_logical::<f64>(window.scale_factor());
     let hang: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let hang_ipc = Arc::clone(&hang);
+    // Địa chỉ THẬT của trang, do máy dựng báo về sau mỗi lần nạp xong.
+    //
+    // ⚠️ Không có nó thì thanh địa chỉ **nói dối**: nó giữ nguyên chuỗi người
+    // dùng gõ lúc mở, còn trang thì `location.href` đi đâu tuỳ ý. Một trang
+    // quảng cáo nhảy sang trang lừa đảo, và thanh địa chỉ vẫn ghi tên tờ báo —
+    // tệ hơn không có thanh địa chỉ nào, vì cái thanh này được dựng để tin.
+    let dia_chi_that: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let dia_chi_nap = Arc::clone(&dia_chi_that);
 
     // ── WebView của KHUNG: có IPC, có kịch bản ──
     let khung = WebViewBuilder::new()
@@ -336,6 +365,15 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
     // ── WebView của TRANG: KHÔNG IPC, KHÔNG kịch bản ──
     // ▼▼▼ TRANG-BAT-DAU ▼▼▼
     let trang = chan_lai(WebViewBuilder::new().with_url(url_dau))
+        // QUAN SÁT, không phải quyền năng: không tiêm gì vào trang, và trang
+        // không nói được gì với ta. Chỉ máy dựng báo "tôi vừa nạp xong cái này".
+        .with_on_page_load_handler(move |su_kien, url| {
+            if matches!(su_kien, wry::PageLoadEvent::Finished)
+                && let Ok(mut o) = dia_chi_nap.lock()
+            {
+                *o = Some(url);
+            }
+        })
         .with_bounds(Rect {
             position: LogicalPosition::new(0.0, CHROME_HEIGHT).into(),
             size: wry::dpi::LogicalSize::new(co.width, co.height - CHROME_HEIGHT).into(),
@@ -377,6 +415,19 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
             _ => {}
         }
 
+        // Trang vừa nạp xong ở đâu thì thanh địa chỉ phải nói ĐÚNG chỗ đó.
+        //
+        // Đây là địa chỉ do MÁY DỰNG báo, không phải chuỗi người dùng gõ: trang
+        // chuyển hướng được sau khi nạp, và lần chuyển ấy mới là lần thanh địa
+        // chỉ phải theo kịp.
+        let vua_nap: Option<String> = dia_chi_that
+            .lock()
+            .map(|mut o| o.take())
+            .unwrap_or_default();
+        if let Some(u) = vua_nap {
+            let _ = khung.evaluate_script(&dat_dia_chi(&u));
+        }
+
         let cho: Vec<String> = hang
             .lock()
             .map(|mut q| q.drain(..).collect())
@@ -395,11 +446,7 @@ pub fn open_browser(url_dau: &str, tieu_de: &str, tai_lieu_khung: &str) -> Resul
                 // hợp lý rồi thấy KHÔNG có gì xảy ra — không biết mình gõ sai,
                 // hay trình duyệt hỏng.
                 Err(e) => {
-                    let _ = khung.evaluate_script(&format!(
-                        "(function(){{var o=document.querySelector('input[aria-label]');\
-                          if(o){{o.value={};}}}})()",
-                        serde_json::Value::from(format!("{go}  ← {e}"))
-                    ));
+                    let _ = khung.evaluate_script(&dat_dia_chi(&format!("{go}  ← {e}")));
                 }
             }
         }
@@ -560,7 +607,14 @@ pub fn normalise_url(go: &str) -> Result<String, WebTierError> {
     let go = go.trim();
     // Đã có lược đồ thì KHÔNG đụng vào: `http://a` phải bị từ chối, không được
     // lặng lẽ nâng thành `https://a` — người dùng gõ gì thì đi tới đúng thứ đó.
-    if go.contains("://") {
+    // Xét TIỀN TỐ, không xét cả chuỗi. `contains` chặn nhầm mọi địa chỉ mang
+    // `://` trong đường dẫn hay truy vấn — `example.com/r?u=https://x` là dạng
+    // rất thường gặp, và một thanh địa chỉ từ chối nó là một thanh địa chỉ người
+    // dùng học cách vòng qua.
+    let co_luoc_do = go
+        .split_once("://")
+        .is_some_and(|(dau, _)| !dau.contains('/') && !dau.contains('?'));
+    if co_luoc_do {
         check_web_url(go)?;
         return Ok(go.to_owned());
     }
@@ -578,6 +632,28 @@ pub fn normalise_url(go: &str) -> Result<String, WebTierError> {
     let du = format!("https://{go}");
     check_web_url(&du)?;
     Ok(du)
+}
+
+/// Kịch bản đặt chữ vào ô địa chỉ của KHUNG.
+///
+/// # Vì sao gom vào một hàm thay vì nội suy tại chỗ
+///
+/// Đây là chỗ **duy nhất** ghi chữ vào WebView có IPC. Nội suy chuỗi ở hai nơi
+/// là hai nơi phải nhớ thoát ký tự, và một trong hai sẽ quên.
+///
+/// `serde_json` thoát `"`, `\` và ký tự điều khiển C0 — nhưng **không** thoát
+/// U+2028/U+2029. Từ ES2019 hai ký tự ấy hợp lệ trong chuỗi JS nên hôm nay
+/// không thoát ra được; ta không muốn dựa vào điều đó, nên cắt chúng đi luôn.
+fn dat_dia_chi(chu: &str) -> String {
+    let sach: String = chu
+        .chars()
+        .filter(|c| *c != '\u{2028}' && *c != '\u{2029}')
+        .collect();
+    format!(
+        "(function(){{var o=document.querySelector('input[aria-label]');\
+          if(o){{o.value={};}}}})()",
+        serde_json::Value::from(sach)
+    )
 }
 
 /// Lấy địa chỉ ra khỏi thông điệp của thanh địa chỉ.
@@ -728,6 +804,120 @@ mod kiem_thu {
         ] {
             assert!(!hang(g).quiet_on_load(), "{g:?} vẫn bị tính là im");
         }
+    }
+
+    /// **Mọi `with_url` phải nằm TRONG dấu mốc, và mọi IPC phải đi cùng
+    /// `with_html`.**
+    ///
+    /// Phép thử `khong_co_ipc_va_kich_ban` chứng minh *khúc đã đánh dấu thì
+    /// sạch*. Nó **không** chứng minh *mọi WebView nạp trang ngoài đều được đánh
+    /// dấu*, và cũng không chặn đột biến tệ nhất: đổi WebView của KHUNG — nơi có
+    /// IPC và kịch bản — từ `with_html` sang `with_url`. Lúc ấy một trang web
+    /// bất kỳ chạy trong WebView có `window.ipc`, đúng thứ cả tệp này sinh ra để
+    /// chặn, mà phép thử kia vẫn xanh.
+    ///
+    /// Báo cáo đối kháng 21/08/2026 chỉ ra cả hai. Phép thử này khẳng định điều
+    /// **ngược lại**: đếm trên toàn tệp.
+    #[test]
+    fn moi_with_url_deu_trong_dau_moc_va_ipc_luon_di_voi_with_html() {
+        let nguon = include_str!("web_tier.rs");
+        // Cắt phần kiểm thử, RỒI bỏ mọi dòng chú thích: cả hai chuỗi dấu mốc đều
+        // xuất hiện trong chú thích đầu tệp, và bản đầu của phép thử này nổ vì
+        // chính điều đó.
+        let than: String = nguon
+            .split("#[cfg(test)]")
+            .next()
+            .unwrap_or(nguon)
+            .lines()
+            // GIỮ dòng dấu mốc: bản thân chúng LÀ chú thích, và lọc hết chú
+            // thích thì phép thử tưởng không khúc nào được đánh dấu cả — nó báo
+            // "3 chỗ nằm ngoài dấu mốc" trong khi cả ba đều ở trong.
+            .filter(|l| {
+                l.contains("TRANG-BAT-DAU")
+                    || l.contains("TRANG-KET-THUC")
+                    || !l.trim_start().starts_with("//")
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let than = than.as_str();
+
+        // 1. Số `with_url` trong toàn thân phải bằng số `with_url` nằm trong
+        //    các khúc đã đánh dấu. Viết thêm một chỗ ngoài dấu mốc là lệch.
+        let trong_moc: usize = than
+            .split("▼▼▼ TRANG-BAT-DAU ▼▼▼")
+            .skip(1)
+            .filter_map(|p| p.split("▲▲▲ TRANG-KET-THUC ▲▲▲").next())
+            .map(|k| k.matches("with_url(").count())
+            .sum();
+        let toan_bo = than.matches("with_url(").count();
+        assert_eq!(
+            toan_bo,
+            trong_moc,
+            "có {} chỗ `with_url` nằm NGOÀI dấu mốc — chúng không qua `chan_lai`, \
+             không bị cấm IPC, và không có chế độ không giữ gì",
+            toan_bo - trong_moc
+        );
+
+        // 2. Mỗi `with_ipc_handler` phải đi cùng một `with_html` trong cùng một
+        //    biểu thức dựng. Không thì đó là WebView có IPC đang nạp trang ngoài.
+        for (i, _) in than.match_indices("with_ipc_handler") {
+            let dau = than[..i]
+                .rfind("WebViewBuilder::new()")
+                .expect("`with_ipc_handler` không thuộc một `WebViewBuilder` nào");
+            assert!(
+                than[dau..i].contains("with_html("),
+                "một WebView có IPC KHÔNG dùng `with_html` — nó đang nạp nội dung \
+                 ngoài vào đúng chỗ có `window.ipc`"
+            );
+        }
+    }
+
+    /// **`@` trong tên máy bị TỪ CHỐI** — đòn giả mạo cổ điển.
+    ///
+    /// `https://vnexpress.net@evil.example` tải **evil.example**, nhưng người
+    /// đọc thấy `vnexpress.net` ở đầu rồi dừng đọc. Đường gõ tay và đường kiểm
+    /// địa chỉ đầu phải chặn NHƯ NHAU — báo cáo đối kháng 21/08/2026 chỉ ra rằng
+    /// bản trước chỉ chặn dạng `user:pass@host` (tình cờ, do phép kiểm cổng) và
+    /// để lọt dạng `user@host`.
+    #[test]
+    fn at_trong_ten_may_bi_tu_choi() {
+        assert_eq!(
+            normalise_url("vnexpress.net@evil.example"),
+            Err(WebTierError::UserInfo)
+        );
+        assert_eq!(
+            check_web_url("https://vnexpress.net@evil.example"),
+            Err(WebTierError::UserInfo)
+        );
+        // Nhưng `@` trong ĐƯỜNG DẪN là địa chỉ bình thường — Mastodon dùng nó.
+        assert!(normalise_url("a.com/@ai").is_ok());
+        assert_eq!(check_web_url("https://a.com/@ai"), Ok(()));
+    }
+
+    /// Tên máy rỗng thì từ chối, chứ không nhận rồi im lặng không tải được gì.
+    #[test]
+    fn ten_may_rong_thi_tu_choi() {
+        assert_eq!(
+            check_web_url("https:///etc/passwd"),
+            Err(WebTierError::NotHttps)
+        );
+        assert_eq!(normalise_url("/etc/passwd"), Err(WebTierError::NotHttps));
+    }
+
+    /// **`://` trong truy vấn KHÔNG phải lược đồ.**
+    ///
+    /// Bản trước xét `contains("://")` trên cả chuỗi nên chặn nhầm
+    /// `example.com/r?u=https://x` — một dạng rất thường gặp. Một thanh địa chỉ
+    /// từ chối địa chỉ hợp lệ là một thanh địa chỉ người dùng học cách vòng qua.
+    #[test]
+    fn luoc_do_xet_tien_to_khong_xet_ca_chuoi() {
+        assert_eq!(
+            normalise_url("example.com/r?u=https://x").unwrap(),
+            "https://example.com/r?u=https://x"
+        );
+        // Vẫn phải chặn lược đồ thật đứng đầu.
+        assert!(normalise_url("javascript:alert(1)").is_err());
+        assert!(normalise_url("http://a.example").is_err());
     }
 
     /// **Gõ tên miền trơn thì vẫn mở được** — không bắt gõ `https://`.
