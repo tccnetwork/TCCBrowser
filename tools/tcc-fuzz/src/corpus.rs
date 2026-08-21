@@ -31,10 +31,14 @@ pub struct Corpus {
 #[must_use]
 pub fn unhex(s: &str) -> Vec<u8> {
     let t: Vec<u8> = s.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
-    t.chunks_exact(2)
-        .filter_map(|c| {
-            let hi = char::from(c[0]).to_digit(16)?;
-            let lo = char::from(c[1]).to_digit(16)?;
+    // `as_chunks` chứ không `chunks_exact(2)`: cùng việc, nhưng trả mảng có kích
+    // thước biết trước nên không phải tra chỉ số. Clippy của Rust 1.96 bắt dạng
+    // cũ — CI chạy bản mới hơn máy tôi, và đó là lý do nó đỏ trước.
+    let (cap, _le) = t.as_chunks::<2>();
+    cap.iter()
+        .filter_map(|[a, b]| {
+            let hi = char::from(*a).to_digit(16)?;
+            let lo = char::from(*b).to_digit(16)?;
             u8::try_from(hi * 16 + lo).ok()
         })
         .collect()
