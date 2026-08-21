@@ -1,5 +1,19 @@
 # Auditing this repository
 
+> ⚠️ **You are reading the Phase 1 snapshot. Do not audit this branch.**
+>
+> This copy is 65 commits old. It undercounts the tests, names 17 architecture
+> rules where there are now 22, and — worst — it tells you that a check which
+> fails can be ignored because the infrastructure is unreliable. That claim was
+> false: the check failed 3 times out of 3, for a bug in the code.
+>
+> It also says nothing about the two largest surfaces, because neither existed
+> when it was written: **tier 2**, which opens arbitrary web pages that carry
+> their own code and pass no capability gate, and a **second renderer** that
+> draws without a WebView and contains the project's only `unsafe`.
+>
+> Read [`docs/AUDIT.md` on `giai-doan-3.1`](../../blob/giai-doan-3.1/docs/AUDIT.md).
+
 Written for someone who has been handed this and asked to find what is wrong
 with it. It tells you where the weak parts are rather than where the strong ones
 are, because you can find the strong ones yourself and the point of a review is

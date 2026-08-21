@@ -1,5 +1,22 @@
 # TCC Browser
 
+> ⚠️ **This branch is a Phase 1 snapshot, frozen 2026-08-15.**
+>
+> It was kept still on purpose, so that outside reviewers would read a tree that
+> does not move under them. That reason has expired: the branch is now **65
+> commits behind**, and it describes a system that no longer exists. What is
+> missing here is not detail — it is the wallet, tier-2 web browsing of
+> arbitrary pages, a second renderer that draws without a WebView, and a
+> substantially revised specification.
+>
+> **Reviewers: read [`giai-doan-3.1`](../../tree/giai-doan-3.1).** The entry
+> point is [`docs/AUDIT.md`](../../blob/giai-doan-3.1/docs/AUDIT.md) **on that
+> branch**. The copy on this branch names counts and claims that are no longer
+> true, including one that tells you a failing check can be ignored.
+>
+> Numbers here say 238 tests and 17 architecture rules. On the working branch it
+> is 386 and 22.
+
 A browser engine for the TCC ecosystem, built for a post-quantum future.
 
 Not a Chromium fork. Not an attempt to serve every legacy system ever shipped.
