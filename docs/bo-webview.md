@@ -4,6 +4,10 @@
 > nói *"mượn WebView, không đua ở phần dựng web"*. Tài liệu này giả định điều
 > ngược lại — tự dựng tất cả — và nói thẳng cái giá.
 
+> **Đọc kèm:** [`nen-tang-moi.md`](nen-tang-moi.md) — bản thiết kế một nền tảng
+> ứng dụng KHÔNG dùng HTML/CSS/DOM, dùng WASM component model. Tài liệu này nói
+> *bỏ WebView tốn bao nhiêu*; tài liệu kia nói *thay bằng cái gì*.
+
 ## Hai bài toán, không phải một
 
 Gộp chúng làm một là cách nhanh nhất để hỏng kế hoạch, vì chúng cách nhau **hai
