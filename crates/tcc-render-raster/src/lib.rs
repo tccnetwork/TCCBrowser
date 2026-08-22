@@ -856,8 +856,10 @@ mod kiem_thu_43 {
         let giua_nho = usize::midpoint(tren_nho, duoi_nho);
         assert!(
             giua_nho.abs_diff(giua_to) <= 4,
-            "tâm dọc lệch nhau {} px — chữ nhỏ không được căn giữa (to {tren_to}..{duoi_to}, nhỏ {tren_nho}..{duoi_nho})",
-            giua_nho.abs_diff(giua_to)
+            "tâm dọc lệch nhau {} px — chữ nhỏ không được căn giữa (mực: to \
+             {tren_to}..{duoi_to}, nhỏ {tren_nho}..{duoi_nho}; hộp: {hop:?}; cao ảnh {})",
+            giua_nho.abs_diff(giua_to),
+            bd.height()
         );
         // Không đòi `tren_nho > tren_to`: chữ "nhỏ" có dấu hỏi vươn lên cao, và
         // với phông khác thì đỉnh dấu có thể ngang đỉnh chữ hoa. Phép đo đúng
