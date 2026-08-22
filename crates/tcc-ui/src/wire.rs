@@ -47,7 +47,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Alt, Emphasis, Flow, Gap, Node, Tone, UiError};
+use crate::{AlignCross, AlignMain, Alt, Emphasis, Flow, Gap, Node, Sizing, Tone, UiError};
 
 /// Trần kích thước tệp giao diện, tính bằng byte.
 ///
@@ -101,6 +101,25 @@ pub enum UiNode {
         flow: Flow,
         #[serde(default)]
         gap: Gap,
+        /// Bề khai. Vắng mặt = `content` trên trục chính, vắng mặt trên trục phụ.
+        #[serde(default)]
+        size: Sizing,
+        #[serde(default)]
+        min: Sizing,
+        #[serde(default)]
+        max: Sizing,
+        #[serde(default)]
+        align_main: AlignMain,
+        #[serde(default)]
+        align_cross: AlignCross,
+        #[serde(default)]
+        padding: Gap,
+        /// Vắng mặt KHÁC `false`: vắng mặt là hành vi 0.1 (luôn xuống dòng),
+        /// `false` là ứng dụng nói rõ "để nó tràn".
+        #[serde(default)]
+        wrap: Option<bool>,
+        #[serde(default)]
+        scroll: bool,
         #[serde(default)]
         children: Vec<UiNode>,
     },
@@ -163,9 +182,27 @@ impl TryFrom<UiNode> for Node {
             UiNode::Group {
                 flow,
                 gap,
+                size,
+                min,
+                max,
+                align_main,
+                align_cross,
+                padding,
+                wrap,
+                scroll,
                 children,
             } => {
-                let mut g = Self::group(flow, gap);
+                // `with_layout` chạy y hệt như khi cây được viết tay trong mã
+                // Rust — một cây đến từ đĩa không hưởng ưu ái nào.
+                let mut g = Self::group(flow, gap).with_layout(
+                    size,
+                    min,
+                    max,
+                    align_main,
+                    align_cross,
+                    padding,
+                )?;
+                g = g.with_wrap(wrap).with_scroll(scroll);
                 for c in children {
                     // `child` kiểm trần độ sâu và trần số nút ở TỪNG lần thêm,
                     // nên một cây khổng lồ bị chặn giữa chừng chứ không phải sau

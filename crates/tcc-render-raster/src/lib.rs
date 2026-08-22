@@ -43,8 +43,10 @@
 #[cfg(feature = "accesskit")]
 pub mod accesskit_bridge;
 
+mod bo_cuc;
+
 use cosmic_text::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache};
-use tcc_ui::{AccessNode, Alt, Emphasis, Flow, Gap, Node, NodeKind, Renderer, Role, Tone};
+use tcc_ui::{AccessNode, Alt, Emphasis, Node, NodeKind, Renderer, Role, Tone};
 
 /// Bề rộng khung vẽ. Cố định: bộ dựng này để KIỂM ĐỊNH, không để co giãn theo
 /// cửa sổ người dùng.
@@ -65,6 +67,12 @@ const LE: f32 = 12.0;
 pub enum RasterError {
     #[error("cây vẽ ra cao {0} px, vượt trần {MAX_HEIGHT}")]
     TooTall(usize),
+    /// Bộ tính bố cục từ chối cây.
+    ///
+    /// Không nuốt: vẽ ra một màn hình THIẾU ô còn nguy hơn không vẽ gì, vì
+    /// người dùng không có cách nào biết là thiếu.
+    #[error("không xếp được bố cục")]
+    Layout,
 }
 
 /// Bộ dựng ra pixel.
@@ -219,8 +227,8 @@ pub struct Hit<'a> {
 ///
 /// Đo trước khi đặt là cả điểm của 4.2. Bản 4.1 không đo gì — nó xếp mọi thứ
 /// thành một cột, nên `Flow::Row` chỉ là `Flow::Column` đội tên khác.
-#[derive(Clone)]
-struct O {
+#[derive(Clone, Default)]
+pub(crate) struct O {
     /// Mã hành động, nếu ô này bấm được. `None` = chữ, ảnh, ô nhập.
     ///
     /// Ghi Ở ĐÂY chứ không tra lại cây khi có cú bấm: chỗ người dùng bấm là chỗ
@@ -249,84 +257,8 @@ struct O {
     cao: f32,
 }
 
-/// Đặt một dòng đã gom xong, **căn giữa theo chiều dọc**, trả về chiều cao dòng.
-///
-/// Căn giữa chứ không dính mép trên: một nhãn nhỏ cạnh một tiêu đề lớn mà dính
-/// mép trên thì trông như bị treo lơ lửng — và đó là thứ người ta nhìn thấy
-/// ngay, kể cả khi không biết gọi tên nó là gì.
-fn xa_dong(
-    dong: &mut Vec<O>,
-    trai: f32,
-    tren: f32,
-    khe: f32,
-    rong_toi_da: f32,
-    ra: &mut Vec<DaDat>,
-) -> f32 {
-    if dong.is_empty() {
-        return 0.0;
-    }
-    let cao_dong = dong.iter().fold(0.0f32, |a, o| a.max(o.cao));
-
-    // ⚠️ **Nút trên cùng một hàng phải RỘNG BẰNG NHAU.**
-    //
-    // Đây không phải chuyện thẩm mỹ. Màn xác nhận giao dịch cố ý cho hai nút
-    // CÙNG sắc thái, vì làm nút "Ký" nổi hơn là đẩy người dùng về một phía đúng
-    // lúc nguy hiểm nhất. Nhưng bề rộng cũng đẩy: một nút to hơn hẳn nút kia
-    // vẫn là một cái hích, chỉ bằng hình học thay vì bằng màu.
-    //
-    // Chỉ áp cho hàng TOÀN nút. Một nút cạnh một nhãn thì kéo bằng nhau là
-    // vô nghĩa.
-    if dong.len() > 1 && dong.iter().all(|o| o.khung) {
-        let rong_nhat = dong.iter().fold(0.0f32, |a, o| a.max(o.rong));
-        // ⚠️ CHỈ kéo bằng nhau khi kéo xong VẪN VỪA.
-        //
-        // Quyết định xuống dòng ở `dat_hang` tính trên bề rộng TRƯỚC khi kéo.
-        // Kéo vô điều kiện thì một hàng "vừa" bị nới ra quá lề, và những ô sau
-        // trôi hẳn ra ngoài ảnh: đo được ngày 21/08/2026 là một nút nằm ở
-        // 681,8→1008,7 trên ảnh rộng 640 — **không một điểm ảnh nào được vẽ**,
-        // mà `hit_test` vẫn trả về nó. Người dùng bấm vào khoảng trắng và một
-        // nút họ chưa từng thấy chạy.
-        //
-        // Không vừa thì thà để bề rộng tự nhiên: một hàng nút không đều đẹp hơn
-        // một nút vô hình bấm được.
-        #[expect(clippy::cast_precision_loss, reason = "số ô trong một hàng, luôn nhỏ")]
-        let tong = rong_nhat.mul_add(dong.len() as f32, khe * (dong.len() - 1) as f32);
-        if tong <= rong_toi_da {
-            for o in dong.iter_mut() {
-                o.rong = rong_nhat;
-            }
-        }
-    }
-
-    let mut x = trai;
-    for o in dong.drain(..) {
-        let rong = o.rong;
-        let lech = (cao_dong - o.cao) / 2.0;
-        ra.push(DaDat {
-            o,
-            trai: x,
-            tren: tren + lech,
-        });
-        x += rong + khe;
-    }
-    cao_dong
-}
-
-/// Chỗ để đặt: góc trên trái và bề rộng được phép dùng.
-///
-/// Gom bốn tham số rời thành một kiểu là để **không hoán vị nhầm** — `trai` và
-/// `tren` cùng là `f32`, và đổi chỗ chúng thì mã vẫn biên dịch, vẫn chạy, chỉ
-/// vẽ sai. Đã suýt vấp đúng thế khi tách `dat_hang`.
-#[derive(Clone, Copy)]
-struct Cho {
-    trai: f32,
-    tren: f32,
-    rong: f32,
-    khe: f32,
-}
-
 /// Một ô **đã đặt xong chỗ**, toạ độ tuyệt đối.
-struct DaDat {
+pub(crate) struct DaDat {
     o: O,
     trai: f32,
     tren: f32,
@@ -345,7 +277,12 @@ impl Renderer for RasterRenderer {
 
         // Ba lượt tách bạch: đo → đặt → vẽ. Gộp lượt đo vào lượt vẽ là cách bản
         // 4.1 hỏng — không có kích thước thì không đặt cạnh nhau được gì.
-        let cao = self.dat(tree, LE, LE, rong_dung, &mut dat, &mut access);
+        // Đo ở đây, XẾP ở `bo_cuc`. Bao đóng là ranh giới: `bo_cuc` nhận về
+        // khả năng đo một nút lá, chứ không nhận bộ dựng — nó không được biết
+        // cosmic-text tồn tại, y như `tcc-ui` không được biết `bo_cuc` tồn tại.
+        let mut do_la = |n: &Node, rong: f32, ac: &mut Vec<AccessNode>| self.do_la(n, rong, ac);
+        let cao = bo_cuc::xep(tree, LE, LE, rong_dung, &mut do_la, &mut dat, &mut access)
+            .ok_or(RasterError::Layout)?;
 
         let cao_anh = (cao + LE) as usize;
         if cao_anh > MAX_HEIGHT {
@@ -505,119 +442,6 @@ impl RasterRenderer {
         }
     }
 
-    /// Đặt một nút vào chỗ, trả về **chiều cao đã dùng**.
-    fn dat(
-        &mut self,
-        n: &Node,
-        trai: f32,
-        tren: f32,
-        rong_toi_da: f32,
-        ra: &mut Vec<DaDat>,
-        access: &mut Vec<AccessNode>,
-    ) -> f32 {
-        let NodeKind::Group { flow, gap, .. } = n.kind() else {
-            let o = self.do_la(n, rong_toi_da, access);
-            let cao = o.cao;
-            ra.push(DaDat { o, trai, tren });
-            return cao;
-        };
-
-        let khe = match gap {
-            Gap::None => 0.0,
-            Gap::Small => 4.0,
-            Gap::Medium => 8.0,
-            Gap::Large => 12.0,
-        };
-        let cho = Cho {
-            trai,
-            tren,
-            rong: rong_toi_da,
-            khe,
-        };
-        let mut con_access = Vec::new();
-        let cao = match flow {
-            Flow::Column => self.dat_cot(n, cho, ra, &mut con_access),
-            Flow::Row => self.dat_hang(n, cho, ra, &mut con_access),
-        };
-        access.push(AccessNode {
-            role: Role::Group,
-            label: None,
-            action: None,
-            children: con_access,
-        });
-        cao
-    }
-
-    fn dat_cot(
-        &mut self,
-        n: &Node,
-        cho: Cho,
-        ra: &mut Vec<DaDat>,
-        access: &mut Vec<AccessNode>,
-    ) -> f32 {
-        let mut y = cho.tren;
-        for c in n.children() {
-            y += self.dat(c, cho.trai, y, cho.rong, ra, access) + cho.khe;
-        }
-        (y - cho.tren - cho.khe).max(0.0)
-    }
-
-    /// **Bố cục hàng thật** — đặt cạnh nhau, và XUỐNG DÒNG khi hết chỗ.
-    ///
-    /// Bản 4.1 xếp hàng ngang theo chiều dọc rồi ghi chú "chưa làm". Đây là chỗ
-    /// nó được làm: đo từng phần tử trước, rồi mới đặt.
-    ///
-    /// Xuống dòng chứ không tràn ra ngoài: một nút bị đẩy khỏi mép là một nút
-    /// người dùng **không bấm được và không biết là có**.
-    fn dat_hang(
-        &mut self,
-        n: &Node,
-        cho: Cho,
-        ra: &mut Vec<DaDat>,
-        access: &mut Vec<AccessNode>,
-    ) -> f32 {
-        let (trai, tren, rong_toi_da, khe) = (cho.trai, cho.tren, cho.rong, cho.khe);
-        let mut y = tren;
-        // Gom từng DÒNG rồi mới đặt, thay vì đặt ngay khi đo.
-        //
-        // Lý do là căn giữa: chiều cao của một dòng chỉ biết được SAU khi đã đo
-        // hết phần tử trên dòng ấy. Bản 4.2 đặt ngay, nên mọi thứ dính mép
-        // trên — một nhãn nhỏ cạnh một tiêu đề lớn trông như bị treo lơ lửng.
-        let mut dong: Vec<O> = Vec::new();
-        let mut rong_dong = 0.0f32;
-
-        for c in n.children() {
-            // Nhóm lồng trong hàng: xả dòng đang gom, rồi đặt nhóm như một khối.
-            if matches!(c.kind(), NodeKind::Group { .. }) {
-                y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra);
-                rong_dong = 0.0;
-                if !ra.is_empty() {
-                    y += khe;
-                }
-                y += self.dat(c, trai, y, rong_toi_da, ra, access) + khe;
-                continue;
-            }
-            let o = self.do_la(c, rong_toi_da, access);
-            let them = if dong.is_empty() {
-                o.rong
-            } else {
-                khe + o.rong
-            };
-            if !dong.is_empty() && rong_dong + them > rong_toi_da {
-                y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra) + khe;
-                rong_dong = 0.0;
-            }
-            rong_dong += if dong.is_empty() {
-                o.rong
-            } else {
-                khe + o.rong
-            };
-            dong.push(o);
-        }
-        y += xa_dong(&mut dong, trai, y, khe, rong_toi_da, ra);
-        (y - tren).max(0.0)
-    }
-
     fn ve_o(&mut self, dat: &DaDat) {
         let o = &dat.o;
         if o.khung {
@@ -689,6 +513,7 @@ impl RasterRenderer {
 )]
 mod kiem_thu {
     use super::*;
+    use tcc_ui::{Flow, Gap};
 
     fn cay_mau() -> Node {
         Node::group(Flow::Column, Gap::Large)
@@ -949,6 +774,7 @@ mod kiem_thu {
 )]
 mod kiem_thu_43 {
     use super::*;
+    use tcc_ui::{Flow, Gap};
 
     fn tran_mep_phai(bd: &RasterRenderer) -> bool {
         (0..bd.height()).any(|y| bd.image()[y * WIDTH + WIDTH - 1] < 250)
@@ -1070,6 +896,7 @@ mod kiem_thu_43 {
 )]
 mod kiem_thu_hich {
     use super::*;
+    use tcc_ui::{Flow, Gap};
 
     /// Bề rộng khung (pixel xám 150) của từng nút, từ trái sang phải.
     fn be_rong_cac_khung(bd: &RasterRenderer) -> Vec<usize> {
@@ -1147,6 +974,7 @@ mod kiem_thu_hich {
 )]
 mod kiem_thu_hop_thanh {
     use super::*;
+    use tcc_ui::{Flow, Gap};
 
     /// Sinh một cây từ một hạt giống — đủ lộn xộn để chạm các nhánh bố cục.
     ///

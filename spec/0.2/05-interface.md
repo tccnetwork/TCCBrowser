@@ -264,7 +264,7 @@ bump ([VERSIONING](../VERSIONING.md) §3).
 
 | Field | Permitted extents | Default |
 |---|---|---|
-| `size.main` | `content`, `fill`, any fraction | `content` |
+| `size.main` | `content`, `fill`, any fraction | absent — see §8.1 |
 | `size.cross` | `content`, `fill`, any fraction | absent — see below |
 | `min.main` | `none`, `content`, any fraction | `content` |
 | `min.cross` | `none`, `content`, any fraction | `none` |
@@ -277,6 +277,15 @@ with no extent is not drawable).
 
 Three defaults are not obvious and each is stated on purpose:
 
+- **`size.main` has no default value either; it too is ABSENT by default**, and
+  absent is not `content`. An absent `size.main` is what §8.1's compatibility
+  rule tests for: a group that declares nothing takes the whole **horizontal**
+  extent of its parent, whatever its `flow` says, because that is the shape every
+  0.1 tree already has and 0.1 has no axes to speak of. Writing
+  `"main": "content"` explicitly **turns that rule off**. Deriving the default
+  from the main axis instead looks tidier and is wrong: a `flow: "row"` group's
+  main axis is horizontal, so `content` there collapses its width — measured, and
+  caught by two invariant tests in this repository.
 - **`size.cross` has no default value; it is ABSENT by default**, which is not
   the same as `content`. Absent is what §3 rule 4 and §6 test for: an absent
   cross size is what lets `align_cross: "stretch"` stretch the node. Writing
@@ -396,8 +405,8 @@ Boundaries:
 
 | Value | Each child is placed |
 |---|---|
-| `stretch` (default) | occupying the whole cross extent available to it |
-| `start` | at the cross-axis start edge |
+| `stretch` | occupying the whole cross extent available to it |
+| `start` (default) | at the cross-axis start edge. In a **row**, this keeps 0.1's meaning: children are centred on the line's cross axis, because a small label beside a large heading that is flush to the top reads as hanging in mid-air, and a 0.1 tree has no word to say otherwise |
 | `end` | at the cross-axis end edge |
 | `center` | midway between them |
 
@@ -413,6 +422,19 @@ Boundaries:
   because nothing in the reference screens needed it and rule 1 of
   [`spec/README.md`](../README.md) forbids specifying ahead of the code. If one
   is added it is a version bump.
+
+⚠️ **The default is `start`, not `stretch`.** CSS defaults to `stretch` and an
+earlier version of this draft followed it. The reference renderer does not, and
+rule 1 of [`spec/README.md`](../README.md) says a clause is extracted from code
+that runs, not from another standard's habits. The difference is not cosmetic:
+under `stretch` every button in a column grows to the full window width, which
+changes all twelve existing screens — the permission dialog and the transaction
+confirmation among them — and leaves §8.1's equal-button-width rule with nothing
+to hold on to, since every button would already be the same width as every other.
+
+Nothing is lost. A node that should stretch says `align_cross: "stretch"`, or
+sizes itself with `size.cross: "full"`. What changed is the meaning of **absent**,
+and absent should mean "as before".
 
 ## 7. Padding
 

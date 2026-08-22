@@ -246,7 +246,7 @@ fn ve(n: &Node, chu: &RendererText, ra: &mut String) {
                 );
             }
         },
-        NodeKind::Group { flow, gap } => {
+        NodeKind::Group { flow, gap, .. } => {
             // ⚠️ Hàng TOÀN NÚT được đánh dấu, để CSS kéo chúng rộng BẰNG NHAU.
             //
             // Không phải thẩm mỹ. Màn xác nhận giao dịch cố ý cho hai nút cùng

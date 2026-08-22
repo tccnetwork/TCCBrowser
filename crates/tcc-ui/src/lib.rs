@@ -117,6 +117,17 @@ pub enum UiError {
     #[error("{0} là nút lá — chỉ nhóm mới chứa được nút con")]
     NotAContainer(&'static str),
 
+    /// Một bề khai ở chỗ nó không có nghĩa gì.
+    ///
+    /// `fill` trong `min`/`max`: một mức TỐI THIỂU là "một phần của khoảng
+    /// trống" thì không phải mức tối thiểu của cái gì cả. `none` trong `size`:
+    /// một nút không có bề thì không vẽ được.
+    ///
+    /// Từ chối chứ không lặng lẽ bỏ qua: một lời khai bị bỏ qua trông y hệt một
+    /// lời khai có tác dụng, và người viết ứng dụng không có cách nào biết.
+    #[error("bề `{1}` không dùng được ở `{0}`")]
+    BadExtent(&'static str, &'static str),
+
     /// Ô nhập che chữ là **thứ của khung trình duyệt**, không phải của ứng dụng.
     ///
     /// Ô che chữ chính là hình dạng người dùng được dạy để tin: thấy chấm tròn
@@ -149,6 +160,11 @@ impl UiError {
             Self::TooDeep { .. } => "too-deep",
             Self::TooManyNodes { .. } => "too-many-nodes",
             Self::NotAContainer { .. } => "not-a-container",
+            // `bad-layout` — mã của 0.2, xem `spec/0.2/06-error-codes.md`. Nó
+            // xuất hiện ở đây trước khi 0.2 phát hành vì lời khai bố cục đã
+            // dựng được: mã lỗi phải có TRƯỚC lời khai đầu tiên bị từ chối, chứ
+            // không phải sau.
+            Self::BadExtent { .. } => "bad-layout",
             Self::SecretFieldFromApp => "secret-field-from-app",
         }
     }
@@ -222,6 +238,122 @@ pub enum Gap {
     Large,
 }
 
+/// Chặn một bề đặt ở chỗ nó không có nghĩa.
+fn kiem_be(o: &'static str, be: Extent, cam: &[Extent]) -> Result<(), UiError> {
+    if cam.contains(&be) {
+        return Err(UiError::BadExtent(
+            o,
+            match be {
+                Extent::Fill => "fill",
+                Extent::None => "none",
+                _ => "?",
+            },
+        ));
+    }
+    Ok(())
+}
+
+/// Bề của một trục — **vốn từ ĐÓNG, không con số nào**.
+///
+/// Chín từ, không có từ thứ mười. Đây không phải chuyện gọn nhẹ: một ứng dụng
+/// nói được một độ dài là một ứng dụng vẽ giả được thanh công cụ của trình
+/// duyệt. Luật "không pixel, không màu" của 0.1 đứng vững được chính vì gói
+/// không bao giờ cầm một con số hình học nào.
+///
+/// Sáu từ `Full`, `Half`, `Third`, `Quarter`, `TwoThirds`, `ThreeQuarters` là
+/// các **phân số**, và chúng tính theo bề **TRONG** của nhóm cha (bề của cha
+/// trừ `padding` hai mép). KHÔNG tính theo phần còn lại sau các anh em, và
+/// KHÔNG bị `gap` trừ bớt — nên hai con `Half` trong một nhóm có `gap` thì TRÀN,
+/// và tràn là đúng: co lén hai con cho vừa là để cả hai lời khai đều không có
+/// tác dụng trong khi trông như đều có.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Extent {
+    /// Vừa đúng thứ nút này cần trên trục ấy.
+    #[default]
+    Content,
+    /// Một phần bằng nhau của khoảng TRỐNG trên trục chính của cha.
+    Fill,
+    Full,
+    Half,
+    Third,
+    Quarter,
+    TwoThirds,
+    ThreeQuarters,
+    /// **Không ràng buộc.** Chỉ dùng được ở `min` và `max`.
+    None,
+}
+
+impl Extent {
+    /// Phần của bề trong nhóm cha, nếu đây là một phân số.
+    #[must_use]
+    pub const fn ti_le(self) -> Option<f32> {
+        match self {
+            Self::Full => Some(1.0),
+            Self::Half => Some(0.5),
+            Self::Third => Some(1.0 / 3.0),
+            Self::Quarter => Some(0.25),
+            Self::TwoThirds => Some(2.0 / 3.0),
+            Self::ThreeQuarters => Some(0.75),
+            Self::Content | Self::Fill | Self::None => None,
+        }
+    }
+}
+
+/// Bề khai cho hai trục của một nhóm.
+///
+/// `cross` là `Option` chứ không phải `Extent::Content`, và hai thứ ấy KHÁC
+/// nhau: vắng mặt là thứ cho phép `AlignCross::Stretch` kéo giãn nút, còn viết
+/// rõ `Content` là **tắt** kéo giãn. Gộp chúng lại là dựng ra một màn hình khác.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct Sizing {
+    /// Vắng mặt KHÁC `Content`, y như ở `cross`.
+    ///
+    /// Vắng mặt trên trục chính là luật §8.1: nhóm chiếm trọn bề NGANG của cha,
+    /// bất kể `flow` — đó là hình dạng mọi cây 0.1 đang có, và nó không phụ
+    /// thuộc trục nào là trục chính. Viết rõ `Content` là tắt luật ấy đi.
+    #[serde(default)]
+    pub main: Option<Extent>,
+    #[serde(default)]
+    pub cross: Option<Extent>,
+}
+
+/// Chia khoảng trống theo trục CHÍNH.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AlignMain {
+    /// Mặc định: khoảng trống dồn về SAU con cuối.
+    #[default]
+    Start,
+    End,
+    Center,
+}
+
+/// Đặt từng con theo trục PHỤ.
+///
+/// ⚠️ Mặc định là `Start`, **không** phải `Stretch` như CSS.
+///
+/// Bản nháp 0.2 lúc đầu chọn `Stretch` cho quen với flexbox. Nhưng mã đang chạy
+/// xếp cột theo `Start` — và luật 1 nói điều khoản rút ra từ mã ĐÃ CHẠY, không
+/// phải từ thói quen của một tiêu chuẩn khác. Đổi mặc định là đổi hình dạng của
+/// cả mười hai màn hình đang có, trong đó có hộp thoại hỏi quyền và màn xác nhận
+/// giao dịch: mọi nút trong một cột sẽ giãn hết bề ngang cửa sổ, và khi ấy luật
+/// "nút cùng hàng rộng bằng nhau" mất chỗ bám.
+///
+/// Không mất gì cả: nút nào cần giãn thì viết `size.cross = Full`, hoặc viết rõ
+/// `Stretch`. Cái đổi là ý nghĩa của VẮNG MẶT, và vắng mặt nên có nghĩa là "y
+/// như trước".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AlignCross {
+    #[default]
+    Start,
+    End,
+    Center,
+    /// Chiếm trọn bề phụ dành cho nó — chỉ có tác dụng khi `size.cross` VẮNG MẶT.
+    Stretch,
+}
+
 /// Lời mô tả ảnh cho trình đọc màn hình.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Alt {
@@ -283,6 +415,31 @@ pub enum NodeKind {
     Group {
         flow: Flow,
         gap: Gap,
+        /// Bề khai cho hai trục. Mặc định `content` trên trục chính, VẮNG MẶT
+        /// trên trục phụ — xem [`Sizing`].
+        size: Sizing,
+        /// Chặn dưới. `min.main` mặc định `content`: một nút KHÔNG bị ép nhỏ hơn
+        /// thứ nội dung nó cần trên trục chính. Đây là "automatic minimum size"
+        /// của flexbox, và nó được giữ vì đường kia là một nút có chữ bị cắt đôi
+        /// — mà luật chuỗi hiện thị của 0.1 sinh ra để chặn đúng việc chữ bị đổi
+        /// giữa lúc ký và lúc hiện.
+        min: Sizing,
+        max: Sizing,
+        align_main: AlignMain,
+        align_cross: AlignCross,
+        /// Đệm bốn mép BẰNG NHAU, theo cùng thang với `gap`.
+        ///
+        /// Không có đệm theo từng mép, vì cùng lý do không có căn lề theo từng
+        /// con: chưa việc nào cần tới, và luật 1 cấm bịa ra ở đây.
+        padding: Gap,
+        /// Xuống dòng khi hết chỗ.
+        ///
+        /// `None` = **như 0.1**: luôn xuống dòng. Cây 0.1 không có chữ `wrap`
+        /// nào, và một nút bị đẩy khỏi mép là một nút người dùng không bấm được
+        /// và không biết là có. `Some(false)` là ứng dụng nói rõ "để nó tràn".
+        wrap: Option<bool>,
+        /// Vùng cuộn. Mặc định TẮT.
+        scroll: bool,
     },
 }
 
@@ -419,11 +576,104 @@ impl Node {
         }))
     }
 
+    /// Gắn vốn từ bố cục vào một nhóm. Trả lỗi nếu một bề đặt sai chỗ.
+    ///
+    /// Không có `Node { .. }` viết tay ở đâu cả, nên đây là **đường duy nhất**
+    /// để một cây có bố cục tồn tại — dù nó đến từ mã Rust hay từ đĩa.
+    ///
+    /// # Errors
+    ///
+    /// [`UiError::BadExtent`] khi `fill` xuất hiện trong `min`/`max`, hoặc
+    /// `none` xuất hiện trong `size`.
+    /// [`UiError::NotAContainer`] khi gọi lên một nút lá.
+    pub fn with_layout(
+        mut self,
+        size: Sizing,
+        min: Sizing,
+        max: Sizing,
+        align_main: AlignMain,
+        align_cross: AlignCross,
+        padding: Gap,
+    ) -> Result<Self, UiError> {
+        let NodeKind::Group {
+            size: s,
+            min: mn,
+            max: mx,
+            align_main: am,
+            align_cross: ac,
+            padding: p,
+            ..
+        } = &mut self.kind
+        else {
+            return Err(UiError::NotAContainer(self.kind.ten()));
+        };
+        if let Some(m) = size.main {
+            kiem_be("size.main", m, &[Extent::None])?;
+        }
+        if let Some(c) = size.cross {
+            kiem_be("size.cross", c, &[Extent::None])?;
+        }
+        for (ten, be) in [("min", min), ("max", max)] {
+            if let Some(m) = be.main {
+                kiem_be(ten, m, &[Extent::Fill])?;
+            }
+            if let Some(c) = be.cross {
+                kiem_be(ten, c, &[Extent::Fill])?;
+            }
+        }
+        *s = size;
+        *mn = min;
+        *mx = max;
+        *am = align_main;
+        *ac = align_cross;
+        *p = padding;
+        Ok(self)
+    }
+
+    /// Bật xuống dòng. Không phải nhóm thì không làm gì.
+    #[must_use]
+    pub fn with_wrap(mut self, bat: Option<bool>) -> Self {
+        if let NodeKind::Group { wrap, .. } = &mut self.kind {
+            *wrap = bat;
+        }
+        self
+    }
+
+    /// Bật vùng cuộn. Không phải nhóm thì không làm gì.
+    #[must_use]
+    pub fn with_scroll(mut self, bat: bool) -> Self {
+        if let NodeKind::Group { scroll, .. } = &mut self.kind {
+            *scroll = bat;
+        }
+        self
+    }
+
     /// Một nhóm chứa các nút khác. Đây là loại DUY NHẤT nhận nút con.
+    ///
+    /// Chữ ký giữ nguyên hai tham số của 0.1 có chủ đích: một cây 0.1 dựng bằng
+    /// hàm này phải ra đúng màn hình như trước khi có vốn từ bố cục. Muốn dùng
+    /// vốn từ mới thì gọi tiếp [`Node::with_layout`].
     #[must_use]
     pub fn group(flow: Flow, gap: Gap) -> Self {
         Self {
-            kind: NodeKind::Group { flow, gap },
+            kind: NodeKind::Group {
+                flow,
+                gap,
+                size: Sizing::default(),
+                min: Sizing {
+                    main: Some(Extent::Content),
+                    cross: Some(Extent::None),
+                },
+                max: Sizing {
+                    main: Some(Extent::None),
+                    cross: Some(Extent::None),
+                },
+                align_main: AlignMain::Start,
+                align_cross: AlignCross::Start,
+                padding: Gap::None,
+                wrap: None,
+                scroll: false,
+            },
             children: Vec::new(),
             count: 1,
             depth: 1,
@@ -799,7 +1049,7 @@ mod kiem_thu {
                         action.as_str()
                     );
                 }
-                NodeKind::Group { flow, gap } => {
+                NodeKind::Group { flow, gap, .. } => {
                     let _ = writeln!(self.ra, "{lui}nhóm[{flow:?},{gap:?}]");
                 }
             }

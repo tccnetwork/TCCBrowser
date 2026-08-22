@@ -258,7 +258,7 @@ thứ bảy thì thêm một **TỪ**, và thêm một từ là tăng phiên b�
 
 | Trường | Kích thước cho phép | Mặc định |
 |---|---|---|
-| `size.main` | `content`, `fill`, phân số bất kỳ | `content` |
+| `size.main` | `content`, `fill`, phân số bất kỳ | vắng mặt — xem §8.1 |
 | `size.cross` | `content`, `fill`, phân số bất kỳ | vắng mặt — xem dưới |
 | `min.main` | `none`, `content`, phân số bất kỳ | `content` |
 | `min.cross` | `none`, `content`, phân số bất kỳ | `none` |
@@ -271,6 +271,14 @@ không có kích thước thì không vẽ được).
 
 Ba giá trị mặc định không hiển nhiên, và mỗi cái đều được nói ra có chủ ý:
 
+- **`size.main` cũng KHÔNG có giá trị mặc định; mặc định nó VẮNG MẶT**, và vắng
+  mặt không phải `content`. `size.main` vắng mặt chính là điều kiện luật tương
+  thích ở §8.1 xét tới: một nhóm không khai gì thì chiếm trọn bề **NGANG** của
+  cha, bất kể `flow` nói gì — vì đó là hình dạng mọi cây 0.1 đang có, mà 0.1 thì
+  không có khái niệm trục nào cả. Viết rõ `"main": "content"` là **tắt** luật ấy.
+  Suy mặc định theo trục chính nhìn gọn hơn nhưng sai: trục chính của nhóm
+  `flow: "row"` là chiều ngang, nên `content` ở đó làm nhóm mất bề ngang — đo
+  được, và hai phép thử bất biến trong kho này bắt được.
 - **`size.cross` KHÔNG có giá trị mặc định; mặc định nó VẮNG MẶT**, và vắng mặt
   không giống `content`. Vắng mặt chính là thứ §3 luật 4 và §6 kiểm tra: một
   kích thước phụ vắng mặt là điều kiện để `align_cross: "stretch"` kéo giãn nút
@@ -385,8 +393,8 @@ Các biên:
 
 | Giá trị | Mỗi con được đặt |
 |---|---|
-| `stretch` (mặc định) | chiếm trọn kích thước phụ dành cho nó |
-| `start` | ở mép đầu của trục phụ |
+| `stretch` | chiếm trọn kích thước phụ dành cho nó |
+| `start` (mặc định) | ở mép đầu của trục phụ. Với **hàng**, nó giữ nghĩa cũ của 0.1: các con căn giữa theo trục phụ của dòng, vì một nhãn nhỏ cạnh một tiêu đề lớn mà dính mép trên thì trông như bị treo lơ lửng, và cây 0.1 không có chữ nào để nói khác đi |
 | `end` | ở mép cuối của trục phụ |
 | `center` | ở giữa hai mép |
 
@@ -401,6 +409,19 @@ Các biên:
   màn hình tham chiếu nào cần tới, và luật 1 của
   [`spec/README.md`](../../README.md) cấm đặc tả trước mã. Thêm vào là tăng
   phiên bản.
+
+⚠️ **Mặc định là `start`, không phải `stretch`.** CSS mặc định `stretch` và một
+bản trước của bản nháp này đi theo. Bộ dựng tham chiếu thì không, và luật 1 của
+[`spec/README.md`](../../README.md) nói điều khoản rút ra từ mã ĐANG CHẠY, không
+rút ra từ thói quen của một tiêu chuẩn khác. Khác biệt này không phải chuyện hình
+thức: với `stretch` thì mọi nút trong một cột giãn hết bề ngang cửa sổ, đổi hình
+dạng cả mười hai màn hình đang có — trong đó có hộp thoại hỏi quyền và màn xác
+nhận giao dịch — và luật "nút cùng hàng rộng bằng nhau" ở §8.1 mất chỗ bám, vì
+khi ấy nút nào cũng đã rộng bằng nút nào.
+
+Không mất gì cả. Nút nào cần giãn thì viết `align_cross: "stretch"`, hoặc tự khai
+`size.cross: "full"`. Cái đổi là ý nghĩa của **vắng mặt**, và vắng mặt nên có
+nghĩa là "y như trước".
 
 ## 7. Đệm trong
 
