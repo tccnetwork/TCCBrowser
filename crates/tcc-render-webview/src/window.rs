@@ -775,10 +775,24 @@ pub enum MessageKind {
 }
 
 /// Cửa sổ có nên đóng lại sau khi xử lý xong một cú bấm không.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// `Clone` chứ không `Copy`: một nhánh mang theo câu chữ.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ControlFlowNext {
     /// Giữ cửa sổ, chờ cú bấm tiếp theo.
     Giu,
+    /// Giữ cửa sổ và **BÁO một câu lên tiêu đề**.
+    ///
+    /// # Vì sao tiêu đề, chứ không phải một dòng trong tài liệu
+    ///
+    /// Tiêu đề là của KHUNG. Ứng dụng không viết được vào đó — nó không mang mã
+    /// nào, và `app_window_title` luôn đặt mã ứng dụng đã ký lên trước. Một câu
+    /// vẽ trong tài liệu thì ứng dụng bắt chước được, và lúc ấy người dùng không
+    /// phân biệt được câu của khung với câu của gói.
+    ///
+    /// Đây là chỗ tối thiểu để người dùng THẤY rằng có việc vừa xảy ra. Một dải
+    /// trạng thái riêng của khung — như thanh địa chỉ ở tầng 2 — mới là câu trả
+    /// lời đầy đủ, và nó thuộc về lần thiết kế sau.
+    GiuVaBao(String),
     /// Đóng cửa sổ.
     Dong,
 }
@@ -857,10 +871,23 @@ pub fn run_loop(
             .map(|mut q| std::mem::take(&mut *q))
             .unwrap_or_default();
         for t in &cho_xu_ly {
-            if xu_ly(t) == ControlFlowNext::Dong {
-                dang_thoat = true;
-                *dieu_khien = ControlFlow::Exit;
-                return;
+            match xu_ly(t) {
+                ControlFlowNext::Dong => {
+                    dang_thoat = true;
+                    *dieu_khien = ControlFlow::Exit;
+                    return;
+                }
+                // ⚠️ Người dùng PHẢI thấy có việc vừa xảy ra.
+                //
+                // Bản trước chỉ `println!` — và người dùng bấm "Tải trang mẫu"
+                // **13 lần** vì màn hình không đổi gì, trong khi cả 13 lần đều
+                // tải về thành công. Đây là lần thứ BA dự án dẫm đúng bẫy này:
+                // nhánh kết thúc của một luồng mà chỉ ra `stderr` thì với người
+                // dùng nó không xảy ra.
+                ControlFlowNext::GiuVaBao(cau) => {
+                    window.set_title(&format!("{tieu_de} — {cau}"));
+                }
+                ControlFlowNext::Giu => {}
             }
         }
     });

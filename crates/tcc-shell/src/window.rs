@@ -288,15 +288,28 @@ pub fn run_app(
         // Ảnh đọc TỪ CÂY TỆP ĐÃ KÝ — đường duy nhất trang lấy được byte từ gói.
         move |p| noi_dung.get(p).map(<[u8]>::to_vec),
         |t| {
+            // Báo LÊN MÀN HÌNH, không chỉ ra terminal. Người dùng không đọc
+            // terminal, và một nút bấm mà màn hình không đổi gì là một nút họ
+            // bấm lại lần nữa.
             match app.perform(&t.hanh_dong, mang) {
                 Ok(du_lieu) => {
                     println!("[ứng dụng] {} → {} byte", t.hanh_dong, du_lieu.len());
+                    bo_dung_cua_so::ControlFlowNext::GiuVaBao(crate::text::action_done(
+                        &t.hanh_dong,
+                        du_lieu.len(),
+                        ngon_ngu,
+                    ))
                 }
                 // Bị quyền năng từ chối KHÔNG phải lỗi của trình duyệt — đó là
-                // hệ thống làm đúng việc. In ra để nhìn thấy được, rồi chạy tiếp.
-                Err(e) => println!("[ứng dụng] {} bị từ chối: {e}", t.hanh_dong),
+                // hệ thống làm đúng việc. Nói ra, rồi chạy tiếp.
+                Err(e) => {
+                    println!("[ứng dụng] {} bị từ chối: {e}", t.hanh_dong);
+                    bo_dung_cua_so::ControlFlowNext::GiuVaBao(crate::text::action_refused(
+                        &t.hanh_dong,
+                        ngon_ngu,
+                    ))
+                }
             }
-            bo_dung_cua_so::ControlFlowNext::Giu
         },
     )?;
     Ok(())

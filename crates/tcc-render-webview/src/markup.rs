@@ -308,6 +308,11 @@ input[type=text],input[type=password]{flex:1;padding:6px 9px;border:1px solid #c
 button{align-self:start;padding:7px 15px;border-radius:7px;border:1px solid #c3c7cf;background:#f6f7f9;font:inherit;cursor:pointer}\
 [data-sac-thai=chinh]{border-color:#ff8a3d;background:#fff3ea}\
 [data-sac-thai=mat-mat]{border-color:#c0392b;color:#c0392b;background:#fdf0ee;font-weight:600}\
+button:hover{border-color:#8a9099}\
+button:active{background:#e3e6ea;border-color:#8a9099}\
+[data-sac-thai=chinh]:hover{border-color:#e06f22;background:#ffe8d6}\
+[data-sac-thai=mat-mat]:hover{border-color:#96271b;background:#fbdfdb}\
+button:focus-visible{outline:2px solid #ff8a3d;outline-offset:2px}\
 \
 img{max-width:100%;align-self:start}\
 ";
@@ -679,5 +684,34 @@ mod kiem_thu_hop_thanh {
         assert!(!doc.contains("text-overflow"));
         // `white-space:nowrap` cũng đẩy chữ ra ngoài thay vì xuống dòng.
         assert!(!doc.contains("nowrap"));
+    }
+
+    /// **Nút phải có phản hồi khi rê và khi bấm.**
+    ///
+    /// Ngày 22/08/2026 người dùng báo *"bấm không được"*. Nút chạy đúng — nhật
+    /// ký cho thấy 13 cú bấm, mỗi cú tải về 559 byte. Thứ hỏng là nút trông **y
+    /// hệt** trước, trong và sau khi bấm: không đổi viền khi rê, không lún khi
+    /// nhấn, và kết quả chỉ ra terminal.
+    ///
+    /// Một nút không phản hồi thì người dùng bấm lại. Rồi bấm lại nữa. Đó không
+    /// phải chuyện thẩm mỹ — đó là giao diện nói dối về việc nó có nhận cú bấm
+    /// hay không.
+    #[test]
+    fn nut_co_phan_hoi_khi_re_va_khi_bam() {
+        let d = document(&Node::button("Ký", "ky", Tone::Primary).unwrap());
+        // `:active` KHÔNG được dùng `transform` — phép thử
+        // `dinh_kieu_khong_mo_cua_cho_ve_de` cấm nó, vì `transform` dời được
+        // một phần tử lên trên câu cảnh báo. Bản đầu của tôi dùng
+        // `translateY(1px)` và phép thử ấy bắt được ngay. Hiệu ứng nhấn đổi
+        // MÀU, không đổi VỊ TRÍ.
+        for can in ["button:hover", "button:active", "button:focus-visible"] {
+            assert!(
+                d.contains(can),
+                "thiếu trạng thái {can} — nút sẽ trông như chết"
+            );
+        }
+        // Và nút nguy hiểm phải đổi KHÁC nút thường khi rê: hai nút phản hồi
+        // giống hệt nhau thì mất luôn dấu phân biệt lúc người dùng đang do dự.
+        assert!(d.contains("[data-sac-thai=mat-mat]:hover"));
     }
 }

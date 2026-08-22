@@ -368,6 +368,37 @@ Ba cái trên **cùng một hình dạng**: thứ trông như đang canh thì kh
 lượt trong một job**. Một lượt xanh không phân biệt được "đã sửa" với "vừa may",
 và một lượt đỏ cũng thế.
 
+### 22/08/2026 — "bấm không được", và tôi báo sai một lần trên đường tìm
+
+Người dùng bấm **"Tải trang mẫu" 13 lần**. Cả 13 lần đều chạy đúng và tải về
+559 byte. Ba thứ cộng lại làm nó **đọc như một nút chết**:
+
+1. Kết quả chỉ ra `stderr`, màn hình không đổi gì — **lần thứ BA** dự án dẫm bẫy
+   này. Luật cũ ghi *"mọi nhánh KẾT THÚC cần một màn hình"*, và lần này lọt vì
+   đây không phải nhánh kết thúc: cửa sổ vẫn mở, chỉ là không có gì đổi. Cùng
+   một hậu quả — với người dùng, việc ấy không xảy ra.
+2. Nút **không có `:hover`, không có `:active`** — trông y hệt trước, trong và
+   sau khi bấm.
+3. Nút nằm sát đáy cửa sổ, và **không có cuộn** (F7 của rà soát 21/08).
+
+**Tôi báo sai một phát hiện trên đường tìm.** Tôi kết luận *"`AXPress` không tới
+được ứng dụng ở đường WebView"* và định gọi đó là lỗ trợ năng. Sai: lệnh
+`entire contents` của System Events **hết giờ IM LẶNG** trên cây sâu, `try` nuốt
+mất lỗi, nên tôi đọc "không thấy nút" thành "không bấm được". Hỏi thẳng theo
+đường dẫn AX thì `AXPress` chạy đúng.
+
+*Một công cụ đo hỏng im lặng thì nó không báo "tôi hỏng" — nó báo một kết quả,
+và kết quả ấy trông như một phát hiện.*
+
+Một thứ nữa đo được trên đường đi: **`tao::Window::title()` trả về bản đệm cũ**.
+`set_title` chạy đúng — hỏi macOS thì thấy tiêu đề đã đổi — nhưng hàm đọc của
+`tao` vẫn trả chuỗi ban đầu. Tin hàm đọc ấy là kết luận ngược.
+
+Và phép thử `dinh_kieu_khong_mo_cua_cho_ve_de` **bắt được bản vá đầu của tôi**:
+tôi dùng `transform:translateY(1px)` cho trạng thái nhấn, mà `transform` bị cấm
+vì nó dời được một phần tử lên trên câu cảnh báo. Hiệu ứng nhấn giờ đổi **màu**,
+không đổi **vị trí**.
+
 ### Sửa mã bằng script thì phải kiểm NGAY
 
 Dẫm **hai lần trong một tuần**. Cả hai lần lệnh `python`/`perl` khớp vào **hư

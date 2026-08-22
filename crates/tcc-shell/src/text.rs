@@ -496,6 +496,30 @@ pub fn renderer_text(n: Language) -> tcc_render_webview::markup::RendererText {
     }
 }
 
+/// Câu báo một hành động ĐÃ CHẠY XONG.
+///
+/// Chữ của KHUNG, không phải của ứng dụng — nên nó đi qua `text.rs` như mọi
+/// chuỗi khác, và có đủ hai ngôn ngữ.
+#[must_use]
+pub fn action_done(hanh_dong: &str, so_byte: usize, n: Language) -> String {
+    match n {
+        Language::En => format!("{hanh_dong}: {so_byte} bytes received"),
+        Language::Vi => format!("{hanh_dong}: đã nhận {so_byte} byte"),
+    }
+}
+
+/// Câu báo một hành động BỊ QUYỀN NĂNG TỪ CHỐI.
+///
+/// Bị từ chối **không phải lỗi** — đó là cổng quyền năng làm đúng việc. Câu chữ
+/// phải nói ra điều đó, chứ không đọc như một sự cố.
+#[must_use]
+pub fn action_refused(hanh_dong: &str, n: Language) -> String {
+    match n {
+        Language::En => format!("{hanh_dong}: refused, permission not granted"),
+        Language::Vi => format!("{hanh_dong}: bị từ chối, chưa được cấp quyền"),
+    }
+}
+
 /// Chuỗi cho bộ dựng ra pixel — **cùng KHOÁ với [`renderer_text`]**.
 ///
 /// Có phép thử chốt điều đó. Hai bộ dựng nói hai câu khác nhau cho cùng một nút
