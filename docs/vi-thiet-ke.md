@@ -808,6 +808,45 @@ kèm bảo vệ rồi đòi đúng lỗi ấy.
 > này. Không phép thử nào tôi tự viết bắt được cả ba.
 
 
+## 19b. GỠ ĐƯỢC — ví cất được khoá (22/08/2026)
+
+Chạy trong gói đã ký, có hồ sơ cấp phép nhúng:
+
+```
+✓ CẤT ĐƯỢC vào Keychain với USER_PRESENCE
+  contains = true
+✓ xoá được — Keychain sạch lại
+```
+
+Đường đi, không cần ai bấm gì trên trang web của Apple:
+
+1. Khoá **App Store Connect API** của đội `8E5HYH6F96` đã có sẵn trong dự án ERP
+2. `com.tcc.browser` **đã tồn tại** trên tài khoản
+3. Sinh **CSR tại chỗ** → tạo chứng thư `MAC_APP_DEVELOPMENT` qua API → khoá
+   riêng nằm trên máy này ngay từ đầu, không phải xuất từ đâu cả
+4. Đăng ký máy này làm thiết bị
+5. Tạo hồ sơ `MAC_APP_DEVELOPMENT` buộc App ID + chứng thư + thiết bị
+
+### Ba điều học được, cái thứ nhất là chẩn đoán lại §19
+
+**Binary TRẦN không mang được hồ sơ cấp phép.** Hồ sơ phải nằm trong
+`Contents/embedded.provisionprofile` của một **gói `.app`**. Ký một binary trần
+kèm entitlements thì nó treo im lặng, `kill -9` không gỡ được — đúng chế độ hỏng
+của §19, và tôi dựng lại được nó hôm nay bằng cách ký đúng binary ví dụ ấy. Bọc
+vào `.app` cùng hồ sơ thì chạy ngay.
+
+Nên §19 nói *"thiếu hồ sơ cấp phép"* là **đúng nhưng chưa đủ**: thiếu **một hồ
+sơ mà bộ nạp TÌM RA ĐƯỢC**.
+
+**Keychain Sharing KHÔNG phải quyền năng của App ID.** API trả về danh sách hợp
+lệ và không có `KEYCHAIN_ACCESS_GROUPS` trong đó. Quyền `keychain-access-groups`
+với tiền tố đội của chính mình được **bất kỳ hồ sơ nào** của App ID ấy cho phép.
+Bớt hẳn một thao tác ghi mà kế hoạch tưởng là bắt buộc.
+
+**`$(AppIdentifierPrefix)` là biến của XCODE.** `codesign` không khai triển nó —
+nó nhúng đúng chuỗi ấy làm quyền, chuỗi ấy không khớp hồ sơ, quyền không được
+cấp. `tools/dong-goi-macos.sh` giờ đọc tiền tố **từ chính hồ sơ**.
+
 ## 19. Ví bị chặn ở ĐÓNG GÓI, không phải ở mã (17/08/2026)
 
 Ba lần thử để `USER_PRESENCE` chạy được:

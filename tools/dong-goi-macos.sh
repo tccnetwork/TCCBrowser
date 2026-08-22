@@ -42,7 +42,17 @@ HO_SO="${TCC_PROVISION_PROFILE:-}"
 CHUNG_THU="${TCC_SIGN_IDENTITY:-}"
 
 echo "── dựng bản phát hành ──"
-cargo build --release -p tcc-browser --features window || exit 1
+# Cờ `wallet` kéo theo `os-keystore`, tức là ví CẤT được khoá.
+#
+# Trước 22/08/2026 chỗ này cố ý chỉ dựng `window`: không có hồ sơ cấp phép thì
+# ví không cất được, và một bản dựng có mục ví mà mục ấy hỏng thì tệ hơn một bản
+# dựng không có ví. Giờ đã có hồ sơ, nên dựng đủ.
+#
+# Vẫn giữ đường cũ: `TCC_KHONG_VI=1` để dựng bản không ví.
+CO_VI="${TCC_KHONG_VI:+window}"
+CO_VI="${CO_VI:-wallet}"
+echo "── cờ: $CO_VI ──"
+cargo build --release -p tcc-browser --features "$CO_VI" || exit 1
 
 echo "── ráp gói ──"
 rm -rf "$GOI"
@@ -63,14 +73,18 @@ cat > "$GOI/Contents/Info.plist" <<PLIST
     ⚠️ KHÔNG khai NSCameraUsageDescription, NSMicrophoneUsageDescription,
     NSLocationWhenInUseUsageDescription hay bất kỳ NS*UsageDescription nào.
 
-    Lý do là một hạn chế của thư viện, không phải sở thích: `wry` 0.52.1 viết
-    CỨNG `WKPermissionDecision::Grant` cho yêu cầu micro/camera của trang web
-    (`wkwebview/class/wry_web_view_ui_delegate.rs:74`) và không cho ghi đè. Nên
-    ở tầng 2, một trang gọi `getUserMedia()` được cấp mà KHÔNG ai hỏi người dùng
-    — đâm thẳng vào quyết định kiến trúc số 2.
+    Lý do là một hạn chế của thư viện, không phải sở thích: wry 0.52.1 viết
+    CỨNG WKPermissionDecision::Grant cho yêu cầu micro/camera của trang web
+    (wkwebview/class/wry_web_view_ui_delegate.rs dòng 74) và không cho ghi đè.
+    Nên ở tầng 2, một trang gọi getUserMedia() được cấp mà KHÔNG ai hỏi người
+    dùng — đâm thẳng vào quyết định kiến trúc số 2.
+
+    ⚠️ KHÔNG dùng dấu huyền trong khối này: heredoc dựng Info.plist cố ý KHÔNG
+    đóng nháy (nó cần khai triển $TEN), nên dấu huyền bị vỏ lệnh chạy như lệnh.
+    Đã trả giá 22/08/2026 — kịch bản dựng ra một Info.plist méo và tự báo lỗi.
 
     Chắn duy nhất còn lại nằm ở tầng hệ điều hành: thiếu chuỗi mô tả mục đích
-    thì macOS TỪ CHỐI ứng dụng chạm micro/camera, nên lời "Grant" của wry không
+    thì macOS TỪ CHỐI ứng dụng chạm micro/camera, nên lời Grant của wry không
     có gì để cấp.
 
     Thêm một dòng NS*UsageDescription vào đây là gỡ chắn ấy đi. Có phép kiểm
@@ -80,7 +94,11 @@ cat > "$GOI/Contents/Info.plist" <<PLIST
 PLIST
 
 # Chắn duy nhất chống việc wry tự cấp micro/camera — xem chú thích trong Info.plist.
-if grep -q "UsageDescription" "$GOI/Contents/Info.plist"; then
+# Soi KHAI BÁO thật, không soi mọi chỗ nhắc tên — y hệt luật 20. Bản trước dùng
+# `grep -q "UsageDescription"` và nó bắt nhầm ĐÚNG CÂU CHÚ THÍCH giải thích vì
+# sao không được khai. Một phép canh tự tố cáo mình là một phép canh người ta
+# học cách bỏ qua.
+if grep -qE "<key>NS[A-Za-z]*UsageDescription</key>" "$GOI/Contents/Info.plist"; then
   echo "❌ Info.plist khai NS*UsageDescription — gỡ mất chắn micro/camera của tầng 2"
   exit 1
 fi
@@ -112,12 +130,33 @@ HUONG_DAN
 fi
 
 cp "$HO_SO" "$GOI/Contents/embedded.provisionprofile"
-cat > target/release/bundle/tcc.entitlements <<'XML'
+
+# ⚠️ Tiền tố đội lấy TỪ CHÍNH HỒ SƠ, không viết cứng và không dùng
+# `$(AppIdentifierPrefix)`.
+#
+# `$(AppIdentifierPrefix)` là biến của Xcode. `codesign` **không khai triển nó**
+# — nó nhúng đúng chuỗi ấy làm quyền, chuỗi ấy không khớp hồ sơ, và quyền không
+# được cấp. Đã trả giá 22/08/2026.
+# Qua TỆP TẠM chứ không qua ống: `plistlib.load` cần luồng tua lại được, và một
+# ống thì không. Lỗi nó ném ra ("File or stream is not seekable") không nhắc gì
+# tới plist, nên nó đọc như hồ sơ hỏng.
+TAM=$(mktemp) && security cms -D -i "$HO_SO" > "$TAM" 2>/dev/null
+DOI=$(python3 -c "import plistlib,sys; print(plistlib.load(open(sys.argv[1],'rb'))['TeamIdentifier'][0])" "$TAM")
+rm -f "$TAM"
+if [ -z "$DOI" ]; then
+  echo "❌ không đọc được TeamIdentifier từ $HO_SO"
+  exit 1
+fi
+echo "✅ đội trong hồ sơ: $DOI"
+
+cat > target/release/bundle/tcc.entitlements <<XML
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+  <key>com.apple.application-identifier</key><string>$DOI.com.tcc.browser</string>
+  <key>com.apple.developer.team-identifier</key><string>$DOI</string>
   <key>keychain-access-groups</key>
-  <array><string>$(AppIdentifierPrefix)com.tcc.browser</string></array>
+  <array><string>$DOI.com.tcc.browser</string></array>
 </dict></plist>
 XML
 codesign -f -o runtime -s "$CHUNG_THU" \

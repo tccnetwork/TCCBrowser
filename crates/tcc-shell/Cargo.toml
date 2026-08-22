@@ -60,6 +60,10 @@ tcc-crypto = { workspace = true }
 tcc-runtime = { workspace = true }
 
 [[example]]
+name = "thu-kho-khoa"
+required-features = ["os-keystore"]
+
+[[example]]
 name = "man-hinh-raster"
 required-features = ["cua-so-raster"]
 
