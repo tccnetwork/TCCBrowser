@@ -468,6 +468,48 @@ trong của nhóm, các con tiếp tục trên một **dòng** mới, dịch the
 | `flow: "column"` + `wrap` | gãy thành **cột**: trục chính nằm dọc, nên một dòng mới là một cột mới, dịch theo chiều ngang. |
 | Kích thước phụ bên trong | Con của một nhóm có gãy dòng thì trục phụ của nó **suy từ nội dung**, vì kích thước phụ của một dòng đến từ nội dung của dòng ấy. Vậy `fill` hay một phân số trên trục ấy là `bad-layout` (§3). |
 
+### 8.1 Hai luật bộ dựng tham chiếu đã áp dụng
+
+Luật 1 của [`spec/README.md`](../../README.md) là điều khoản được rút ra từ mã
+**đã chạy**. Hai luật này đang chạy, trong bộ dựng tham chiếu của kho này. Chúng được ghi ở
+đây vì người đọc cài đặt hết mọi mục trên mà bỏ hai mục này thì từ CÙNG một gói
+sẽ dựng ra một màn hình **khác thấy được** — đúng thứ một tiêu chuẩn sinh ra để
+chặn.
+
+**Nhóm lồng trong một hàng chiếm trọn dòng của nó.** Một con kiểu `group` của
+nhóm `flow: "row"` mở một dòng mới và chiếm trọn dòng ấy, dù nó cần ít tới đâu.
+
+Đây là **mặc định để tương thích 0.1, và 0.2 thay thế nó.** Cây 0.1 không có vốn
+từ kích thước nào cả, nên bộ dựng buộc phải quyết thay ứng dụng; §4 trao cho ứng
+dụng chữ để tự nói. Bản cài đặt 0.2 **PHẢI** áp luật này cho nhóm KHÔNG khai
+`size.main`, và **KHÔNG ĐƯỢC** áp cho nhóm CÓ khai `size.main` — khai một kích
+thước chính là ứng dụng lấy lại quyền quyết.
+
+**Nút đứng một mình trên một dòng được vẽ bằng nhau theo trục chính — nhưng chỉ
+khi vẽ xong vẫn vừa.** Khi mọi con trên một dòng đã gom xong đều là `button`, và
+có từ hai con trở lên, bản cài đặt **PHẢI** vẽ tất cả bằng kích thước của con
+rộng nhất, trừ khi làm thế khiến dòng vượt quá vật chứa — khi ấy nó **PHẢI** vẽ
+theo kích thước tự nhiên.
+
+Luật này **không** phải mặc định tương thích và 0.2 không thay thế nó: đây là một
+yêu cầu an ninh, và nó đúng bất kể ứng dụng khai kích thước nút thế nào.
+
+> Màn xác nhận giao dịch cố ý cho hai nút CÙNG sắc thái, vì làm nút "Ký" nổi hơn
+> là đẩy người dùng về một phía đúng lúc nguy hiểm nhất. Kích thước cũng đẩy. Một
+> nút to hơn hẳn nút bên cạnh là đúng cái hích ấy, nói bằng hình học thay vì bằng
+> màu — mà hình học không nằm trong vốn từ sắc thái, nên không gì khác ở đây chặn
+> được nó.
+
+Vế trừ không phải chuyện làm cho đẹp. Bộ dựng tham chiếu từng kéo bằng nhau vô
+điều kiện, và ngày 21/08/2026 đo được một nút nằm ở 681,8→1008,7 trên ảnh rộng
+640: **không một điểm ảnh nào của nó được vẽ**, mà phép thử va chạm vẫn trả về
+nó. Người dùng bấm vào khoảng trắng và một nút họ chưa từng thấy chạy. Một hàng
+nút không đều còn hơn một nút vô hình mà bấm được.
+
+Cả hai luật được canh bởi vector hình học (§12) và không mang mã lỗi (§11.3):
+không gói nào vi phạm được chúng.
+
+
 ## 9. Tràn và cuộn
 
 ### 9.1 Nội dung không bao giờ bị huỷ
@@ -604,8 +646,9 @@ thôi hoạt động.
 
 Vài yêu cầu ở đây ràng buộc **bản cài đặt**, không ràng buộc gói: §7.1 (thang bậc
 khoảng cách phải tăng), §9.1 (không cắt), §9.2 (với tới được, vị trí cuộn ban
-đầu, tiêu điểm), §1 (khung cuộn được). Không gói nào vi phạm được, nên không có
-gì để từ chối và không có mã nào để báo.
+đầu, tiêu điểm), §1 (khung cuộn được), §8.1 (nhóm lồng chiếm trọn dòng; nút đứng
+một mình trên một dòng vẽ bằng nhau). Không gói nào vi phạm được, nên không có gì
+để từ chối và không có mã nào để báo.
 
 0.1 cũng có đúng hình dạng ấy — "PHẢI vẽ mỗi ý định khác đi thật" cũng không có
 mã — và [`spec/README.md`](../../README.md) gọi đích danh loại này là kiểu lỗi

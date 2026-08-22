@@ -2569,6 +2569,312 @@
     }
    ],
    "notes": "Nothing in the tree scrolls, and the content is 1200 tall in an 800 frame. Without the frame's own scrolling the third child could not be reached by moving anything at all."
+  },
+  {
+   "case": "a group nested in a row starts its own line and takes all of it",
+   "clause": "§8.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "button",
+        "label": "OK",
+        "action": "a"
+       },
+       {
+        "kind": "group",
+        "flow": "row",
+        "children": [
+         {
+          "kind": "button",
+          "label": "Nested",
+          "action": "a"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "y"
+     },
+     "b": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "y"
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     }
+    }
+   ],
+   "notes": "0.1 has no size vocabulary, so the renderer chooses for the app. A reader who omits this draws the nested group inline and gets a visibly different screen from the same package."
+  },
+  {
+   "case": "a nested group that states size.main is NOT given the whole line",
+   "clause": "§8.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "button",
+        "label": "OK",
+        "action": "a"
+       },
+       {
+        "kind": "group",
+        "flow": "row",
+        "size": {
+         "main": "quarter"
+        },
+        "children": [
+         {
+          "kind": "button",
+          "label": "Nested",
+          "action": "a"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "y"
+     },
+     "b": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "y"
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "width"
+     }
+    }
+   ],
+   "notes": "Stating a size is the app taking the decision back. This is the case that separates 0.2 from the 0.1-compatibility default."
+  },
+  {
+   "case": "two buttons alone on a line are drawn at equal main extent",
+   "clause": "§8.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "button",
+        "label": "No",
+        "action": "a"
+       },
+       {
+        "kind": "button",
+        "label": "Sign this transaction",
+        "action": "a"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "width"
+     }
+    }
+   ],
+   "notes": "A button visibly larger than the one beside it is a nudge expressed as geometry. The transaction screen gives both buttons the same tone for the same reason."
+  },
+  {
+   "case": "buttons are NOT widened when widening would overflow the line",
+   "clause": "§8.1",
+   "frame": {
+    "width": 240,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "button",
+        "label": "No",
+        "action": "a"
+       },
+       {
+        "kind": "button",
+        "label": "Sign this transaction",
+        "action": "a"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "width"
+     }
+    },
+    {
+     "kind": "contains",
+     "outer": [
+      0
+     ],
+     "inner": [
+      0,
+      1
+     ]
+    }
+   ],
+   "notes": "Measured 2026-08-21 in the reference renderer: unconditional widening put a button at 681.8-1008.7 on an image 640 wide. Not one pixel of it was drawn and hit-testing still returned it. A row of uneven buttons beats one invisible button that works."
+  },
+  {
+   "case": "a button beside a non-button is not widened to match it",
+   "clause": "§8.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "button",
+        "label": "OK",
+        "action": "a"
+       },
+       {
+        "kind": "text",
+        "content": "A considerably longer run of label text"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       0,
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "width"
+     }
+    }
+   ],
+   "notes": "The rule is about two buttons pushing against each other. Equalising a button with a label is meaningless, and doing it would make the label a button-shaped thing that is not one."
   }
  ]
 }

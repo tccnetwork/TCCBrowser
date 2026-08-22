@@ -483,6 +483,49 @@ axis.
 | `flow: "column"` + `wrap` | wraps into **columns**: the main axis is vertical, so a new line is a new column, offset horizontally. |
 | Cross extents inside | A child of a wrapping group has a **content-derived** cross axis, because a line's cross extent comes from its content. A `fill` or a fraction on that axis is therefore `bad-layout` (§3). |
 
+### 8.1 Two rules the reference renderer already applies
+
+Rule 1 of [`spec/README.md`](../README.md) is that a clause is extracted from
+code that **runs**. These two run today, in this repository's reference renderer. They are written
+here because a reader who implements everything above and omits them produces a
+**visibly different** screen from the same package — which is the exact thing a
+standard exists to prevent.
+
+**A group nested inside a row occupies its own line.** A `group` child of a
+`flow: "row"` group starts a new line and takes the whole of it, regardless of
+how little it needs.
+
+This is a **0.1-compatibility default, and 0.2 supersedes it.** A 0.1 tree has no
+size vocabulary at all, so the renderer had to choose for the app; §4 gives the
+app the words to say it itself. An implementation of 0.2 **MUST** apply this rule
+to a group whose `size.main` is absent, and **MUST NOT** apply it to one that
+states a `size.main` — stating a size is the app taking the decision back.
+
+**Buttons alone on a line are drawn at equal main extent — but only if they still
+fit.** When every child on a completed line is a `button`, and there are at least
+two, an implementation **MUST** draw them all at the widest one's extent, unless
+doing so would make the line exceed the container, in which case it **MUST** draw
+them at their natural extents.
+
+This one is **not** a compatibility default and 0.2 does not supersede it: it is
+a security requirement, and it holds however the app sizes its buttons.
+
+> The transaction-confirmation screen deliberately gives both buttons the same
+> tone, because making "Sign" stand out pushes the user one way at the most
+> dangerous moment. Extent pushes too. A button visibly larger than the one
+> beside it is the same nudge expressed as geometry instead of colour — and
+> geometry is not covered by the tone vocabulary, so nothing else here stops it.
+
+The escape clause is not a nicety. The reference renderer widened
+unconditionally, and on 2026-08-21 a button was measured at 681.8→1008.7 on an
+image 640 wide: **not one pixel of it was drawn**, and hit-testing still returned
+it. The user clicks blank space and a button they have never seen runs. A row of
+uneven buttons is better than one invisible button that works.
+
+Both rules are watched by geometry vectors (§12) and carry no error code
+(§11.3): a package cannot violate either.
+
+
 ## 9. Overflow and scrolling
 
 ### 9.1 Content is never destroyed
@@ -624,8 +667,9 @@ has stopped working.
 
 Several requirements here bind the **implementation**, not the package:
 §7.1 (the spacing scale must increase), §9.1 (no clipping), §9.2 (reachability,
-initial offset, focus), §1 (the frame scrolls). No package can violate them, so
-there is nothing to reject and no code to report.
+initial offset, focus), §1 (the frame scrolls), §8.1 (nested groups take a line;
+buttons alone on a line are drawn equal). No package can violate them, so there
+is nothing to reject and no code to report.
 
 0.1 has the same shape — "MUST actually render each intent differently" has no
 code either — and
