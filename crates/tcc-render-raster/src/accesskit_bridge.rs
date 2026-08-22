@@ -26,6 +26,15 @@
 //! Nhóm và ảnh trang trí là hai thứ trình đọc màn hình phải **đi xuyên qua**.
 //! Gán nhãn cho chúng là bắt người dùng nghe thêm một câu vô nghĩa ở mỗi tầng.
 
+/// Nối cây ấy vào **hệ điều hành thật** — macOS, Windows, Linux.
+///
+/// Nằm sau cờ `accesskit-platform` chứ không sau `accesskit`: đổi `AccessNode`
+/// thành `TreeUpdate` là phép thuần, kiểm được không cần màn hình; còn giao nó
+/// cho hệ điều hành thì cần một cửa sổ thật. Hai việc ấy hỏng theo hai kiểu, nên
+/// chúng ở sau hai cờ.
+#[cfg(feature = "accesskit-platform")]
+pub mod platform;
+
 use accesskit::{Node as AkNode, NodeId, Role as AkRole, Toggled, Tree, TreeId, TreeUpdate};
 use tcc_ui::{AccessNode, Role};
 

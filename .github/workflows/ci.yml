@@ -33,6 +33,27 @@ jobs:
         if: runner.os == 'Linux'
         run: tools/kiem-so-lieu.sh
 
+      # Adapter trợ năng NỐI VÀO HỆ ĐIỀU HÀNH — một adapter khác nhau cho mỗi
+      # nền, sau cờ `accesskit-platform`. `--workspace` trơn không chạm tới nó.
+      #
+      # Ba nền, ba bước ở ba chỗ khác nhau trong tệp này (macOS ở đây, Linux ở
+      # `linux-render`, Windows ở `windows-render`) — vì hai nền kia cần gói hệ
+      # thống mà công việc này không cài. Mỗi bước có ĐỦ CẢ `check` LẪN `test`:
+      # luật 21, và ở đây nó không phải hình thức — phép thử canh việc gốc cây
+      # được bọc thành `Role::Window` cho AT-SPI là thứ duy nhất kiểm được mà
+      # không cần một trình đọc màn hình thật.
+      #
+      # ⚠️ Không có bước nào ở đây chứng minh NVDA/Narrator/Orca đọc được. CI
+      # không có trình đọc màn hình nào; nó chỉ chứng minh mã dựng được và phần
+      # logic thuần là đúng. Xem chú thích đầu
+      # `crates/tcc-render-raster/src/accesskit_bridge/platform.rs`.
+      - name: AccessKit platform adapter (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo check -p tcc-render-raster --features accesskit-platform --all-targets
+          cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
+          cargo test -p tcc-render-raster --features accesskit-platform
+
       # Đường nhập ví cũ nằm sau cờ, nên `--workspace` trơn KHÔNG biên dịch nó.
       # Mã không được biên dịch trong CI là mã hỏng lúc nào không ai biết.
       # Cầu nối trợ năng (4.4) nằm sau cờ, nên `--workspace` trơn không biên
@@ -240,6 +261,18 @@ jobs:
       - run: cargo test -p tcc-shell --features cua-so-raster
       - run: cargo check -p tcc-render-raster --features window --all-targets
       - run: cargo test -p tcc-render-raster --features window
+      # Trợ năng trên nền AT-SPI (`accesskit_unix`). Suốt giai đoạn 4 chỗ này
+      # KHÔNG có gì cả — adapter chỉ nối trên macOS — nên một người dùng Orca
+      # mở trình duyệt này ra thì không nghe được gì, và không có bước CI nào
+      # nói ra điều đó.
+      #
+      # ⚠️ Bước này chứng minh mã DỰNG ĐƯỢC trên Linux, không chứng minh Orca
+      # đọc được. Runner không có D-Bus phiên lẫn trình đọc màn hình nào; phép
+      # thử chạy ở đây là phần logic thuần (bọc gốc cây thành `Role::Window`,
+      # mã nút giả không va mã thật). Đường chạy thật vẫn chưa ai nghe thử.
+      - run: cargo check -p tcc-render-raster --features accesskit-platform --all-targets
+      - run: cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
+      - run: cargo test -p tcc-render-raster --features accesskit-platform
 
 
       # The adversarial examples on a SECOND platform. They are the checks that
@@ -325,6 +358,12 @@ jobs:
       - run: cargo test -p tcc-shell --features cua-so-raster
       - run: cargo check -p tcc-render-raster --features window --all-targets
       - run: cargo test -p tcc-render-raster --features window
+      # Trợ năng trên UI Automation (`accesskit_windows`). Cùng lý do, cùng giới
+      # hạn như bước AT-SPI ở `linux-render`: dựng được ≠ NVDA đọc được, và
+      # runner không có NVDA lẫn Narrator.
+      - run: cargo check -p tcc-render-raster --features accesskit-platform --all-targets
+      - run: cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
+      - run: cargo test -p tcc-render-raster --features accesskit-platform
       # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
       # đủ ba — xem docs/nen-tang.md.
       - name: Measure the web platform (WebView2)

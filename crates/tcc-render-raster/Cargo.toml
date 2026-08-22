@@ -21,16 +21,51 @@ accesskit = { version = "0.24", optional = true }
 # một máy dựng web nào.
 tao = { version = "0.34", features = ["rwh_06"], optional = true }
 softbuffer = { version = "0.4", optional = true }
-# Adapter trợ năng của macOS. Sau cờ RIÊNG, không gộp vào `window`: một bản dựng
-# có cửa sổ mà chưa nối trợ năng vẫn phải dựng được, để chỗ chưa xong nhìn thấy
+taffy = "0.13"
+
+# ---- Adapter trợ năng, MỘT dòng cho mỗi nền ----
+#
+# Sau cờ RIÊNG (`accesskit-platform`), không gộp vào `window`: một bản dựng có
+# cửa sổ mà chưa nối trợ năng vẫn phải dựng được, để chỗ chưa xong nhìn thấy
 # được ở cây phụ thuộc chứ không nằm trong một chú thích.
+#
+# Và một dòng cho MỖI NỀN dưới `[target.…]`, không phải một dòng chung: chỉ đọc
+# tệp này là biết nền nào đã nối và nền nào chưa. Suốt giai đoạn 4 ở đây chỉ có
+# macOS, và đó chính là cách sự thật "hai nền kia không có trợ năng" nhìn thấy
+# được ở cây phụ thuộc.
+#
+# ⚠️ Điều kiện `cfg` của nhánh Linux phải khớp TỪNG CHỮ với `cfg` trong
+# `src/accesskit_bridge/platform.rs`. Rust không có bí danh `cfg` nếu không có
+# `build.rs`, nên nó bị chép tay — lệch một vế thì lỗi hiện ra dưới dạng
+# "unresolved import", không dưới dạng gì chỉ về đây.
+
+[target.'cfg(target_os = "macos")'.dependencies]
 accesskit_macos = { version = "0.26", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+accesskit_windows = { version = "0.34", optional = true }
+
+# Mọi Unix KHÔNG phải nhà Apple và không phải Android — tức là đường AT-SPI.
+# (`unix` trong `cfg` của Rust CÓ bao gồm macOS và iOS, nên phải loại tay.)
+[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))'.dependencies]
+accesskit_unix = { version = "0.22", optional = true }
 
 [features]
 accesskit = ["dep:accesskit"]
 window = ["dep:tao", "dep:softbuffer"]
-accesskit-platform = ["window", "accesskit", "dep:accesskit_macos"]
+# MỘT cờ, ba nền. Cargo bỏ qua `dep:` của một phụ thuộc không thuộc nền đang
+# dựng, nên dòng này đúng ở cả ba mà chỉ có một cờ — ba cờ thì sẽ có một cờ bị
+# quên, và nó sẽ bị quên trên đúng nền không ai ngồi trước.
+accesskit-platform = [
+  "window",
+  "accesskit",
+  "dep:accesskit_macos",
+  "dep:accesskit_windows",
+  "dep:accesskit_unix",
+]
 accesskit_macos = ["dep:accesskit_macos"]
+accesskit_windows = ["dep:accesskit_windows"]
+accesskit_unix = ["dep:accesskit_unix"]
 
 [dev-dependencies]
 png = "0.18"
