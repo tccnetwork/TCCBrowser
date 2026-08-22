@@ -1,0 +1,2574 @@
+{
+ "description": "DRAFT vectors for spec/0.2/05-interface.md — LAYOUT. NOT CONFORMANCE-BEARING. No implementation satisfies the clauses these check, this repository's runner does not load this file, and the two error codes below — bad-layout and bad-scroll — exist in no implementation and in no error-code table. They are proposals. See spec/0.2/README.md for why a draft written ahead of its code is labelled this loudly. Every case names the clause it checks, per rule 2 of spec/README.md.",
+ "status": "draft; not wired into any runner; nothing passes these and nothing fails them",
+ "specification": "spec/0.2/05-interface.md",
+ "format": {
+  "why_a_second_shape": "Every other vector group answers accept or reject. A layout requirement is neither: 'these two children are the same size' cannot be written as a verdict on a package. So this file carries two arrays. `cases` uses the shape ui.json already uses and any existing runner reads it. `geometry` is new and is described below.",
+  "cases": "Accept/reject, exactly as in ui.json: `case`, `clause`, `expect_pass`, `code` on a rejecting case, and `tree`. `clause` names the section of spec/0.2/05-interface.md the case checks.",
+  "geometry": "`case`, `clause`, `frame`, `direction`, `tree`, optional `scroll`, and `assert`. The runner lays `tree` out into `frame`, applies `scroll`, then checks every entry of `assert`.",
+  "frame": "`{\"width\": w, \"height\": h}` in the implementation's own units. These are NOT app-declared lengths — no package can see or set them — so they do not reopen the hole that 'no pixels, no colours' closes.",
+  "direction": "Always \"ltr\" in this draft. Right-to-left geometry is not specified; see 05 §2.",
+  "path": "An array of child indices from the root. The ROOT IS `[]`, not `[0]`. `[1, 0]` is the first child of the second child of the root.",
+  "scroll": "Optional list of `{\"path\": p, \"to\": \"start\"|\"end\"}` applied before measuring, so a case can assert what is true at the far end of a scroll container.",
+  "assert": "A list of relations. Each has `kind` and, for the three numeric kinds, operands `a` and `b`: `equal` (a == b), `at_least` (a >= b), `greater` (a > b). `contains` instead takes `outer` and `inner`, both paths, and holds when the inner node's box lies entirely within the outer node's inner box.",
+  "operand": "One of: `{\"path\": p, \"of\": q}` for a measured quantity; `{\"value\": n}` for a literal; `{\"sum\": [op, ...]}`; `{\"minus\": [op, op]}`.",
+  "quantities": {
+   "x, y, width, height": "The node's box, in frame coordinates, origin at the frame's top-left, y downward, at the case's scroll state.",
+   "x_end, y_end": "x + width, y + height.",
+   "inner_x, inner_y, inner_width, inner_height, inner_x_end, inner_y_end": "The node's box minus its own padding on all four edges. For a leaf, identical to its box.",
+   "content_width, content_height": "The extent spanned by the node's children, from the smallest child edge to the largest. Zero for a leaf and for a group with no children.",
+   "scroll_offset_x, scroll_offset_y": "The current scroll position. Zero for a node that is not a scroll container.",
+   "scroll_range_x, scroll_range_y": "The largest scroll offset reachable. Zero for a node that is not a scroll container.",
+   "unreachable": "1 if no combination of ancestor scroll offsets — including the frame's own scrolling — brings this node's box fully into view; otherwise 0. This is the quantity that watches 05 §9.1 and §9.2, which have no error code because no package can violate them."
+  },
+  "tolerance": "Compare with a tolerance of 0.5 frame units. Layout is computed in floating point — taffy uses f32 — and exact equality across implementations is not achievable. A tolerance stated here is a tolerance two implementations agree on; one left to each runner is not.",
+  "relations_not_appearance": "No geometry case asserts a spacing or padding magnitude, because 0.1 leaves those to the implementation and this draft does not take that back. Cases that must pin a magnitude do it by COMPARING two boxes in the same tree, so the assertion holds whatever scale is chosen."
+ },
+ "cases": [
+  {
+   "case": "a 0.1 tree with no layout fields is still valid",
+   "clause": "05 whole file",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "gap": "large",
+    "children": [
+     {
+      "kind": "text",
+      "content": "Xin chào"
+     },
+     {
+      "kind": "button",
+      "label": "Gửi",
+      "action": "gui"
+     }
+    ]
+   },
+   "notes": "A version that could not load the trees the previous one accepted would be a rewrite, not a layout addition. This is the only case here that must also pass on 0.1."
+  },
+  {
+   "case": "every layout field at once",
+   "clause": "05 whole file",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "gap": "medium",
+    "padding": "large",
+    "align_main": "center",
+    "align_cross": "stretch",
+    "wrap": false,
+    "scroll": false,
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "gap": "small",
+      "align_main": "between",
+      "align_cross": "center",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "fill"
+        },
+        "min": {
+         "main": "content"
+        },
+        "max": {
+         "main": "three_quarters"
+        }
+       },
+       {
+        "kind": "text",
+        "content": "B",
+        "size": {
+         "main": "quarter",
+         "cross": "full"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case": "unknown alignment word",
+   "clause": "§5",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_main": "middle",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "notes": "`align_main` is a closed set, exactly like `emphasis` in 0.1. An implementation that ignored a word it did not know would draw a different screen from the one that was signed."
+  },
+  {
+   "case": "an extent that only min and max permit, used in size",
+   "clause": "§4.2",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "size": {
+     "main": "none"
+    }
+   },
+   "notes": "A node with no extent is not drawable."
+  },
+  {
+   "case": "fill used in min",
+   "clause": "§4.2",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "min": {
+     "main": "fill"
+    }
+   },
+   "notes": "A minimum share of the free space is not a minimum of anything."
+  },
+  {
+   "case": "size object declaring neither axis",
+   "clause": "§4",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "size": {}
+   },
+   "notes": "It declares nothing, so one of the two readings of it — no effect, or some default — is wrong, and the author cannot tell which."
+  },
+  {
+   "case": "unknown key inside size",
+   "clause": "§4",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "size": {
+     "main": "half",
+     "depth": "full"
+    }
+   }
+  },
+  {
+   "case": "wrap is not a boolean",
+   "clause": "§8",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "group",
+    "wrap": "true",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "notes": "The string \"true\" is not the boolean true. 0.1 rejects unknown fields for the same reason it rejects this: the author believes a property took effect when it did not."
+  },
+  {
+   "case": "padding word outside the scale",
+   "clause": "§7",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "group",
+    "padding": "huge",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   }
+  },
+  {
+   "case": "padding on a leaf node",
+   "clause": "§7",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "padding": "small"
+   },
+   "notes": "`padding` exists on `group` only, so on a leaf it is an unknown field — 0.1's rule, unchanged."
+  },
+  {
+   "case": "scroll on a leaf node",
+   "clause": "§9.2",
+   "expect_pass": false,
+   "code": "bad-json",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "scroll": true
+   }
+  },
+  {
+   "case": "size declared on the root node",
+   "clause": "§1",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "group",
+    "size": {
+     "main": "half"
+    },
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "notes": "The root's box IS the frame, so the declaration could not take effect."
+  },
+  {
+   "case": "min above max on the same axis",
+   "clause": "§4.3",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "text",
+    "content": "A",
+    "min": {
+     "main": "half"
+    },
+    "max": {
+     "main": "quarter"
+    }
+   },
+   "notes": "One of the two is doing nothing."
+  },
+  {
+   "case": "min content with max quarter is accepted",
+   "clause": "§4.3",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "min": {
+       "main": "content"
+      },
+      "max": {
+       "main": "quarter"
+      }
+     }
+    ]
+   },
+   "notes": "`content` is not comparable with a fraction, so this is not the min-above-max case. Clamping order then lets the node exceed its own maximum — deliberate, and the reason §4.3 writes the order out."
+  },
+  {
+   "case": "a fraction inside a content-sized parent",
+   "clause": "§3",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "half"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "The inner group's own main axis is vertical and defaults to `content`, so the child's `half` would have to be half of something that is defined by the child. That is the cycle §3 exists to forbid."
+  },
+  {
+   "case": "fill inside a content-sized parent",
+   "clause": "§3",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "fill"
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case": "definiteness reaches through a stretched group",
+   "clause": "§3 rule 4",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "half"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "The inner group declares no cross size, the outer group stretches (the default) and does not wrap, and the outer group's horizontal extent is the frame's. So the inner group's horizontal axis is definite and `half` resolves against it."
+  },
+  {
+   "case": "an explicit cross content turns stretching off, so the fraction below is a cycle",
+   "clause": "§3 rule 4",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "cross": "content"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "half"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "This is the pair to the previous case, and the whole difference is one declaration. Absent and `content` are not the same value."
+  },
+  {
+   "case": "a cross fraction inside a wrapping group",
+   "clause": "§8",
+   "expect_pass": false,
+   "code": "bad-layout",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "wrap": true,
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "cross": "half"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "A line's cross extent comes from its content, so a child's cross axis inside a wrapping group is content-derived."
+  },
+  {
+   "case": "scroll container whose scroll axis is content-derived",
+   "clause": "§9.2",
+   "expect_pass": false,
+   "code": "bad-scroll",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "scroll": true,
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "`size.main` defaults to `content`, so this container grows with its content, never overflows, and never scrolls. Declaring `scroll` forces an explicit bounded size."
+  },
+  {
+   "case": "scroll container with a bounded scroll axis",
+   "clause": "§9.2",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "scroll": true,
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case": "scroll containers nested on the same axis",
+   "clause": "§9.3",
+   "expect_pass": false,
+   "code": "bad-scroll",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "scroll": true,
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "group",
+        "flow": "column",
+        "scroll": true,
+        "size": {
+         "main": "half"
+        },
+        "children": [
+         {
+          "kind": "text",
+          "content": "A"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case": "scroll containers nested on different axes",
+   "clause": "§9.3",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "scroll": true,
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "group",
+        "flow": "row",
+        "scroll": true,
+        "children": [
+         {
+          "kind": "text",
+          "content": "A"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "A horizontal strip inside a vertical page. The inner group's scroll axis is horizontal and is definite by stretching (§3 rule 4)."
+  },
+  {
+   "case": "the root group may scroll",
+   "clause": "§9.3",
+   "expect_pass": true,
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "scroll": true,
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "notes": "The frame's own scrolling (§1) is not a node, so it is not an ancestor for the nesting rule."
+  },
+  {
+   "case": "a wrapping scroll container needs a bounded CROSS axis",
+   "clause": "§9.2",
+   "expect_pass": false,
+   "code": "bad-scroll",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "wrap": true,
+      "scroll": true,
+      "size": {
+       "main": "half",
+       "cross": "content"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     }
+    ]
+   },
+   "notes": "Wrapping moves the scroll axis to the cross axis, so it is the cross extent that must be definite — the main one being bounded does not help."
+  }
+ ],
+ "geometry": [
+  {
+   "case": "the root node's box is the frame",
+   "clause": "§1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "children": []
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "x"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "y"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "width"
+     },
+     "b": {
+      "value": 1200
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "height"
+     },
+     "b": {
+      "value": 800
+     }
+    }
+   ],
+   "notes": "The root's main axis is vertical whatever its own flow says, and its extent is not negotiable."
+  },
+  {
+   "case": "a node's axes come from its PARENT's flow",
+   "clause": "§2, §4.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "quarter"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 300
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ],
+   "notes": "`size.main` on a child of a row is a HORIZONTAL size. The same JSON under a column would be vertical."
+  },
+  {
+   "case": "fill children share the free space equally",
+   "clause": "§4.4",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "fill"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "fill"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       1
+      ],
+      "of": "width"
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ]
+  },
+  {
+   "case": "fractions ignore siblings and gaps, so two halves overflow",
+   "clause": "§4.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "large",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "path": [],
+      "of": "content_width"
+     },
+     "b": {
+      "path": [],
+      "of": "inner_width"
+     }
+    }
+   ],
+   "notes": "Half is half of the parent, not half of what is left after the gap. The overflow is correct and is visible to the author who caused it."
+  },
+  {
+   "case": "nothing is shrunk to fit",
+   "clause": "§4.5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    },
+    {
+     "kind": "at_least",
+     "a": {
+      "path": [],
+      "of": "content_width"
+     },
+     "b": {
+      "value": 1800
+     }
+    }
+   ]
+  },
+  {
+   "case": "min raises a size",
+   "clause": "§4.3",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "quarter"
+      },
+      "min": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ]
+  },
+  {
+   "case": "max lowers a size",
+   "clause": "§4.3",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "full"
+      },
+      "max": {
+       "main": "third"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 400
+     }
+    }
+   ]
+  },
+  {
+   "case": "align_main center",
+   "clause": "§5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_main": "center",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 300
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ]
+  },
+  {
+   "case": "align_main end",
+   "clause": "§5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_main": "end",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ]
+  },
+  {
+   "case": "align_main between with exactly one child behaves as start",
+   "clause": "§5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_main": "between",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "There are no gaps to put the free space in."
+  },
+  {
+   "case": "align_main evenly puts space before, between and after",
+   "clause": "§5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "align_main": "evenly",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "quarter"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "quarter"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "quarter"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 75
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 450
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 825
+     }
+    }
+   ],
+   "notes": "1200 inner, 900 taken, 300 free, four equal spaces of 75."
+  },
+  {
+   "case": "align_main has no effect once a child fills",
+   "clause": "§5",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_main": "center",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "fill"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "value": 1200
+     }
+    }
+   ],
+   "notes": "Free space is zero after §4.4. Not an error; stated so an author who sees nothing move knows why."
+  },
+  {
+   "case": "align_cross stretch is the default",
+   "clause": "§6",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "height"
+     },
+     "b": {
+      "value": 800
+     }
+    }
+   ]
+  },
+  {
+   "case": "an explicit cross size turns stretching off and places at the start",
+   "clause": "§6",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "cross": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "height"
+     },
+     "b": {
+      "value": 400
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ]
+  },
+  {
+   "case": "align_cross center",
+   "clause": "§6",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_cross": "center",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "cross": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     },
+     "b": {
+      "value": 200
+     }
+    }
+   ]
+  },
+  {
+   "case": "align_cross end",
+   "clause": "§6",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "align_cross": "end",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "cross": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     },
+     "b": {
+      "value": 400
+     }
+    }
+   ]
+  },
+  {
+   "case": "padding none is exactly zero",
+   "clause": "§7.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "padding": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A"
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "inner_x"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "inner_y"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "inner_width"
+     },
+     "b": {
+      "value": 1200
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "inner_height"
+     },
+     "b": {
+      "value": 800
+     }
+    }
+   ],
+   "notes": "If `none` were not exactly zero, no tree could ever ask for edge-to-edge content."
+  },
+  {
+   "case": "the padding scale strictly increases",
+   "clause": "§7.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "third"
+      },
+      "padding": "none",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "third"
+      },
+      "padding": "small",
+      "children": [
+       {
+        "kind": "text",
+        "content": "B"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "third"
+      },
+      "padding": "large",
+      "children": [
+       {
+        "kind": "text",
+        "content": "C"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "inner_width"
+     },
+     "b": {
+      "value": 400
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "inner_width"
+     },
+     "b": {
+      "path": [
+       1
+      ],
+      "of": "inner_width"
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       1
+      ],
+      "of": "inner_width"
+     },
+     "b": {
+      "path": [
+       2
+      ],
+      "of": "inner_width"
+     }
+    }
+   ],
+   "notes": "Three boxes of identical outer width. Nothing in 0.1 stops an implementation drawing `small` and `large` the same, at which point the only spacing vocabulary the standard has says nothing."
+  },
+  {
+   "case": "the gap scale strictly increases, and none is exactly zero",
+   "clause": "§7.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "half"
+      },
+      "gap": "small",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "quarter"
+        }
+       },
+       {
+        "kind": "text",
+        "content": "B",
+        "size": {
+         "main": "quarter"
+        }
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "half"
+      },
+      "gap": "large",
+      "children": [
+       {
+        "kind": "text",
+        "content": "C",
+        "size": {
+         "main": "quarter"
+        }
+       },
+       {
+        "kind": "text",
+        "content": "D",
+        "size": {
+         "main": "quarter"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "minus": [
+       {
+        "path": [
+         0,
+         1
+        ],
+        "of": "x"
+       },
+       {
+        "sum": [
+         {
+          "path": [
+           0,
+           0
+          ],
+          "of": "x"
+         },
+         {
+          "path": [
+           0,
+           0
+          ],
+          "of": "width"
+         }
+        ]
+       }
+      ]
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "minus": [
+       {
+        "path": [
+         1,
+         1
+        ],
+        "of": "x"
+       },
+       {
+        "sum": [
+         {
+          "path": [
+           1,
+           0
+          ],
+          "of": "x"
+         },
+         {
+          "path": [
+           1,
+           0
+          ],
+          "of": "width"
+         }
+        ]
+       }
+      ]
+     },
+     "b": {
+      "minus": [
+       {
+        "path": [
+         0,
+         1
+        ],
+        "of": "x"
+       },
+       {
+        "sum": [
+         {
+          "path": [
+           0,
+           0
+          ],
+          "of": "x"
+         },
+         {
+          "path": [
+           0,
+           0
+          ],
+          "of": "width"
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ],
+   "notes": "This draft imposes on `gap` the two requirements 0.1 forgot to state for it. Measured as the space between two siblings, so it holds for any magnitude an implementation picks."
+  },
+  {
+   "case": "a fraction resolves against the parent's INNER extent, after padding",
+   "clause": "§4.1, §7",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "row",
+      "size": {
+       "main": "half"
+      },
+      "padding": "large",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "full"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "width"
+     },
+     "b": {
+      "path": [
+       0
+      ],
+      "of": "inner_width"
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "value": 600
+     },
+     "b": {
+      "path": [
+       0,
+       0
+      ],
+      "of": "width"
+     }
+    }
+   ],
+   "notes": "The grandchild asks for the whole of its parent and gets the parent minus its padding on both edges — strictly less than the parent's outer 600."
+  },
+  {
+   "case": "wrapping moves overflow to the cross axis",
+   "clause": "§8",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "wrap": true,
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     },
+     "b": {
+      "path": [
+       1
+      ],
+      "of": "y"
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "y"
+     },
+     "b": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "Two children fill the line exactly; the third starts a new one, in array order, at the line's start."
+  },
+  {
+   "case": "gap separates lines as well as children on a line",
+   "clause": "§8",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "wrap": true,
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "y"
+     },
+     "b": {
+      "sum": [
+       {
+        "path": [
+         0
+        ],
+        "of": "y"
+       },
+       {
+        "path": [
+         0
+        ],
+        "of": "height"
+       }
+      ]
+     }
+    }
+   ],
+   "notes": "With `gap: none` the second line begins exactly where the first ends, which pins the zero of the line spacing. The increasing case is the gap-scale vector above."
+  },
+  {
+   "case": "align_main applies within each line, independently",
+   "clause": "§8",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "wrap": true,
+    "gap": "none",
+    "align_main": "end",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "x"
+     },
+     "b": {
+      "value": 600
+     }
+    }
+   ],
+   "notes": "The full first line has no free space; the short last line is aligned on its own."
+  },
+  {
+   "case": "a scroll container clips, and every part of its content is still reachable",
+   "clause": "§9.2",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "scroll": true,
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "B"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "C"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "scroll_range_y"
+     },
+     "b": {
+      "value": 400
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "scroll_range_y"
+     },
+     "b": {
+      "minus": [
+       {
+        "path": [],
+        "of": "content_height"
+       },
+       {
+        "path": [],
+        "of": "inner_height"
+       }
+      ]
+     }
+    },
+    {
+     "kind": "greater",
+     "a": {
+      "sum": [
+       {
+        "path": [
+         2
+        ],
+        "of": "y"
+       },
+       {
+        "path": [
+         2
+        ],
+        "of": "height"
+       }
+      ]
+     },
+     "b": {
+      "path": [],
+      "of": "inner_y_end"
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "unreachable"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "Three children of 400 in an 800 container: the third is outside the visible box at rest, and scrolling reaches it. Clipping is permitted here and only here."
+  },
+  {
+   "case": "the scroll offset starts at the start",
+   "clause": "§9.2",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "scroll": true,
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "B"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "C"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "scroll_offset_y"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0
+      ],
+      "of": "y"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "Starting anywhere else hides the beginning of the content, which is where a heading or a `warning` emphasis belongs."
+  },
+  {
+   "case": "end padding stays visible at maximum scroll",
+   "clause": "§7.2",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "scroll": true,
+    "padding": "large",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "B"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "C"
+       }
+      ]
+     }
+    ]
+   },
+   "scroll": [
+    {
+     "path": [],
+     "to": "end"
+    }
+   ],
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "sum": [
+       {
+        "path": [
+         2
+        ],
+        "of": "y"
+       },
+       {
+        "path": [
+         2
+        ],
+        "of": "height"
+       }
+      ]
+     },
+     "b": {
+      "path": [],
+      "of": "inner_y_end"
+     }
+    }
+   ],
+   "notes": "At the far end the last child stops at the inner edge, so the container's own end padding is still between it and the box edge. Real browsers shipped the other behaviour for years, and it makes 'is there more below?' unanswerable."
+  },
+  {
+   "case": "a wrapping scroll container scrolls its CROSS axis",
+   "clause": "§9.2",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "row",
+    "wrap": true,
+    "scroll": true,
+    "gap": "none",
+    "children": [
+     {
+      "kind": "text",
+      "content": "A",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "B",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "C",
+      "size": {
+       "main": "half"
+      }
+     },
+     {
+      "kind": "text",
+      "content": "D",
+      "size": {
+       "main": "half"
+      }
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "scroll_range_x"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [],
+      "of": "scroll_offset_y"
+     },
+     "b": {
+      "value": 0
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       3
+      ],
+      "of": "unreachable"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "Wrapping removes main-axis overflow by construction — no fraction can exceed `full` — so a wrapping container that scrolled its main axis would scroll nothing."
+  },
+  {
+   "case": "a container that does NOT scroll does not clip either",
+   "clause": "§9.1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "gap": "none",
+      "children": [
+       {
+        "kind": "text",
+        "content": "A",
+        "size": {
+         "main": "full"
+        }
+       },
+       {
+        "kind": "text",
+        "content": "B",
+        "size": {
+         "main": "full"
+        }
+       },
+       {
+        "kind": "text",
+        "content": "C",
+        "size": {
+         "main": "full"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "sum": [
+       {
+        "path": [
+         0,
+         2
+        ],
+        "of": "y"
+       },
+       {
+        "path": [
+         0,
+         2
+        ],
+        "of": "height"
+       }
+      ]
+     },
+     "b": {
+      "path": [
+       0
+      ],
+      "of": "inner_y_end"
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       0,
+       2
+      ],
+      "of": "unreachable"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "The inner group is 400 tall and holds three children of 400. They are drawn past its edge and NOT cut. Clipping would edit a signed, user-visible string after signing — a `tone: \"danger\"` label loses its second half exactly this way."
+  },
+  {
+   "case": "the frame itself scrolls, so nothing overflows out of existence",
+   "clause": "§1",
+   "frame": {
+    "width": 1200,
+    "height": 800
+   },
+   "direction": "ltr",
+   "tree": {
+    "kind": "group",
+    "flow": "column",
+    "gap": "none",
+    "children": [
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "A"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "B"
+       }
+      ]
+     },
+     {
+      "kind": "group",
+      "flow": "column",
+      "size": {
+       "main": "half"
+      },
+      "children": [
+       {
+        "kind": "text",
+        "content": "C"
+       }
+      ]
+     }
+    ]
+   },
+   "assert": [
+    {
+     "kind": "greater",
+     "a": {
+      "sum": [
+       {
+        "path": [
+         2
+        ],
+        "of": "y"
+       },
+       {
+        "path": [
+         2
+        ],
+        "of": "height"
+       }
+      ]
+     },
+     "b": {
+      "value": 800
+     }
+    },
+    {
+     "kind": "equal",
+     "a": {
+      "path": [
+       2
+      ],
+      "of": "unreachable"
+     },
+     "b": {
+      "value": 0
+     }
+    }
+   ],
+   "notes": "Nothing in the tree scrolls, and the content is 1200 tall in an 800 frame. Without the frame's own scrolling the third child could not be reached by moving anything at all."
+  }
+ ]
+}

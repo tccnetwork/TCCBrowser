@@ -506,16 +506,46 @@ EOF
 # `acvp-mldsa65` là tên nhóm vector; `dilithium-py` là tên thư viện đối chiếu;
 # `hybrid-ed25519-mldsa65-v1` là tên bộ thuật toán; hai `x-acme-*` là VÍ DỤ về
 # trường lạ mà đặc tả cấm — không phải cơ chế mở rộng, 0.1 không có cơ chế ấy.
+# ⚠️ Tra vào bảng của ĐÚNG PHIÊN BẢN chứa tệp, không phải luôn của 0.1.
+#
+# Bản đầu đọc bảng của 0.1 cho MỌI tệp dưới `spec/`. Nó chạy đúng suốt thời gian
+# `spec/` chỉ có một phiên bản, rồi bản nháp 0.2 đặt tên hai mã lỗi mới và luật
+# này chặn — tức là **cấm mọi phiên bản sau đặt thêm mã lỗi**, đúng thứ
+# `VERSIONING.md` §3 cho phép làm. Một luật đúng với ý định mà sai với hiện thực
+# vẫn là luật sai, và cái giá của nó là người ta lách bằng cách đổi tên mã lỗi —
+# vừa qua được luật, vừa mất đúng cái luật sinh ra để giữ.
+#
+# Tệp ngoài mọi thư mục phiên bản (`spec/README.md`, `VERSIONING.md`, …) vẫn tra
+# vào 0.1: chúng nói về tiêu chuẩn nói chung, và 0.1 là bản duy nhất đã chốt.
 la=$(python3 - "$mien_22" <<'PY2'
 import re, sys, pathlib
 mien = set(sys.argv[1].split())
-van = open("spec/0.1/06-error-codes.md").read()
-bang = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|", van, re.M))
+
+def bang_cua(thu_muc):
+    """Tập mã lỗi khai trong bảng của một thư mục phiên bản."""
+    t = pathlib.Path("spec") / thu_muc / "06-error-codes.md"
+    if not t.exists():
+        return set()
+    return set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|", t.read_text(), re.M))
+
+goc = bang_cua("0.1")
+nho = {}
 ra = {}
 for p in sorted(pathlib.Path("spec").rglob("*.md")):
+    # `spec/<phien-ban>/...` — phần đầu là số phiên bản thì tra bảng của nó.
+    phan = p.relative_to("spec").parts
+    pb = phan[0] if len(phan) > 1 and re.fullmatch(r"\d+\.\d+", phan[0]) else None
+    if pb is None:
+        bang = goc
+    else:
+        # Phiên bản kế thừa mã của 0.1: 0.2 KHÔNG bỏ mã nào của 0.1 (luật thu
+        # hồi nằm ở `VERSIONING.md`, không phải ở đây), nên hợp hai tập.
+        if pb not in nho:
+            nho[pb] = goc | bang_cua(pb)
+        bang = nho[pb]
     for tok in re.findall(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`", p.read_text()):
         if tok not in bang and tok not in mien:
-            ra.setdefault(tok, set()).add(p.name)
+            ra.setdefault(tok, set()).add(str(p))
 print(" ".join(f"{k}({','.join(sorted(v))})" for k, v in sorted(ra.items())))
 PY2
 )
