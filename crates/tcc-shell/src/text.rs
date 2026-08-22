@@ -795,9 +795,13 @@ mod kiem_thu {
         // Cắt phần kiểm thử: nó nhắc tới cả hai chuỗi, và đếm cả nó vào thì hai
         // con số vẫn khớp trong khi một điểm vào thật đã quên.
         let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        // Đếm hàm MỞ MÀN HÌNH, không đếm mọi `pub fn`: tệp ấy còn có hàm đọc
+        // kết quả sau khi màn hình đóng, và bắt nó "lấy chữ theo ngôn ngữ" là
+        // vô nghĩa — nó không vẽ gì. Bản trước đếm mọi `pub fn` và đỏ ngay lần
+        // thêm hàm không-vẽ đầu tiên.
         assert_eq!(
             than.matches("raster_text(ngon_ngu)").count(),
-            than.matches("\npub fn ").count(),
+            than.matches("open_screen(").count(),
             "một điểm vào raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
         );
     }

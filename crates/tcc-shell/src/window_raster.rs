@@ -272,15 +272,18 @@ pub fn open_import_choice_raster(
 
 /// Màn hỏi mã PIN, bằng bộ dựng **RA PIXEL**.
 ///
-/// # ⚠️ Hàm này KHÔNG trả mã PIN về
+/// # ⚠️ Kết quả mang mã PIN — thả nó ngay sau khi dùng
 ///
-/// `ScreenOutcome` chỉ mang nút đã bấm và các công tắc đang bật — bộ dựng raster
-/// chưa có đường trả nội dung ô nhập ra ngoài. Nên đây là điểm vào để **hiện**
-/// màn hỏi PIN trên bộ dựng thứ hai, chứ chưa phải để chạy trọn luồng nhập ví;
-/// luồng ấy vẫn nằm ở `wallet_flow`, trên đường WebView.
+/// `ScreenOutcome::fields` chứa **chữ thật người dùng gõ**, không phải hàng
+/// chấm: hàng chấm là việc của lúc vẽ. Nên bên gọi cầm một bí mật trong tay —
+/// không ghi ra nhật ký, không giữ lâu hơn một lần dùng.
 ///
-/// Nói ra ở đây chứ không để bên gọi tự phát hiện: một hàm tên `open_import_pin`
-/// mà im lặng về việc không trả PIN là một hàm người ta sẽ dùng rồi mới biết.
+/// Và **đóng cửa sổ không phải là gửi đi**: `action` là `None` thì bỏ cả
+/// `fields`, đúng như đã làm với `toggles_on`.
+///
+/// Nói ra ở đây chứ không để bên gọi tự phát hiện — cả hai chiều đều nguy: một
+/// hàm im lặng về việc KHÔNG trả PIN thì người ta dùng rồi mới biết, còn một
+/// hàm im lặng về việc CÓ trả PIN thì người ta ghi nó vào nhật ký.
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
@@ -295,6 +298,25 @@ pub fn open_import_pin_raster(
         crate::text::label(crate::text::TextKey::NhapPinTieuDeCuaSo, ngon_ngu),
         &crate::text::raster_text(ngon_ngu),
     )?)
+}
+
+/// Lấy chữ người dùng đã gõ vào một ô, theo nhãn — và **chỉ khi họ bấm nút**.
+///
+/// # Vì sao là một hàm chứ không phải một dòng `.get()`
+///
+/// Vì cái dòng ấy dễ viết thiếu vế thứ hai. Đóng cửa sổ **không phải** là gửi
+/// đi: người dùng gõ nửa cụm từ khôi phục rồi đóng cửa sổ là họ **đổi ý**, và
+/// đọc `fields` lúc ấy là đọc một bí mật họ vừa từ chối đưa.
+///
+/// Cùng luật đã áp cho `toggles_on`, viết thành mã để không ai phải nhớ.
+#[cfg(feature = "cua-so-raster")]
+#[must_use]
+pub fn field_if_submitted<'a>(
+    ket: &'a tcc_render_raster::window::ScreenOutcome,
+    nhan: &str,
+) -> Option<&'a str> {
+    ket.action.as_ref()?;
+    ket.fields.get(nhan).map(String::as_str)
 }
 
 #[cfg(test)]
@@ -318,8 +340,20 @@ mod kiem_thu {
         for khuc in than.split("\npub fn ").skip(1) {
             let ten = khuc.split(['(', '<']).next().unwrap_or_default().to_owned();
             let het = khuc.find("\n}").unwrap_or(khuc.len());
-            ra.push((ten, khuc[..het].to_owned()));
+            let than_ham = khuc[..het].to_owned();
+            // ĐIỂM VÀO = hàm MỞ một màn hình, không phải mọi `pub fn`.
+            //
+            // Tệp này còn có hàm đọc kết quả sau khi màn hình đóng. Bắt nó
+            // "lấy chữ theo ngôn ngữ" là vô nghĩa — nó không vẽ gì cả. Bản đầu
+            // của phép thử gộp cả hai, và nó đỏ ngay lần thêm hàm đầu tiên.
+            if than_ham.contains("open_screen(") {
+                ra.push((ten, than_ham));
+            }
         }
+        assert!(
+            !ra.is_empty(),
+            "không tìm thấy điểm vào nào — phép soi hỏng"
+        );
         ra
     }
 
@@ -515,5 +549,36 @@ mod kiem_thu {
                 "`{ten}` không lấy chữ trợ năng theo ngôn ngữ đang dùng"
             );
         }
+    }
+
+    /// **Đóng cửa sổ KHÔNG phải là gửi đi.**
+    ///
+    /// Người dùng gõ nửa cụm từ khôi phục rồi đóng cửa sổ là họ ĐỔI Ý. Đọc
+    /// `fields` lúc ấy là đọc một bí mật họ vừa từ chối đưa.
+    #[cfg(feature = "cua-so-raster")]
+    #[test]
+    fn dong_cua_so_thi_khong_doc_duoc_o_nhap() {
+        use tcc_render_raster::window::ScreenOutcome;
+        let mut f = std::collections::BTreeMap::new();
+        f.insert("PIN".to_owned(), "1234".to_owned());
+
+        let dong = ScreenOutcome {
+            action: None,
+            toggles_on: std::collections::BTreeSet::new(),
+            fields: f.clone(),
+        };
+        assert_eq!(
+            super::field_if_submitted(&dong, "PIN"),
+            None,
+            "đọc được PIN từ một màn hình người dùng đã ĐÓNG"
+        );
+
+        let gui = ScreenOutcome {
+            action: Some("mo-khoa".to_owned()),
+            toggles_on: std::collections::BTreeSet::new(),
+            fields: f,
+        };
+        assert_eq!(super::field_if_submitted(&gui, "PIN"), Some("1234"));
+        assert_eq!(super::field_if_submitted(&gui, "không có"), None);
     }
 }

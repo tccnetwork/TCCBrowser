@@ -58,6 +58,16 @@ pub struct ScreenOutcome {
     /// trường hợp ấy: đóng cửa sổ **không phải** là đồng ý. Nói ra ở đây vì kiểu
     /// dữ liệu không tự nói được — nó chỉ là một tập hợp.
     pub toggles_on: BTreeSet<String>,
+    /// Nội dung các ô nhập lúc màn hình kết thúc, tra theo **nhãn**.
+    ///
+    /// ⚠️ Có thể chứa **bí mật** — cụm từ khôi phục, mã PIN. Bên gọi phải thả
+    /// nó ngay sau khi dùng, và **không bao giờ** ghi ra nhật ký. Ô che chữ
+    /// (`secret: true`) trả về **chữ thật**, không phải hàng chấm: hàng chấm là
+    /// việc của lúc VẼ, còn đây là thứ người dùng đã gõ.
+    ///
+    /// Như `toggles_on`: đóng cửa sổ mà không bấm nút thì bên gọi phải BỎ nó
+    /// đi. Đóng cửa sổ không phải là gửi đi.
+    pub fields: std::collections::BTreeMap<String, String>,
 }
 
 /// Mở màn hình `tree` bằng bộ dựng ra pixel.
@@ -288,6 +298,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     Ok(ScreenOutcome {
         action: da_bam,
         toggles_on: bat,
+        fields: tt.noi_dung_o,
     })
 }
 
@@ -820,6 +831,29 @@ mod kiem_thu {
             action: a,
             toggle: true,
         }
+    }
+
+    /// **Ô che chữ trả về CHỮ THẬT, không phải hàng chấm.**
+    ///
+    /// Hàng chấm là việc của lúc VẼ. Nếu kết quả trả về cũng là chấm thì màn
+    /// nhập PIN vô dụng — khung nhận về `••••` và không mở được ví nào.
+    ///
+    /// Phép thử soi chỗ dựng kết quả, vì đường chạy thật cần một cửa sổ.
+    #[test]
+    fn o_che_chu_tra_ve_chu_that() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        // Kết quả lấy THẲNG từ trạng thái khung, không đi qua bước vẽ nào.
+        assert!(
+            than.contains("fields: tt.noi_dung_o"),
+            "kết quả không mang nội dung ô nhập"
+        );
+        // Và chỗ DUY NHẤT biến chữ thành chấm phải nằm ở bộ dựng, không ở đây.
+        assert!(
+            !than.contains('•'),
+            "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
+             khung nhận về hàng chấm thay vì thứ người dùng gõ"
+        );
     }
 
     /// **Cuộn bị KẸP ở cả hai đầu.**
