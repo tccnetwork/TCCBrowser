@@ -812,36 +812,6 @@ mod kiem_thu_43 {
         Some((tren, duoi))
     }
 
-    /// Tìm **khe trắng rộng nhất** giữa hai cụm mực, trả về cột giữa khe.
-    ///
-    /// Cắt cột ở một con số viết cứng là phép thử phụ thuộc PHÔNG CHỮ — và nó
-    /// đã đỏ trên Windows ngày 17/08/2026 vì phông mặc định ở đó rộng khác
-    /// macOS. Tìm khe thì không phụ thuộc gì.
-    fn khe_rong_nhat(bd: &RasterRenderer) -> usize {
-        let co_muc = |x: usize| (0..bd.height()).any(|y| bd.image()[y * WIDTH + x] < 250);
-        let dau = (0..WIDTH).find(|x| co_muc(*x)).unwrap_or(0);
-        let cuoi = (0..WIDTH).rev().find(|x| co_muc(*x)).unwrap_or(WIDTH - 1);
-        let (mut khe_bat_dau, mut khe_do_dai) = (dau, 0usize);
-        let (mut dang_bat_dau, mut dang_do_dai) = (dau, 0usize);
-        for x in dau..=cuoi {
-            if co_muc(x) {
-                if dang_do_dai > khe_do_dai {
-                    khe_do_dai = dang_do_dai;
-                    khe_bat_dau = dang_bat_dau;
-                }
-                dang_do_dai = 0;
-                dang_bat_dau = x + 1;
-            } else {
-                dang_do_dai += 1;
-            }
-        }
-        if dang_do_dai > khe_do_dai {
-            khe_do_dai = dang_do_dai;
-            khe_bat_dau = dang_bat_dau;
-        }
-        khe_bat_dau + khe_do_dai / 2
-    }
-
     /// **Hàng ngang căn GIỮA theo chiều dọc, không dính mép trên.**
     ///
     /// Một nhãn nhỏ cạnh một tiêu đề lớn mà dính mép trên thì trông như bị treo
@@ -856,10 +826,31 @@ mod kiem_thu_43 {
         let mut bd = RasterRenderer::new();
         bd.render(&cay).unwrap();
 
-        // Cắt ở khe trắng giữa hai chữ, không cắt ở một con số viết cứng.
-        let khe = khe_rong_nhat(&bd);
-        let (tren_to, duoi_to) = khoang_doc(&bd, 0, khe).expect("phải có chữ to");
-        let (tren_nho, duoi_nho) = khoang_doc(&bd, khe, WIDTH).expect("phải có chữ nhỏ");
+        // ⚠️ Cắt vùng theo HỘP ĐÃ ĐẶT, không theo khe trắng rộng nhất.
+        //
+        // Bản trước cắt ở khe trắng rộng nhất và chạy đúng trên macOS suốt thời
+        // gian dài, rồi đỏ trên Linux: với phông khác, khe giữa hai chữ CÁI
+        // trong "To" rộng hơn khe giữa hai TỪ, nên vùng bên phải nuốt luôn nửa
+        // chữ "To". Số đo ra "chữ nhỏ cao 22px" trong khi chữ to chỉ 16px — một
+        // con số vô lý mà phép thử vẫn báo như thể nó đo được điều gì đó.
+        //
+        // Hộp thì bộ dựng biết chính xác. Vẫn đo MỰC THẬT trong hộp, nên phép
+        // thử vẫn chứng minh chữ được VẼ RA, chỉ thôi đoán chỗ cắt.
+        let hop = bd.placed_boxes();
+        assert_eq!(hop.len(), 2, "phải có đúng hai ô: {hop:?}");
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "toạ độ ô, luôn dương và nhỏ hơn bề rộng ảnh"
+        )]
+        let cot = |i: usize| {
+            let (x, _, w, _) = hop[i];
+            (x as usize, (x + w) as usize)
+        };
+        let (to_tu, to_den) = cot(0);
+        let (nho_tu, nho_den) = cot(1);
+        let (tren_to, duoi_to) = khoang_doc(&bd, to_tu, to_den).expect("phải có chữ to");
+        let (tren_nho, duoi_nho) = khoang_doc(&bd, nho_tu, nho_den).expect("phải có chữ nhỏ");
 
         let giua_to = usize::midpoint(tren_to, duoi_to);
         let giua_nho = usize::midpoint(tren_nho, duoi_nho);
