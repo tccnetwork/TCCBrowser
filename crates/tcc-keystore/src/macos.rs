@@ -27,6 +27,14 @@ use crate::{Keystore, KeystoreError, Purpose, SecretKey};
 /// Tên dịch vụ trong Keychain. Đổi nó là mọi khoá cũ thành vô hình.
 const SERVICE: &str = "com.tcc.browser.wallet";
 
+/// Tên mục ĐÁNH DẤU đi kèm một khoá.
+///
+/// Ký tự `|` không nằm trong tên khoá nào (tên dẫn từ địa chỉ ví, chỉ `0-9a-f`),
+/// nên một mục đánh dấu không bao giờ đụng tên một khoá thật.
+fn dau_moc(name: &str) -> String {
+    format!("{name}|co")
+}
+
 /// Kho khoá thật, dựa trên Keychain.
 #[derive(Debug, Default)]
 pub struct MacKeychain;
@@ -35,6 +43,21 @@ impl MacKeychain {
     #[must_use]
     pub const fn new() -> Self {
         Self
+    }
+
+    /// Có MỤC KHOÁ tên này không — hỏi thẳng mục khoá, không qua mục đánh dấu.
+    ///
+    /// Chỉ dùng ở nhánh dự phòng của [`Self::unlock`], và chỉ khi truy vấn kèm
+    /// `USER_PRESENCE` đã trả về "không thấy". Nghĩa là tới đây chắc chắn không
+    /// có mục nào được bảo vệ khớp tên — nên lời hỏi này không đụng ACL nào và
+    /// không dựng hộp thoại nào.
+    ///
+    /// KHÔNG gộp vào `contains`: `contains` là câu hỏi của giao diện ("đã có ví
+    /// chưa") và phải im lặng tuyệt đối; đây là câu hỏi của phần chẩn đoán
+    /// ("có phải khoá nằm đó mà không được bảo vệ không"). Gộp hai câu ấy làm
+    /// một chính là chỗ bản trước hỏng.
+    fn co_muc_khoa(name: &str) -> bool {
+        generic_password(Self::tuy_chon(name, false)).is_ok()
     }
 
     fn tuy_chon(name: &str, hoi_nguoi_dung: bool) -> PasswordOptions {
@@ -61,6 +84,12 @@ impl Keystore for MacKeychain {
             return Err(KeystoreError::AlreadyExists(name.to_owned()));
         }
         set_generic_password_options(key.expose(), Self::tuy_chon(name, true))
+            .map_err(|e| KeystoreError::Os(e.to_string()))?;
+        // Mục đánh dấu ghi SAU khoá: hỏng ở giữa thì còn khoá mà mất dấu — giao
+        // diện nói "chưa có ví" trong khi khoá vẫn an toàn trong Keychain. Ghi
+        // ngược lại thì có dấu mà không có khoá, và giao diện mời người dùng mở
+        // một cái ví không tồn tại.
+        set_generic_password_options(&[1u8], Self::tuy_chon(&dau_moc(name), false))
             .map_err(|e| KeystoreError::Os(e.to_string()))
     }
 
@@ -88,7 +117,7 @@ impl Keystore for MacKeychain {
                 // Nên trước khi nói "không có ví", hỏi lại bằng đường không
                 // điều kiện. Có thật thì đó là chuyện khác hẳn — và là chuyện
                 // người dùng phải biết.
-                if matches!(loi, KeystoreError::NotFound(_)) && self.contains(name) {
+                if matches!(loi, KeystoreError::NotFound(_)) && Self::co_muc_khoa(name) {
                     return Err(KeystoreError::UnprotectedKey(name.to_owned()));
                 }
                 Err(loi)
@@ -97,12 +126,35 @@ impl Keystore for MacKeychain {
     }
 
     fn contains(&self, name: &str) -> bool {
-        // KHÔNG đặt `USER_PRESENCE` ở đây: hỏi Touch ID chỉ để biết "đã có ví
-        // chưa" là cách nhanh nhất dạy người dùng chạm bừa mọi hộp thoại.
-        generic_password(Self::tuy_chon(name, false)).is_ok()
+        // ⚠️ Đọc MỤC ĐÁNH DẤU, không đụng tới mục giữ khoá.
+        //
+        // Hai bản trước đều sai, và sai theo hai kiểu khác nhau:
+        //
+        // 1. Gọi `generic_password(...)` với `USER_PRESENCE` tắt, tin rằng
+        //    không xin quyền thì không bị hỏi. Cờ ấy chỉ nói về TRUY VẤN; danh
+        //    sách kiểm soát truy cập nằm trên CHÍNH MỤC đã cất.
+        // 2. Hỏi THUỘC TÍNH thay vì dữ liệu. Vẫn hỏi Touch ID — macOS phải
+        //    thoả ACL mới xét được mục có khớp hay không.
+        //
+        // Đo được 22/08/2026, in từng bước: `contains` TRƯỚC khi cất trả `false`
+        // và im lặng; SAU khi cất thì treo, và `coreautha` dựng hộp thoại.
+        //
+        // `kSecUseAuthenticationUIFail` — cách chuẩn để hỏi "có tồn tại không"
+        // mà không hiện hộp thoại — thì `security-framework` 3.7 KHÔNG phơi ra;
+        // thứ nó phơi ra là `skip_authenticated_items`, làm điều ngược lại: bỏ
+        // qua mục cần xác thực, tức là báo "chưa có ví" trong khi có.
+        //
+        // Nên: cất khoá thì cất kèm một MỤC ĐÁNH DẤU không khoá. Nó không giữ
+        // bí mật nào — nội dung là một byte — và nó trả lời đúng câu `contains`
+        // hỏi: "đã có ví chưa". Thêm một `unsafe` thứ hai chỉ để đỡ một hộp
+        // thoại là đánh đổi tồi hơn hẳn.
+        generic_password(Self::tuy_chon(&dau_moc(name), false)).is_ok()
     }
 
     fn delete(&mut self, name: &str) -> Result<(), KeystoreError> {
+        // Xoá dấu TRƯỚC: nếu xoá khoá hỏng giữa chừng thì thà mất dấu còn hơn
+        // để lại một cái dấu trỏ vào chỗ trống.
+        let _ = delete_generic_password(SERVICE, &dau_moc(name));
         delete_generic_password(SERVICE, name).map_err(|e| phan_loai(e, name))
     }
 }

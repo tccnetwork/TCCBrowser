@@ -30,14 +30,25 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let ten = "tcc-thu-quyen-keychain";
-    if kho.contains(ten) {
-        let _ = kho.delete(ten);
-    }
+    // Tên MỚI mỗi lượt: một lượt chạy bị cắt giữa chừng để lại rác, và lượt sau
+    // đo nhầm chính đống rác ấy thay vì đo mã.
+    let ten = &format!(
+        "tcc-thu-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs())
+    );
+    // In TỪNG BƯỚC. Treo ở đâu thì phải nhìn ra ngay bước ấy, chứ không phải
+    // đoán từ một khoảng lặng.
+    println!("1. contains TRƯỚC khi cất (không được hỏi xác thực)…");
+    println!("   = {}", kho.contains(ten));
+    println!("2. store…");
     match kho.store(ten, SecretKey::new(vec![7u8; 32])) {
         Ok(()) => {
             println!("✓ CẤT ĐƯỢC vào Keychain với USER_PRESENCE");
-            println!("  contains = {}", kho.contains(ten));
+            println!("3. contains SAU khi cất (đây là chỗ từng treo)…");
+            println!("   = {}", kho.contains(ten));
+            println!("4. delete… (bước này ĐƯỢC PHÉP hỏi xác thực)");
             match kho.delete(ten) {
                 Ok(()) => println!("✓ xoá được — Keychain sạch lại, không để rác"),
                 Err(e) => println!("⚠ không xoá được: {e}"),

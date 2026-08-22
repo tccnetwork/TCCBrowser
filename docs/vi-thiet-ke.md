@@ -847,6 +847,42 @@ Bớt hẳn một thao tác ghi mà kế hoạch tưởng là bắt buộc.
 nó nhúng đúng chuỗi ấy làm quyền, chuỗi ấy không khớp hồ sơ, quyền không được
 cấp. `tools/dong-goi-macos.sh` giờ đọc tiền tố **từ chính hồ sơ**.
 
+## 19c. `contains` hỏi Touch ID — và hai bản vá đầu đều sai (22/08/2026)
+
+Chạy lại sau khi khởi động máy: `store` xong, rồi **treo**, và `coreautha` dựng
+hộp thoại xác thực. Lượt chạy TRƯỚC khi khởi động lại thì không hỏi — vì macOS
+còn nhớ một lần xác thực gần đó. **Một lượt xanh nhờ bộ nhớ đệm ấy không phải
+bằng chứng**, và nếu không khởi động lại thì tôi đã tưởng xong.
+
+Điều đó phá đúng lý do `contains` tồn tại. Chú thích của chính nó nói ra: bắt
+chạm Touch ID chỉ để biết *"đã có ví chưa"* là cách nhanh nhất **dạy người dùng
+chạm bừa mọi hộp thoại**.
+
+| Bản vá | Vì sao sai |
+|---|---|
+| Truy vấn với `USER_PRESENCE` **tắt** | Cờ ấy chỉ nói về TRUY VẤN. Danh sách kiểm soát truy cập nằm trên **chính mục đã cất** |
+| Hỏi **thuộc tính** thay vì dữ liệu | Vẫn hỏi. macOS phải thoả ACL mới xét được mục có khớp hay không |
+
+`kSecUseAuthenticationUIFail` — cách chuẩn để hỏi "có tồn tại không" mà không
+hiện hộp thoại — thì `security-framework` 3.7 **không phơi ra**. Thứ nó phơi ra
+là `skip_authenticated_items`, làm điều **ngược lại**: bỏ qua mục cần xác thực,
+tức là báo "chưa có ví" trong khi có.
+
+**Cách đã dùng:** cất khoá thì cất kèm một **mục đánh dấu không khoá**. Nó không
+giữ bí mật nào — nội dung là một byte — và nó trả lời đúng câu `contains` hỏi.
+Thêm một `unsafe` thứ hai chỉ để đỡ một hộp thoại là đánh đổi tồi hơn hẳn.
+
+Thứ tự ghi và xoá là có chủ ý: **ghi khoá trước, dấu sau**; **xoá dấu trước,
+khoá sau**. Hỏng giữa chừng thì luôn nghiêng về phía *"có khoá mà không có
+dấu"* — giao diện nói "chưa có ví" trong khi khoá vẫn an toàn. Chiều ngược lại
+là mời người dùng mở một cái ví không tồn tại.
+
+**Và bản vá ấy tự tạo ra một hồi quy**, phép thử bắt được: `unlock` dùng
+`contains` để nhận ra *"có khoá nhưng không được bảo vệ"*. Khi `contains` chuyển
+sang đọc mục đánh dấu, lưới an toàn ấy im lặng báo "không có ví" cho một khoá
+cất bằng `security` CLI. Giờ nhánh chẩn đoán hỏi thẳng mục khoá qua một hàm
+riêng — hai câu hỏi khác nhau thì không được gộp làm một.
+
 ## 19. Ví bị chặn ở ĐÓNG GÓI, không phải ở mã (17/08/2026)
 
 Ba lần thử để `USER_PRESENCE` chạy được:
