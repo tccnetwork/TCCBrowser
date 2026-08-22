@@ -19,12 +19,13 @@
 //!
 //! Mã PIN hỏi trên `stdin` với **tiếng vọng tắt** — gõ không hiện ra màn hình.
 //!
-//! # Vì sao chưa gõ thẳng vào cửa sổ trình duyệt được
+//! # Vì sao vẫn còn đường `stdin` này
 //!
-//! Đọc ngược nội dung ô nhập từ WebView về Rust là **một đường dữ liệu mới**, và
-//! nó cố ý chưa mở trong đường chạy thật — xem
-//! `tcc-render-webview/src/window.rs::KICH_BAN_DO_BO_GO`. Mở nó là việc phải
-//! làm cẩn thận, không phải việc làm tạm để hôm nay chạy được.
+//! Gõ thẳng vào cửa sổ đã chạy được: bộ dựng ra pixel nhận chữ từ bộ gõ của hệ
+//! điều hành và khung tự giữ nội dung ô nhập —
+//! `tcc_shell::wallet_flow::import_from_file` đi đúng đường ấy. Tệp này ở lại
+//! cho máy KHÔNG có màn hình, và vì `stdin` là đường duy nhất kiểm được tự động
+//! mà không cần một vòng lặp sự kiện.
 
 use std::process::{Command, ExitCode};
 

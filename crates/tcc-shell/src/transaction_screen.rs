@@ -176,8 +176,6 @@ pub enum XacNhanError {
 mod kiem_thu {
     use super::*;
     use tcc_chain::Address;
-    use tcc_render_webview::WebViewRenderer;
-    use tcc_ui::Renderer as _;
 
     fn mau() -> Transfer {
         Transfer {
@@ -197,9 +195,7 @@ mod kiem_thu {
 
     fn ve(t: &Transfer, bam: &[u8; 32]) -> Result<String, XacNhanError> {
         let cay = build(t, bam, Language::Vi)?;
-        let mut bd = WebViewRenderer::new();
-        bd.render(&cay).unwrap();
-        Ok(bd.body().to_owned())
+        Ok(crate::do_cay::chu(&cay))
     }
 
     /// 18 chữ số thập phân — chỗ một lần làm tròn là mất tiền.
@@ -265,7 +261,7 @@ mod kiem_thu {
         let t = mau();
         let s = ve(&t, &t.signing_message()).unwrap();
         assert!(
-            s.contains("data-nhan=\"canh-bao\""),
+            s.contains("[cảnh-báo]"),
             "câu chuyển tiền không mang dấu hiệu cảnh báo:\n{s}"
         );
     }
@@ -302,16 +298,17 @@ mod kiem_thu {
         let ma = "0xc06d6191c039ece24cc87ff8d4b4dae82257f657bbaf32c48e473c5c38017ade";
         for ngon_ngu in [Language::En, Language::Vi] {
             let cay = build_sent(ma, ngon_ngu).unwrap();
-            let mut bd = WebViewRenderer::new();
-            bd.render(&cay).unwrap();
-            let s = bd.body();
+            let s = crate::do_cay::chu(&cay);
             assert!(s.contains(ma), "mã giao dịch bị cắt:\n{s}");
             assert!(!s.contains('…'), "màn hình có dấu cắt ngắn");
             assert!(
                 s.contains(crate::text::label(TextKey::XongConCho, ngon_ngu)),
                 "không nói rõ chưa vào khối ({ngon_ngu:?})"
             );
-            assert!(s.contains("data-nhan=\"canh-bao\""));
+            // Câu ấy phải mang MỨC NHẤN cảnh báo, không phải chỉ là chữ
+            // thường trùng nội dung: mức nhấn là thứ bộ dựng buộc phải làm
+            // trông khác đi, còn chữ thường thì không.
+            assert!(s.contains("[cảnh-báo]"), "{s}");
         }
     }
 
@@ -320,7 +317,7 @@ mod kiem_thu {
     fn qua_duoc_kiem_dinh_tro_nang() {
         let t = mau();
         let cay = build(&t, &t.signing_message(), Language::Vi).unwrap();
-        let mut bd = WebViewRenderer::new();
+        let mut bd = tcc_render_raster::RasterRenderer::new();
         tcc_ui::check_accessibility_parity(&mut bd, &cay)
             .expect("màn xác nhận giao dịch không qua được kiểm định trợ năng");
     }

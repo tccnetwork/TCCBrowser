@@ -142,8 +142,6 @@ pub fn open_in_system_browser(url: &str) -> Result<(), LinkError> {
 )]
 mod kiem_thu {
     use super::*;
-    use tcc_render_webview::WebViewRenderer;
-    use tcc_ui::Renderer as _;
 
     /// **Chỉ `http`/`https`.** Mọi lược đồ khác là một cửa vào máy người dùng.
     #[test]
@@ -187,19 +185,19 @@ mod kiem_thu {
     fn dia_chi_hien_du_khong_cat() {
         let dai = "https://ngan-hang-that.example.com/dang-nhap?tiep=rat-dai-de-thu-xem-co-bi-cat-khong&them=nua";
         let cay = build_confirm(dai, Language::Vi).unwrap();
-        let mut bd = WebViewRenderer::new();
-        bd.render(&cay).unwrap();
-        let s = bd.body();
-        // `&` phải được THOÁT — một `&` hay `<` thô trong địa chỉ là một lỗ
-        // chèn mã. Nên so với dạng đã thoát, không so với chuỗi gốc.
-        let da_thoat = dai.replace('&', "&amp;");
-        assert!(s.contains(&da_thoat), "địa chỉ bị cắt:\n{s}");
+        let s = crate::do_cay::chu(&cay);
+        assert!(s.contains(dai), "địa chỉ bị cắt:\n{s}");
         assert!(!s.contains('…'), "màn hình có dấu cắt ngắn");
-        // Và chốt luôn rằng nó ĐÃ thoát, chứ không lọt nguyên `&` ra tài liệu.
-        assert!(
-            !s.contains("&them=nua"),
-            "dấu & lọt ra tài liệu chưa thoát — lỗ chèn mã"
-        );
+        // ⚠️ Vế "và ký tự `&` phải được THOÁT" đã bỏ cùng bộ dựng WebView,
+        // không phải bỏ vì thấy phiền.
+        //
+        // Nó canh một lỗ CỦA THẺ ĐÁNH DẤU: một `&` hay `<` thô trong địa chỉ,
+        // ghép thẳng vào tài liệu, là một lỗ chèn mã. Màn hình bây giờ là một
+        // CÂY — địa chỉ là nội dung của một nút chữ, không bao giờ được ghép
+        // vào cú pháp nào — nên lỗ ấy không còn cửa nào để tồn tại.
+        //
+        // Ngày có bộ dựng nào lại sinh ra thẻ đánh dấu, phép thử này phải mọc
+        // lại vế ấy.
     }
 
     /// Màn hình phải nói rõ **ở đó không còn thứ gì của TCC che chắn**.
@@ -209,15 +207,13 @@ mod kiem_thu {
     fn noi_ro_ra_ngoai_la_mat_che_chan() {
         for ngon_ngu in [Language::En, Language::Vi] {
             let cay = build_confirm("https://a.example", ngon_ngu).unwrap();
-            let mut bd = WebViewRenderer::new();
-            bd.render(&cay).unwrap();
-            let s = bd.body();
+            let s = crate::do_cay::chu(&cay);
             assert!(s.contains(label(TextKey::RaNgoaiRoiKhoiTcc, ngon_ngu)));
             assert!(
                 s.contains(label(TextKey::RaNgoaiKhongConCheChan, ngon_ngu)),
                 "không nói rõ mất che chắn ({ngon_ngu:?})"
             );
-            assert!(s.contains("data-nhan=\"canh-bao\""));
+            assert!(s.contains("[cảnh-báo]"));
         }
     }
 
@@ -257,7 +253,7 @@ mod kiem_thu {
     #[test]
     fn qua_duoc_kiem_dinh_tro_nang() {
         let cay = build_confirm("https://a.example", Language::En).unwrap();
-        let mut bd = WebViewRenderer::new();
+        let mut bd = tcc_render_raster::RasterRenderer::new();
         tcc_ui::check_accessibility_parity(&mut bd, &cay)
             .expect("màn ra ngoài không qua được kiểm định trợ năng");
     }

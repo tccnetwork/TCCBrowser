@@ -1,23 +1,19 @@
-//! **Cổng ra giai đoạn 4**: đúng gói đã ký ấy, trên bộ dựng KHÔNG phải WebView.
+//! Chạy một gói đã ký, trên bộ dựng ra pixel.
 //!
-//! Chạy: `cargo run -p tcc-shell --features cua-so-raster --example man-hinh-raster examples/hello-tcc`
+//! Chạy: `cargo run -p tcc-shell --features window --example man-hinh-raster examples/hello-tcc`
 //!
 //! # Nó chứng minh câu nào
 //!
 //! `docs/ke-hoach.md`, cổng ra giai đoạn 4: *"ứng dụng mẫu chạy trên **cả hai**
-//! bộ dựng, **không sửa một dòng nào**."*
+//! bộ dựng, **không sửa một dòng nào**."* Cổng ấy đã qua ngày 22/08/2026, và
+//! hôm sau bộ dựng thứ nhất bị bỏ hẳn — chính vì nó đã qua nên bỏ được.
 //!
-//! Tệp này và `kiem-man-hinh-ung-dung.rs` đọc **cùng một thư mục gói**, kiểm
-//! **cùng một chữ ký**, giải mã **cùng một `ui.json`**. Khác đúng một dòng: một
-//! bên `WebViewRenderer`, bên kia `RasterRenderer`. Gói không biết, và không cần
-//! biết, mình đang được vẽ bằng gì.
+//! Nay tệp này chứng minh một câu hẹp hơn và vẫn đáng: cùng một thư mục gói,
+//! cùng một chữ ký, cùng một `ui.json`, hiện ra màn hình và **bấm được**. Vẽ ra
+//! được điểm ảnh mà không ai nhìn thấy chúng thì mới chỉ chứng minh `tcc-ui`
+//! không dính thẻ đánh dấu; hiện ra và bấm được mới là một trình duyệt.
 //!
-//! Trước tệp này, `tcc-render-raster` vẽ ra được điểm ảnh mà **không ai nhìn
-//! thấy chúng**. Vẽ ra được thì chứng minh `tcc-ui` không dính HTML; **hiện ra
-//! và bấm được** mới chứng minh nó thay thế được WebView. Chỉ câu sau là đường
-//! thoát.
-//!
-//! Không một dòng `wry`, không WebKit, không máy dựng nào của hệ điều hành.
+//! Không một dòng thư viện dựng web nào, không máy dựng nào của hệ điều hành.
 
 #![allow(
     clippy::expect_used,

@@ -340,23 +340,20 @@ mod kiem_thu {
     /// không — và nửa đầu mới là nửa người dùng NHÌN thấy.
     #[test]
     fn quyen_vi_ky_duoc_hien_khac_han_quyen_khac() {
-        use tcc_render_webview::WebViewRenderer;
         let ve = |q: &str| {
             let cay = build(&ke_khai(q), Language::En).unwrap();
-            let mut bd = WebViewRenderer::new();
-            bd.render(&cay).unwrap();
-            bd.body().to_owned()
+            crate::do_cay::chu(&cay)
         };
         let vi = ve(XIN_VI_KY);
         let mang = ve(r#"[{"name":"network",
                     "scope":{"kind":"network","hosts":["shop.tcc-coin.com"]},
                     "reason":"tải danh sách"}]"#);
         assert!(
-            vi.contains("data-nhan=\"canh-bao\""),
+            vi.contains("[cảnh-báo]"),
             "hàng ví không mang dấu hiệu cảnh báo:\n{vi}"
         );
         assert!(
-            !mang.contains("data-nhan=\"canh-bao\""),
+            !mang.contains("[cảnh-báo]"),
             "hàng quyền mạng cũng mang dấu cảnh báo — vậy thì không còn KHÁC HẲN nữa"
         );
         assert!(
@@ -561,9 +558,8 @@ mod kiem_thu {
     /// đây là màn hình mà người khiếm thị cần đọc chính xác nhất.
     #[test]
     fn hop_thoai_qua_duoc_kiem_dinh_tro_nang() {
-        use tcc_render_webview::WebViewRenderer;
         let cay = build(&ke_khai(XIN_VI_KY), Language::En).unwrap();
-        let mut bd = WebViewRenderer::new();
+        let mut bd = tcc_render_raster::RasterRenderer::new();
         tcc_ui::check_accessibility_parity(&mut bd, &cay)
             .expect("hộp thoại hỏi quyền không qua được kiểm định trợ năng");
 

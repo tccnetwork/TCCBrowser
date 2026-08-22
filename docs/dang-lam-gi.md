@@ -38,7 +38,7 @@ cáo của nó. Thay bằng tính chất gọi đúng tên: **"im khi nạp"**, 
 
 ### Đường thoát khỏi WebView giờ là thật
 
-`cargo run -p tcc-shell --features cua-so-raster-tro-nang --example man-hinh-raster examples/hello-tcc hop-thoai`
+`cargo run -p tcc-shell --features window-tro-nang --example man-hinh-raster examples/hello-tcc hop-thoai`
 
 Gói **đã ký** lên màn hình, **bấm được**, **gạt công tắc được**, và **VoiceOver
 đọc được** — không một dòng `wry`. `cargo tree` xác nhận: 0 crate `wry`.

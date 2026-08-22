@@ -18,7 +18,6 @@
 //! một dòng người đọc mã tin rồi đi tìm thứ không có — và ở tệp đầu tiên người
 //! ta mở thì nó tốn nhiều thời gian nhất.
 
-pub mod address_bar;
 pub mod external_link;
 #[cfg(feature = "import-web-wallet")]
 pub mod import_screen;
@@ -42,11 +41,8 @@ pub mod wallet_flow;
 pub use tcc_ui::AccessNode;
 pub use text::Language;
 
-#[cfg(feature = "window")]
-pub mod window;
-
 /// Cửa sổ của bộ dựng RA PIXEL. Không kéo theo `wry`.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub mod window_raster;
 
 pub mod window_title;
@@ -58,3 +54,83 @@ pub mod window_title;
 /// mã có lỗi gì.
 #[cfg(feature = "network")]
 pub use tcc_net::HttpNetwork;
+
+/// Đổ một cây giao diện ra CHỮ, để phép thử khẳng định nội dung.
+///
+/// # Vì sao có mô-đun này
+///
+/// Các phép thử màn hình trước đây vẽ cây bằng bộ dựng WebView rồi khẳng định
+/// trên chuỗi HTML. Chúng khẳng định **nội dung** — "có tên ứng dụng không",
+/// "có câu cảnh báo không" — nên buộc chúng đi qua một bộ dựng cụ thể là buộc
+/// một câu hỏi trung lập phải mượn từ vựng của một cài đặt.
+///
+/// Bản đổ này đọc thẳng CÂY. Nó không thuộc bộ dựng nào, nên phép thử không
+/// phải đổi lần nữa vào ngày có bộ dựng thứ ba.
+#[cfg(test)]
+pub(crate) mod do_cay {
+    use core::fmt::Write as _;
+
+    use tcc_ui::{Emphasis, Node, NodeKind};
+
+    /// Cả cây thành chữ: nhãn, nội dung, trạng thái công tắc, mức nhấn.
+    pub(crate) fn chu(cay: &Node) -> String {
+        let mut ra = String::new();
+        ve(cay, &mut ra);
+        ra
+    }
+
+    fn ve(n: &Node, ra: &mut String) {
+        match n.kind() {
+            NodeKind::Text { content, emphasis } => {
+                // Mức nhấn ĐI CÙNG chữ: vài phép thử hỏi đúng câu "câu này có
+                // được đánh dấu cảnh báo không", và đó là một câu hỏi về cây,
+                // không phải về thuộc tính HTML nào.
+                let dau = match emphasis {
+                    Emphasis::Title => "[tiêu-đề] ",
+                    Emphasis::Warning => "[cảnh-báo] ",
+                    Emphasis::Subtle => "[phụ] ",
+                    Emphasis::Normal => "",
+                };
+                let _ = writeln!(ra, "chữ {dau}{content}");
+            }
+            NodeKind::Button {
+                label,
+                tone,
+                action,
+            } => {
+                let _ = writeln!(ra, "nút[{tone:?}] {label} -> {}", action.as_str());
+            }
+            NodeKind::Field {
+                label,
+                value,
+                secret,
+            } => {
+                // ⚠️ KHÔNG đổ giá trị của ô che chữ. Bản đổ này đi vào thông báo
+                // của phép thử đỏ, và một phép thử đỏ hay được dán vào chỗ khác.
+                let hien = if *secret { "•••" } else { value.as_str() };
+                let _ = writeln!(
+                    ra,
+                    "ô nhập[{}] {label}: {hien}",
+                    if *secret { "che" } else { "hở" }
+                );
+            }
+            NodeKind::Toggle { label, on, action } => {
+                let _ = writeln!(
+                    ra,
+                    "công tắc[{}] {label} -> {}",
+                    if *on { "BẬT" } else { "tắt" },
+                    action.as_str()
+                );
+            }
+            NodeKind::Image { source, alt } => {
+                let _ = writeln!(ra, "ảnh {source} ({alt:?})");
+            }
+            NodeKind::Group { flow, gap, .. } => {
+                let _ = writeln!(ra, "nhóm[{flow:?},{gap:?}]");
+            }
+        }
+        for c in n.children() {
+            ve(c, ra);
+        }
+    }
+}

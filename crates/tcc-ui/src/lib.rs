@@ -7,9 +7,10 @@
 //! **Crate này KHÔNG được phụ thuộc bộ dựng nào, và KHÔNG được lộ ra tài liệu
 //! trang web, thẻ đánh dấu hay bảng kiểu.**
 //!
-//! Vì sao: giai đoạn đầu ta mượn WebView làm bộ dựng. Nếu ứng dụng TCC nhìn thấy
-//! cây tài liệu của trang web, thì ngày có bộ dựng GPU riêng, MỌI ứng dụng phải
-//! viết lại — và lúc đó không ai dám bỏ WebView nữa. Giàn giáo hoá thành nhà.
+//! Vì sao: giai đoạn đầu ta mượn một máy dựng web làm bộ dựng. Luật này là thứ
+//! giữ cho việc bỏ nó khả thi — và ngày 23/08/2026 nó đã được bỏ thật, không
+//! một ứng dụng nào phải sửa một dòng. Đó là bằng chứng luật này đáng giá, chứ
+//! không phải lý do nới nó: bộ dựng hôm nay cũng chỉ là bộ dựng hôm nay.
 //!
 //! Ứng dụng chỉ biết tới tầng này. Đổi bộ dựng thì ứng dụng không sửa một dòng.
 //!
@@ -729,10 +730,14 @@ impl Node {
     ///
     /// # Vì sao trạng thái công tắc do BÊN NGOÀI giữ, không do cây giữ
     ///
-    /// Bộ dựng WebView để trình duyệt giữ trạng thái công tắc trong tài liệu, rồi
-    /// hỏi lại lúc người dùng bấm xác nhận. Bộ dựng ra pixel không có ai giữ hộ,
-    /// nên khung phải tự giữ — và hàm này là chỗ trạng thái ấy quay lại thành
-    /// một cây vẽ được.
+    /// Bộ dựng đầu tiên của dự án là một máy dựng web, và nó để trình duyệt giữ
+    /// hộ trạng thái công tắc trong tài liệu rồi hỏi lại lúc bấm xác nhận. Bộ
+    /// dựng ra pixel không có ai giữ hộ, nên khung phải tự giữ — và hàm này là
+    /// chỗ trạng thái ấy quay lại thành một cây vẽ được.
+    ///
+    /// Cách này hoá ra đúng hơn, và nó sống lâu hơn cái nó thay: trạng thái nằm
+    /// ở khung thì cây vẫn bất biến, và một câu trả lời chưa được xác nhận
+    /// không bao giờ nằm trong thứ đang được vẽ.
     ///
     /// Cây **bất biến**: hàm trả về cây MỚI. Sửa tại chỗ thì một màn hình đã vẽ
     /// và một màn hình sắp vẽ dùng chung một đối tượng, mà hai thứ ấy phải so
@@ -759,9 +764,8 @@ impl Node {
     /// # Vì sao tra theo nhãn chứ không theo mã hành động
     ///
     /// Ô nhập **không có** mã hành động — tiêu chuẩn 0.1 không định nghĩa hành
-    /// động nào cho nó. Nhãn là thứ duy nhất phân biệt được hai ô, và đó cũng
-    /// đúng thứ đường WebView đang dùng: kịch bản khung đọc `input[aria-label]`
-    /// rồi gửi kèm nhãn.
+    /// động nào cho nó. Nhãn là thứ duy nhất phân biệt được hai ô — và nó cũng
+    /// chính là thứ trình đọc màn hình đọc lên, nên hai bên nói cùng một tên.
     ///
     /// Nhãn trùng nhau thì hai ô dùng chung một giá trị. Chấp nhận được ở 0.1:
     /// hai ô cùng nhãn vốn đã là một màn hình hỏng — người dùng không phân biệt

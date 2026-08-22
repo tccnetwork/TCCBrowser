@@ -42,11 +42,11 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 393 tests
+cargo test --workspace                              # 337 tests
 # Feature-gated code is NOT built by --workspace. These are what CI runs, and
 # skipping them locally is how three red builds happened in one week:
 cargo test -p tcc-shell --features window
-cargo test -p tcc-shell --features cua-so-raster
+cargo test -p tcc-shell --features window
 cargo test -p tcc-shell --features accesskit --test hai-bo-dung
 cargo test -p tcc-render-webview --features window
 cargo test -p tcc-render-raster --features window
@@ -97,10 +97,10 @@ comment in a file:
 ```bash
 # The signed example package, drawn entirely in Rust. On macOS turn on
 # VoiceOver (Cmd-F5): the screen should read, and its buttons should work.
-cargo run -p tcc-shell --features cua-so-raster-tro-nang \
+cargo run -p tcc-shell --features window-tro-nang \
   --example man-hinh-raster examples/hello-tcc
 # The permission dialog on that renderer — the screen worth attacking.
-cargo run -p tcc-shell --features cua-so-raster-tro-nang \
+cargo run -p tcc-shell --features window-tro-nang \
   --example man-hinh-raster examples/hello-tcc hop-thoai
 ```
 
@@ -223,5 +223,5 @@ Not a public issue. Use GitHub's private vulnerability reporting on this
 repository, or the TCC IT department.
 
 A report that the **design** is wrong is worth more here than a report that the
-code disagrees with the design. The code has 393 tests watching it. The design
+code disagrees with the design. The code has 337 tests watching it. The design
 has had one pair of eyes.

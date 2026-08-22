@@ -533,19 +533,6 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
     }
 }
 
-/// Chữ mà bộ dựng cần, đã dịch sẵn.
-///
-/// Bộ dựng không biết ngôn ngữ — bảng dịch nằm ở đây, và hàm này là cửa duy
-/// nhất đưa chữ xuống. Thêm một chuỗi cho bộ dựng thì thêm ở `TextKey` rồi thêm
-/// vào đây, không bao giờ viết thẳng vào bộ dựng.
-#[must_use]
-pub fn renderer_text(n: Language) -> tcc_render_webview::markup::RendererText {
-    tcc_render_webview::markup::RendererText {
-        cau_mat_mat: label(TextKey::CauMatMat, n).to_owned(),
-        vai_tro_mat_mat: label(TextKey::VaiTroMatMat, n).to_owned(),
-    }
-}
-
 /// Câu báo một hành động ĐÃ CHẠY XONG.
 ///
 /// Chữ của KHUNG, không phải của ứng dụng — nên nó đi qua `text.rs` như mọi
@@ -575,7 +562,7 @@ pub fn action_refused(hanh_dong: &str, n: Language) -> String {
 /// Có phép thử chốt điều đó. Hai bộ dựng nói hai câu khác nhau cho cùng một nút
 /// là đúng thứ phép kiểm chéo sinh ra để chặn: người dùng nghe một câu ở bộ
 /// dựng này và một câu khác ở bộ dựng kia thì không biết tin bên nào.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 #[must_use]
 pub fn raster_text(n: Language) -> tcc_render_raster::window::ScreenText {
     tcc_render_raster::window::ScreenText {
@@ -747,31 +734,31 @@ mod kiem_thu {
         assert!(vi.contains("KHÔNG chứng minh"), "thiếu vế phủ định: {vi}");
     }
 
-    /// **Hai bộ dựng nói CÙNG một câu cho nút không hoàn tác.**
+    /// **Câu cho nút không hoàn tác phải ĐƯỢC DỊCH THẬT.**
     ///
     /// Bộ dựng ra pixel từng gọi `AccessText::default()` — tiếng Anh, bất kể
-    /// người dùng đang dùng ngôn ngữ nào — trong khi WebView nhận câu đã dịch.
-    /// Người dùng VoiceOver tiếng Việt nghe một câu tiếng Anh, và hai bộ dựng
-    /// mô tả cùng một nút bằng hai câu khác nhau.
+    /// người dùng đang dùng ngôn ngữ nào. Người dùng VoiceOver tiếng Việt nghe
+    /// một câu tiếng Anh cho đúng cái nút nguy hiểm nhất trên màn hình.
     ///
-    /// Phép thử này chốt chúng về cùng một khoá. Ai đổi một bên mà quên bên kia
-    /// thì nó đỏ.
-    #[cfg(feature = "cua-so-raster")]
+    /// Bản trước của phép thử này so câu ấy giữa HAI bộ dựng. Bộ dựng thứ hai
+    /// đã bỏ, nên vế so mất theo — nhưng cái nó thật sự canh thì không: câu
+    /// phải có, và hai ngôn ngữ phải KHÁC nhau. Bỏ luôn cả phép thử vì mất vế
+    /// so là bỏ mất phần còn canh được.
+    #[cfg(feature = "window")]
     #[test]
-    fn hai_bo_dung_noi_cung_cau_mat_mat() {
+    fn cau_mat_mat_duoc_dich_that() {
         for n in [Language::En, Language::Vi] {
             assert_eq!(
-                renderer_text(n).cau_mat_mat,
                 raster_text(n).destructive_note,
-                "hai bộ dựng mô tả nút không hoàn tác bằng hai câu khác nhau ({n:?})"
+                label(TextKey::CauMatMat, n)
             );
             assert_eq!(
-                renderer_text(n).vai_tro_mat_mat,
-                raster_text(n).destructive_role
+                raster_text(n).destructive_role,
+                label(TextKey::VaiTroMatMat, n)
             );
             assert!(!raster_text(n).destructive_note.is_empty());
         }
-        // Và hai ngôn ngữ phải KHÁC nhau — nếu không, "đã dịch" chỉ là lời nói.
+        // Hai ngôn ngữ phải KHÁC nhau — nếu không, "đã dịch" chỉ là lời nói.
         assert_ne!(
             raster_text(Language::En).destructive_note,
             raster_text(Language::Vi).destructive_note
@@ -795,14 +782,28 @@ mod kiem_thu {
         // Cắt phần kiểm thử: nó nhắc tới cả hai chuỗi, và đếm cả nó vào thì hai
         // con số vẫn khớp trong khi một điểm vào thật đã quên.
         let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
-        // Đếm hàm MỞ MÀN HÌNH, không đếm mọi `pub fn`: tệp ấy còn có hàm đọc
-        // kết quả sau khi màn hình đóng, và bắt nó "lấy chữ theo ngôn ngữ" là
-        // vô nghĩa — nó không vẽ gì. Bản trước đếm mọi `pub fn` và đỏ ngay lần
-        // thêm hàm không-vẽ đầu tiên.
-        assert_eq!(
-            than.matches("raster_text(ngon_ngu)").count(),
-            than.matches("open_screen(").count(),
-            "một điểm vào raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
-        );
+        // ⚠️ Soi TỪNG CHỖ, không so hai TỔNG.
+        //
+        // Bản trước đếm số lần xuất hiện `raster_text(ngon_ngu)` rồi so với số
+        // lần `open_screen(`. Nó chạy đúng suốt thời gian mọi màn hình mở bằng
+        // một hàm và mỗi hàm gọi đúng một lần — rồi `open_sequence` xuất hiện,
+        // một điểm vào gọi `raster_text` ba lần (màn đầu, và mỗi lần vẽ lại),
+        // và hai con số rời nhau trong khi mọi chỗ đều làm ĐÚNG.
+        //
+        // Hai tổng khớp nhau không phải điều ta muốn biết. Điều ta muốn biết là:
+        // **không màn hình nào được dựng mà thiếu câu đã dịch.** Nên soi từng
+        // chỗ dựng màn hình một.
+        for mo in ["open_screen(", "Screen {"] {
+            for (i, _) in than.match_indices(mo) {
+                // Cắt theo KÝ TỰ, không theo byte: tệp này đầy tiếng Việt,
+                // và cắt giữa một ký tự nhiều byte là một lần hoảng loạn.
+                let doan: String = than[i..].chars().take(260).collect();
+                assert!(
+                    doan.contains("raster_text(ngon_ngu)"),
+                    "một chỗ dựng màn hình raster không lấy câu \"không hoàn tác\" \
+                     theo ngôn ngữ đang dùng:\n{doan}"
+                );
+            }
+        }
     }
 }

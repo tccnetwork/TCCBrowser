@@ -4,9 +4,12 @@
 //! # Vì sao ứng dụng KHÔNG ship thẻ đánh dấu
 //!
 //! Bản đầu, `tcc new` sinh ra `entry: "index.html"`. Nó chạy được, và nó **phá
-//! luật trung tâm của cả dự án**: ứng dụng ship HTML nghĩa là ngày có bộ dựng
-//! GPU riêng, mọi ứng dụng phải viết lại — và lúc đó không ai dám bỏ WebView
-//! nữa. Giàn giáo hoá thành nhà.
+//! luật trung tâm của cả dự án**: ứng dụng ship thẻ đánh dấu nghĩa là ngày đổi
+//! bộ dựng, mọi ứng dụng phải viết lại — và lúc đó không ai dám đổi nữa. Giàn
+//! giáo hoá thành nhà.
+//!
+//! Ngày 23/08/2026 bộ dựng bị đổi thật, và không một ứng dụng nào phải sửa một
+//! dòng. Luật này là lý do việc ấy làm được.
 //!
 //! Nên điểm vào là cây component KHAI BÁO. Ứng dụng nói *có gì trên màn hình*;
 //! bộ dựng quyết định *vẽ ra sao*. Đổi bộ dựng thì ứng dụng không sửa một dòng.

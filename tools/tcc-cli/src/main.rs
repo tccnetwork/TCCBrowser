@@ -100,8 +100,8 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
     // Điểm vào là CÂY KHAI BÁO, không phải thẻ đánh dấu.
     //
     // Từng có lúc chỗ này sinh ra `index.html`. Nó chạy được, và nó phá luật
-    // trung tâm của cả dự án: ứng dụng ship HTML nghĩa là ngày có bộ dựng riêng,
-    // mọi ứng dụng phải viết lại — và lúc đó không ai dám bỏ WebView nữa.
+    // trung tâm của cả dự án: ứng dụng ship thẻ đánh dấu nghĩa là ngày đổi bộ
+    // dựng, mọi ứng dụng phải viết lại — và lúc đó không ai dám đổi nữa.
     fs::write(
         noi_dung.join(TEP_GIAO_DIEN),
         r#"{

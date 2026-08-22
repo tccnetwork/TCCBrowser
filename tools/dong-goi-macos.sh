@@ -73,27 +73,28 @@ cat > "$GOI/Contents/Info.plist" <<PLIST
     ⚠️ KHÔNG khai NSCameraUsageDescription, NSMicrophoneUsageDescription,
     NSLocationWhenInUseUsageDescription hay bất kỳ NS*UsageDescription nào.
 
-    Lý do là một hạn chế của thư viện, không phải sở thích: wry 0.52.1 viết
-    CỨNG WKPermissionDecision::Grant cho yêu cầu micro/camera của trang web
-    (wkwebview/class/wry_web_view_ui_delegate.rs dòng 74) và không cho ghi đè.
-    Nên ở tầng 2, một trang gọi getUserMedia() được cấp mà KHÔNG ai hỏi người
-    dùng — đâm thẳng vào quyết định kiến trúc số 2.
+    Ly do goc la mot han che cua thu vien: mot may dung web viet CUNG quyet
+    dinh Grant cho yeu cau micro/camera cua trang va khong cho ghi de. May dung
+    ay da bo ngay 23/08/2026, nen duong tan cong cu the ay khong con.
+
+    Luat o lai, va o lai vi mot ly do dung doc lap: mot dong NS*UsageDescription
+    la loi hua voi he dieu hanh rang ung dung nay co luc can micro. Ngay nao ta
+    that su can, dong ay phai duoc them CUNG mot hop thoai hoi quyen that va mot
+    muc trong ban ke khai — khong bao gio them tron.
 
     ⚠️ KHÔNG dùng dấu huyền trong khối này: heredoc dựng Info.plist cố ý KHÔNG
     đóng nháy (nó cần khai triển $TEN), nên dấu huyền bị vỏ lệnh chạy như lệnh.
     Đã trả giá 22/08/2026 — kịch bản dựng ra một Info.plist méo và tự báo lỗi.
 
-    Chắn duy nhất còn lại nằm ở tầng hệ điều hành: thiếu chuỗi mô tả mục đích
-    thì macOS TỪ CHỐI ứng dụng chạm micro/camera, nên lời Grant của wry không
-    có gì để cấp.
-
-    Thêm một dòng NS*UsageDescription vào đây là gỡ chắn ấy đi. Có phép kiểm
-    trong kịch bản này canh, và luật kiến trúc 20 canh ở CI.
+    Tang he dieu hanh van la chan cuoi: thieu chuoi mo ta muc dich thi macOS TU
+    CHOI ung dung cham micro/camera. Them mot dong NS*UsageDescription vao day
+    la go chan ay di. Co phep kiem trong kich ban nay canh, va luat kien truc 20
+    canh o CI.
   -->
 </dict></plist>
 PLIST
 
-# Chắn duy nhất chống việc wry tự cấp micro/camera — xem chú thích trong Info.plist.
+# Chắn chống khai quyền thiết bị lén — xem chú thích trong Info.plist.
 # Soi KHAI BÁO thật, không soi mọi chỗ nhắc tên — y hệt luật 20. Bản trước dùng
 # `grep -q "UsageDescription"` và nó bắt nhầm ĐÚNG CÂU CHÚ THÍCH giải thích vì
 # sao không được khai. Một phép canh tự tố cáo mình là một phép canh người ta

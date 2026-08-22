@@ -23,14 +23,8 @@ fn main() -> ExitCode {
     };
 
     // `web <https://…>` — TẦNG 2: mở một trang web thật.
-    if doi.first().map(String::as_str) == Some("web") {
-        return lenh_web(&doi, ngon_ngu);
-    }
 
     // `corpus <tệp>` — chạy bộ trang thật, đếm chắn. Xem `corpus/50-trang.txt`.
-    if doi.first().map(String::as_str) == Some("corpus") {
-        return lenh_corpus(&doi);
-    }
 
     // `vi nhap <tệp>` — nhập ví từ bản kết xuất của ví web, NGAY TRONG cửa sổ.
     if doi.first().map(String::as_str) == Some("vi") {
@@ -61,9 +55,10 @@ fn main() -> ExitCode {
 
     // Đường dẫn gói THẬT trên đĩa. Đây là đường ống đầy đủ: kiểm chữ ký → hỏi
     // người dùng → cấp quyền → nội dung điểm vào.
-    if let Some(duong_dan) = doi.iter().find(|a| {
-        !a.starts_with('-') && *a != "vi" && *a != "quyen" && *a != "hop-thoai" && *a != "web"
-    }) {
+    if let Some(duong_dan) = doi
+        .iter()
+        .find(|a| !a.starts_with('-') && *a != "vi" && *a != "quyen" && *a != "hop-thoai")
+    {
         return mo_goi_that(std::path::Path::new(duong_dan), ngon_ngu);
     }
 
@@ -89,7 +84,10 @@ fn main() -> ExitCode {
 
 #[cfg(feature = "window")]
 fn quan_ly(goi: &std::path::Path, ngon_ngu: Language) -> ExitCode {
-    match tcc_shell::window::manage_permissions(&goi.join(".tcc-quyen.json"), ngon_ngu) {
+    match tcc_shell::window_raster::manage_permissions_raster(
+        &goi.join(".tcc-quyen.json"),
+        ngon_ngu,
+    ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("✗ {e}");
@@ -114,13 +112,14 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     } else {
         Some(duong_dan.join(".tcc-quyen.json"))
     };
-    let app = match tcc_shell::window::open_package(duong_dan, ngon_ngu, kho.as_deref()) {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("✗ {e}");
-            return ExitCode::FAILURE;
-        }
-    };
+    let app =
+        match tcc_shell::window_raster::open_package_raster(duong_dan, ngon_ngu, kho.as_deref()) {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!("✗ {e}");
+                return ExitCode::FAILURE;
+            }
+        };
 
     let m = app.manifest();
     println!("✓ Đã nạp \"{}\" ({})", m.name, m.id.as_str());
@@ -148,71 +147,11 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     // `run_app` chứ không `show_app`: người dùng bấm được nút, và mỗi cú bấm đi
     // qua đúng cổng quyền năng ở `tcc-runtime`.
     let mang = mang_that();
-    if let Err(e) = tcc_shell::window::run_app(&app, ngon_ngu, mang.as_ref()) {
+    if let Err(e) = tcc_shell::window_raster::run_app_raster(&app, ngon_ngu, mang.as_ref()) {
         eprintln!("✗ {e}");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
-}
-
-/// Đường ra ngoài thật.
-///
-/// Cờ `window` của crate này kéo theo `tcc-shell/network` (xem `Cargo.toml`),
-/// nên có cửa sổ là có mạng — không có nhánh "cửa sổ nhưng không mạng".
-///
-/// Bản đầu tôi viết hai nhánh `cfg` cho hai trường hợp, và clippy chỉ ra rằng
-/// crate này **không có** cờ `network` nào để mà hỏi. Một nhánh `cfg` hỏi về
-/// một cờ không tồn tại thì im lặng không bao giờ chạy — đúng loại mã trông như
-/// có phòng bị mà không phòng gì.
-/// `web <https://…>` — **tầng 2**: mở một trang web thật.
-///
-/// # Ba điều nói thẳng
-///
-/// 1. Trang web **mang mã của nó**. Không chữ ký, không cổng quyền năng.
-/// 2. Nó chạy trong một WebView **riêng**, không có IPC và không có kịch bản
-///    của khung — nếu chung thì trang gọi được `postMessage` của ta.
-/// 3. **Chỉ `https://`.** `http://` bị từ chối: trang tải qua đường trần thì ai
-///    trên đường cũng sửa được, mà ta lại đặt nó trong cửa sổ mang tên TCC.
-#[cfg(feature = "window")]
-fn lenh_web(doi: &[String], ngon_ngu: Language) -> ExitCode {
-    let Some(url) = doi.get(1) else {
-        eprintln!("cần: tcc-browser web https://…");
-        return ExitCode::FAILURE;
-    };
-    println!("⚠ Tầng 2: trang web mang mã của nó. Ở đó không có thứ gì của TCC che chắn.");
-    match tcc_shell::window::open_web(url, ngon_ngu) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            eprintln!("✗ {e}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-/// `corpus <tệp> [giây]` — chạy bộ trang thật.
-#[cfg(feature = "window")]
-fn lenh_corpus(doi: &[String]) -> ExitCode {
-    let tep = doi.get(1).map_or("corpus/50-trang.txt", String::as_str);
-    let giay = doi.get(2).and_then(|g| g.parse().ok()).unwrap_or(6);
-    match tcc_shell::window::run_corpus(std::path::Path::new(tep), giay) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) => {
-            eprintln!("✗ {e}");
-            ExitCode::FAILURE
-        }
-    }
-}
-
-#[cfg(not(feature = "window"))]
-fn lenh_corpus(_doi: &[String]) -> ExitCode {
-    eprintln!("✗ bộ trang thật cần bản dựng có cửa sổ: --features window");
-    ExitCode::FAILURE
-}
-
-#[cfg(not(feature = "window"))]
-fn lenh_web(_doi: &[String], _ngon_ngu: Language) -> ExitCode {
-    eprintln!("✗ mở trang web cần bản dựng có cửa sổ: --features window");
-    ExitCode::FAILURE
 }
 
 /// `vi nhap <tệp>` — nhập ví trong cửa sổ.
@@ -331,19 +270,13 @@ fn run_loop(m: &Manifest, ngon_ngu: Language) -> Result<(), Box<dyn std::error::
         .and_then(|s| s.parse().ok())
         .map(Duration::from_secs);
 
-    // `TCC_KIEM_KHOI=1`: không mở màn hình cho người xem, mà nạp tài liệu vào
-    // WebKit thật rồi bảo WebKit kể lại nó nhìn thấy gì. Đây là cách kiểm được
-    // trên máy không có quyền chụp màn hình.
-    if std::env::var("TCC_KIEM_KHOI").is_ok() {
-        let bao = tcc_shell::window::check_escaping(m, ngon_ngu, Duration::from_secs(15))?;
-        println!("WebKit báo về:");
-        println!("  số nút mang vai trò : {}", bao.so_nut);
-        println!("  vai trò            : {}", bao.vai_tro.join(", "));
-        println!("  thẻ kịch bản còn sống: {}", bao.so_kich_ban);
-        return Ok(());
+    // `tu_dong_dong` chưa có đường tương ứng ở bộ dựng ra pixel: cửa sổ raster
+    // đóng khi người dùng bấm hoặc đóng, không có hẹn giờ. Nhận biến rồi lặng
+    // lẽ bỏ qua thì tệ hơn — nói ra.
+    if tu_dong_dong.is_some() {
+        eprintln!("[khung] TCC_TU_DONG_DONG chưa có tác dụng trên bộ dựng ra pixel");
     }
-
-    tcc_shell::window::show_permission_dialog(m, ngon_ngu, tu_dong_dong)
+    tcc_shell::window_raster::open_permission_dialog_raster(m, ngon_ngu).map(|_| ())
 }
 
 /// Bản không có cửa sổ: in cây hộp thoại ra chữ.

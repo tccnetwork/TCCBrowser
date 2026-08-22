@@ -161,13 +161,13 @@ thật.
 | 4.1 | `tcc-render-gpu` cài cùng trait với `tcc-render-webview` — ✅ **một nửa xong**: `tcc-render-raster` (17/08/2026) đã cài cùng trait, ra pixel, không HTML |
 | 4.2 | Chữ: shaping, dự phòng font, **dấu tiếng Việt** — ✅ **xong ở `tcc-render-raster`** (17/08/2026): đo bề rộng thật, ngắt dòng, dấu chồng đúng |
 | 4.3 | Bố cục, hợp thành — ✅ **xong** (17/08): hàng/cột, xuống dòng, ngắt giữa từ, căn giữa dọc, nút cùng hàng rộng bằng nhau, và **bất biến KHÔNG vẽ đè**. "Căn lề" cố ý không vào tiêu chuẩn — [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 |
-| 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08), **adapter macOS đã nối** (19/08/2026, cờ `cua-so-raster-tro-nang`). Còn Windows, Linux, và `ActionHandler` (cố ý để trống — xem dưới) |
+| 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08), **adapter macOS đã nối** (19/08/2026, cờ `window-tro-nang`). Còn Windows, Linux, và `ActionHandler` (cố ý để trống — xem dưới) |
 
 **Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
 Đó là lúc chứng minh được đường thoát là thật.
 
 🔶 **Đạt phần vẽ, bấm và GẠT CÔNG TẮC** (19/08/2026). `cargo run -p tcc-shell --features
-cua-so-raster --example man-hinh-raster examples/hello-tcc` mở gói `hello-tcc`
+window --example man-hinh-raster examples/hello-tcc` mở gói `hello-tcc`
 **đã ký** trong một cửa sổ thật, vẽ hoàn toàn bằng Rust (`cosmic-text` +
 `softbuffer`), bấm nút chạy đúng hành động. Cùng thư mục gói, cùng chữ ký, cùng
 `ui.json` với đường WebView — khác đúng một dòng chọn bộ dựng.
@@ -176,7 +176,7 @@ Và chạy được **hộp thoại hỏi quyền** — màn hình đáng chạy
 hai, vì nó có **công tắc**:
 
 ```
-cargo run -p tcc-shell --features cua-so-raster \
+cargo run -p tcc-shell --features window \
   --example man-hinh-raster examples/hello-tcc hop-thoai
 ```
 
@@ -189,11 +189,11 @@ này — nên nếu chỉ chạy `hello-tcc` thì cổng ra vẫn còn một n�
 Ba luật của hộp thoại giữ nguyên trên bộ dựng mới: mở ra **mọi mục tắt**,
 **đóng cửa sổ không phải đồng ý**, và **gạt công tắc không đóng hộp thoại**.
 
-Cờ `cua-so-raster` **tách khỏi** cờ `window` có chủ ý: `window` kéo theo `wry`
-và cả một máy dựng web. `cargo tree` với `cua-so-raster` cho **0 crate `wry`** —
+Cờ `window` **tách khỏi** cờ `window` có chủ ý: `window` kéo theo `wry`
+và cả một máy dựng web. `cargo tree` với `window` cho **0 crate `wry`** —
 cây phụ thuộc tự nói ra rằng đường thoát không tựa vào thứ nó định thoát khỏi.
 
-🔶 **Trợ năng: đã nối trên macOS** (19/08/2026), cờ `cua-so-raster-tro-nang`.
+🔶 **Trợ năng: đã nối trên macOS** (19/08/2026), cờ `window-tro-nang`.
 `accesskit_macos::SubclassingAdapter` gắn vào `NSView` của cửa sổ **trước khi
 cửa sổ hiện lần đầu**, và cây được đẩy lại mỗi lần công tắc đổi — gạt một quyền
 mà không báo lại thì VoiceOver vẫn đọc trạng thái cũ, tức là nghe một đằng cấp

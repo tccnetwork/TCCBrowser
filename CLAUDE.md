@@ -38,7 +38,7 @@ tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu c
 
 # Và MỌI tổ hợp cờ CI có chạy — `cargo test --workspace` KHÔNG dựng chúng:
 cargo test -p tcc-shell --features accesskit --test hai-bo-dung
-cargo test -p tcc-shell --features cua-so-raster
+cargo test -p tcc-shell --features window
 cargo test -p tcc-render-raster --features window
 cargo test -p tcc-render-raster --features accesskit-platform
 cargo test -p tcc-render-webview --features window
@@ -47,7 +47,7 @@ cargo test -p tcc-shell --features window
 # `clippy` cũng phải chạy THEO TỪNG CỜ, không chỉ một lượt workspace:
 cargo clippy -p tcc-render-raster --features window --all-targets -- -D warnings
 cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
-cargo clippy -p tcc-shell --features cua-so-raster --all-targets -- -D warnings
+cargo clippy -p tcc-shell --features window --all-targets -- -D warnings
 cargo clippy -p tcc-shell --features window --all-targets -- -D warnings
 ```
 

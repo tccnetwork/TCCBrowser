@@ -3,8 +3,8 @@
 //! VIỆC CỦA CRATE NÀY: ghép lát cắt lại — kiểm chữ ký, hỏi người dùng, dựng tập
 //! quyền năng, rồi trao cho ứng dụng đúng những gì nó được cấp.
 //!
-//! LUẬT: crate này KHÔNG biết bộ dựng nào đang chạy. Nó không nhắc tới WebView,
-//! không nhắc tới GPU. Có CI kiểm (`tools/kiem-luat-phu-thuoc.sh`, luật 5).
+//! LUẬT: crate này KHÔNG biết bộ dựng nào đang chạy. Nó không nhắc tới thẻ đánh
+//! dấu, không nhắc tới GPU. Có CI kiểm (`tools/kiem-luat-phu-thuoc.sh`, luật 5).
 //!
 //! # Thứ tự các bước là một tính chất BẢO MẬT
 //!

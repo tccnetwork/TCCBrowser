@@ -17,8 +17,10 @@ dat() { echo "✅ $1"; }
 phu_thuoc() { grep -oE '^tcc-[a-z-]+' "$1/Cargo.toml" 2>/dev/null | sort -u; }
 
 echo "--- Luật 1: tcc-ui KHÔNG được biết bất kỳ bộ dựng nào ---"
-# Đây là luật quan trọng nhất dự án. Vi phạm nó là mất đường thoát khỏi WebView:
-# ứng dụng sẽ nhìn thấy DOM, và ngày có bộ dựng riêng thì mọi ứng dụng phải viết lại.
+# Đây là luật quan trọng nhất dự án, và nó đã tự chứng minh: ngày 23/08/2026 bộ
+# dựng đầu tiên bị bỏ hẳn, và KHÔNG một ứng dụng nào phải sửa một dòng. Vi phạm
+# luật này là mất chính đường ấy — ứng dụng sẽ nhìn thấy cây tài liệu của một bộ
+# dựng cụ thể, và lần đổi sau sẽ không làm được nữa.
 if phu_thuoc crates/tcc-ui | grep -q 'tcc-render'; then
   bao "tcc-ui đang phụ thuộc một bộ dựng — giàn giáo đã hoá thành nhà"
 else
@@ -71,7 +73,7 @@ fi
 
 echo
 echo "--- Luật 6: API ứng dụng KHÔNG được lộ ra DOM/HTML/CSS ---"
-# Lộ ra là ứng dụng dính chặt vào WebView.
+# Lộ ra là ứng dụng dính chặt vào một bộ dựng cụ thể.
 # Bỏ phần "tệp:dòng:" mà grep -rn thêm vào TRƯỚC khi lọc chú thích — nếu không
 # thì chính chú thích giải thích luật này lại bị báo là vi phạm.
 ro_ri=$(grep -rniE '\b(dom|innerhtml|queryselector|cssstyledeclaration)\b' \
@@ -162,17 +164,22 @@ fi
 
 echo
 echo "--- Luật 20: KHÔNG khai quyền thiết bị trong gói macOS ---"
-# `wry` 0.52.1 viết CỨNG `WKPermissionDecision::Grant` cho yêu cầu micro/camera
-# của trang web (`wkwebview/class/wry_web_view_ui_delegate.rs:74`) và không cho
-# ghi đè. Ở tầng 2 — mở trang web bất kỳ — nghĩa là một trang gọi
-# `getUserMedia()` được cấp mà KHÔNG ai hỏi người dùng.
+# ⚠️ LÝ DO CŨ CỦA LUẬT NÀY ĐÃ MẤT — luật thì không.
 #
-# Chắn duy nhất còn lại là tầng hệ điều hành: thiếu chuỗi mô tả mục đích thì
-# macOS từ chối, nên lời "Grant" của wry không có gì để cấp. Thêm một dòng
-# `NS*UsageDescription` là gỡ chắn ấy — nên luật này canh.
+# Nó sinh ra vì một máy dựng web viết CỨNG "Grant" cho yêu cầu micro/camera của
+# trang và không cho ghi đè: chắn duy nhất còn lại là tầng hệ điều hành, và
+# thiếu chuỗi mô tả mục đích thì macOS từ chối. Máy dựng ấy đã bỏ ngày
+# 23/08/2026, nên đường tấn công cụ thể ấy không còn.
 #
-# Ngày nào wry cho ghi đè quyết định ấy thì luật này mới nên nới, và phải nới
-# kèm một hộp thoại hỏi quyền THẬT, không nới trơn.
+# Luật ở lại, và ở lại vì một lý do đứng độc lập: **một dòng
+# `NS*UsageDescription` là lời hứa với hệ điều hành rằng ứng dụng này có lúc cần
+# micro.** Ngày nào ta thật sự cần, dòng ấy phải được thêm CÙNG một hộp thoại
+# hỏi quyền thật và một mục trong bản kê khai — không bao giờ thêm trơn, và
+# không bao giờ thêm "để sẵn đó". Quyền năng không tồn tại cho tới khi được cấp.
+#
+# Giữ một luật sau khi lý do gốc mất là chuyện phải làm có ý thức: viết lý do
+# mới ra, hoặc bỏ luật. Để nguyên lý do cũ là để lại một lời giải thích SAI, và
+# người đọc sau sẽ tin nó.
 # Soi KHAI BÁO thật (`<key>NS…UsageDescription</key>`), không soi mọi chỗ nhắc
 # tên. Bản đầu soi chuỗi trơn và nó tự tố cáo chính kịch bản đóng gói — chỗ
 # đang GIẢI THÍCH vì sao không được khai.
@@ -180,7 +187,7 @@ lo_quyen=$(grep -rlE "<key>NS[A-Za-z]*UsageDescription</key>" tools/ apps/ 2>/de
 if [ -n "$lo_quyen" ]; then
   bao "khai quyền thiết bị trong gói macOS:$(printf ' %s' $lo_quyen)"
 else
-  dat "gói macOS không khai quyền thiết bị nào — wry không tự cấp được micro/camera"
+  dat "gói macOS không khai quyền thiết bị nào"
 fi
 
 echo

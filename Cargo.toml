@@ -15,8 +15,7 @@ members = [
   "crates/tcc-capability",   # mô hình quyền năng
 
   # ---- Giao diện ----
-  "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào
-  "crates/tcc-render-webview", # bộ dựng #1: giàn giáo, sẽ tháo
+  "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào # bộ dựng #1: giàn giáo, sẽ tháo
   # Bộ dựng #2 — KHÔNG phải để đẹp hơn, mà để CHỨNG MINH luật "tcc-ui không
   # biết bộ dựng nào" là thật. Một trait chỉ có một bản cài đặt thì không ai
   # biết nó có thật sự trừu tượng hay không.
@@ -52,7 +51,6 @@ tcc-crypto = { path = "crates/tcc-crypto" }
 tcc-manifest = { path = "crates/tcc-manifest" }
 tcc-capability = { path = "crates/tcc-capability" }
 tcc-ui = { path = "crates/tcc-ui" }
-tcc-render-webview = { path = "crates/tcc-render-webview" }
 tcc-render-raster = { path = "crates/tcc-render-raster" }
 tcc-runtime = { path = "crates/tcc-runtime" }
 tcc-net = { path = "crates/tcc-net" }
@@ -66,7 +64,7 @@ thiserror = "2"
 
 [workspace.lints.rust]
 # `deny` chứ KHÔNG phải `forbid`: forbid không gỡ được ở bất cứ đâu, mà vài crate
-# (bộ dựng WebView) buộc phải gọi FFI. Dùng `deny` để chỗ nào cần thì phải viết
+# (cầu trợ năng của macOS) buộc phải gọi FFI. Dùng `deny` để chỗ nào cần thì phải viết
 # `#![allow(unsafe_code)]` kèm lý do — tức là cố ý và thấy được khi duyệt mã.
 unsafe_code = "deny"
 
@@ -76,7 +74,7 @@ pedantic = { level = "warn", priority = -1 }
 # Chỗ nào thật sự cần thì gỡ ở crate đó kèm lý do.
 unwrap_used = "warn"
 expect_used = "warn"
-# Tài liệu của dự án là văn xuôi TIẾNG VIỆT xen thuật ngữ tiếng Anh (WebView,
-# WKWebView, ML-DSA…). `doc_markdown` đòi bọc backtick quanh từng từ như vậy,
+# Tài liệu của dự án là văn xuôi TIẾNG VIỆT xen thuật ngữ tiếng Anh (AccessKit,
+# ML-DSA…). `doc_markdown` đòi bọc backtick quanh từng từ như vậy,
 # làm câu tiếng Việt vỡ vụn và khó đọc hơn hẳn. Ta ưu tiên chú thích dễ đọc.
 doc_markdown = "allow"

@@ -1015,6 +1015,40 @@ the cheap one on every push, this one on a schedule.
 
 ---
 
+### 3.7 What was REMOVED on 2026-08-23, and what went with it
+
+The first renderer — a web engine embedded through `wry` — was deleted. That is
+a deliberate architectural choice, not a security fix, and it removed real
+defences along with the thing they defended. Listing them is the point of this
+section: a defence that quietly disappears is worse than one that was never
+built, because the threat model still reads as if it were there.
+
+**Gone, with their reason:**
+
+| Defence | What it stopped | Why it went |
+|---|---|---|
+| Markup escaping of app-supplied text | App text becoming markup — the worst possible failure, since script in the renderer's context escapes the whole capability model | There is no markup. Text is a node's content and is drawn as glyphs; nothing parses it |
+| Content-Security-Policy on the app document | Script surviving even if escaping failed — the second of three layers | There is no document and no script engine |
+| `kiem-khoi-tan-cong` — a hostile manifest driven through a real WebKit view, which then reported what it saw | The only check where a **third party** confirmed our own escaping, rather than our code reading back its own output | The third party was the web engine |
+| Tier 2 — opening arbitrary web pages, with its navigation / new-window / download guards | A page reaching beyond its own view | The feature is gone, not the guard |
+| The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
+| `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
+
+**56 tests went with it** (393 → 337).
+
+Two honest observations. First, most of these defended against a class of attack
+that no longer has a door: there is no parser between an app's bytes and the
+screen, so there is nothing to confuse. That is a real reduction in attack
+surface, and it is most of why the change was worth making.
+
+Second, one thing genuinely got weaker: **nothing outside our own code now looks
+at what we draw.** The old check could ask WebKit "what do you see"; the pixel
+renderer is read back by tests we wrote, against an accessibility tree we also
+built. A bug shared between the drawing and the reading is invisible to both.
+The closest replacement is a screen reader — a real third party — and no screen
+reader has run against this renderer yet (§3.1d). Until one has, that gap stands
+open and is not covered by a test.
+
 ## 3bis. The conformance suite
 
 `conformance/vectors/*.json` — **data, not code**, so implementations in other
@@ -1177,7 +1211,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 393 tests
+cargo test --workspace                              # 337 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

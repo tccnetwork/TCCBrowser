@@ -274,17 +274,13 @@ pub enum PhraseError {
 )]
 mod kiem_thu {
     use super::*;
-    use tcc_render_webview::WebViewRenderer;
-    use tcc_ui::Renderer as _;
 
     const ABANDON: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
     /// Neo tới `tcc-keygen` của đội chuỗi — xem `tcc-chain/src/wallet.rs`.
     const DIA_CHI: &str = "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549";
 
     fn ve(cay: &Node) -> String {
-        let mut bd = WebViewRenderer::new();
-        bd.render(cay).unwrap();
-        bd.body().to_owned()
+        crate::do_cay::chu(cay)
     }
 
     /// 24 chữ ra đúng ví, neo bởi chương trình của đội chuỗi.
@@ -338,10 +334,7 @@ mod kiem_thu {
                 s.contains(label(TextKey::CumTuAiNhinCungDoc, ngon_ngu)),
                 "không cảnh báo người xung quanh đọc được ({ngon_ngu:?})"
             );
-            assert!(
-                s.contains("data-nhan=\"canh-bao\""),
-                "cảnh báo không nổi rõ"
-            );
+            assert!(s.contains("[cảnh-báo]"), "cảnh báo không nổi rõ");
         }
     }
 
@@ -401,7 +394,7 @@ mod kiem_thu {
                 s.contains(label(TextKey::HongKhongCatDuoc, ngon_ngu)),
                 "không nói rõ chưa lưu gì ({ngon_ngu:?}):\n{s}"
             );
-            assert!(s.contains("data-nhan=\"canh-bao\""), "lỗi không nổi rõ");
+            assert!(s.contains("[cảnh-báo]"), "lỗi không nổi rõ");
         }
     }
 
@@ -452,14 +445,15 @@ mod kiem_thu {
                 s.contains(cau),
                 "không nói khoá chẳng được cất ({ngon_ngu:?})"
             );
-            // Câu ấy phải đứng TRƯỚC ô nhập trong tài liệu.
+            // Câu ấy phải đứng TRƯỚC ô nhập TRONG CÂY — thứ tự cây là thứ tự
+            // đọc, ở cả bộ dựng lẫn trình đọc màn hình.
             let vi_cau = s.find(cau).expect("có câu");
-            let vi_o = s.find("<input").expect("có ô nhập");
+            let vi_o = s.find("ô nhập[").expect("có ô nhập");
             assert!(
                 vi_cau < vi_o,
                 "nói sau khi người ta đã gõ xong thì để làm gì"
             );
-            assert!(s.contains("data-nhan=\"canh-bao\""));
+            assert!(s.contains("[cảnh-báo]"));
         }
     }
 
@@ -477,7 +471,7 @@ mod kiem_thu {
             build_entry(Some("lỗi thử"), Language::Vi).unwrap(),
             build_confirm(DIA_CHI, Language::En).unwrap(),
         ] {
-            let mut bd = WebViewRenderer::new();
+            let mut bd = tcc_render_raster::RasterRenderer::new();
             tcc_ui::check_accessibility_parity(&mut bd, &cay)
                 .expect("màn cụm từ không qua được kiểm định trợ năng");
         }

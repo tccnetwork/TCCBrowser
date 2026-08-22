@@ -26,7 +26,7 @@ use crate::window_title::app_window_title;
 ///
 /// # Errors
 /// Cây giao diện hỏng, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_app_screen_raster(
     m: &Manifest,
     diem_vao: &[u8],
@@ -48,7 +48,7 @@ pub fn open_app_screen_raster(
 ///
 /// # Errors
 /// Không dựng được hộp thoại hoặc cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_permission_dialog_raster(
     m: &Manifest,
     ngon_ngu: Language,
@@ -86,7 +86,7 @@ pub fn open_permission_dialog_raster(
 ///
 /// # Errors
 /// Dựng cây hỏng, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_permission_screen_raster(
     ds: &[crate::permission_store::StoredEntry],
     ngon_ngu: Language,
@@ -107,7 +107,7 @@ pub fn open_permission_screen_raster(
 ///
 /// # Errors
 /// Băm không khớp, chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_transaction_screen_raster(
     tx: &tcc_chain::Transfer,
     signing_message_tu_may_chu: &[u8; 32],
@@ -129,7 +129,7 @@ pub fn open_transaction_screen_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_transaction_sent_raster(
     ma_giao_dich: &str,
     ngon_ngu: Language,
@@ -154,7 +154,7 @@ pub fn open_transaction_sent_raster(
 /// # Errors
 /// Địa chỉ không phải `http`/`https`, chuỗi không dùng được, hoặc không dựng
 /// được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_external_link_raster(
     url: &str,
     ngon_ngu: Language,
@@ -175,7 +175,7 @@ pub fn open_external_link_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_recovery_entry_raster(
     loi: Option<&str>,
     ngon_ngu: Language,
@@ -197,7 +197,7 @@ pub fn open_recovery_entry_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_recovery_session_entry_raster(
     loi: Option<&str>,
     ngon_ngu: Language,
@@ -214,7 +214,7 @@ pub fn open_recovery_session_entry_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_recovery_confirm_raster(
     dia_chi: &str,
     ngon_ngu: Language,
@@ -235,7 +235,7 @@ pub fn open_recovery_confirm_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 pub fn open_recovery_failure_raster(
     chi_tiet: &str,
     ngon_ngu: Language,
@@ -250,14 +250,14 @@ pub fn open_recovery_failure_raster(
 
 /// Màn chọn ví để nhập, bằng bộ dựng **RA PIXEL**.
 ///
-/// Sau cả cờ `cua-so-raster` lẫn `import-web-wallet`: `import_screen` chỉ tồn
+/// Sau cả cờ `window` lẫn `import-web-wallet`: `import_screen` chỉ tồn
 /// tại khi có cờ sau, và một hàm gọi tới một module không có thì không biên
 /// dịch được — nên hai cờ phải đi cùng nhau ở đây.
 ///
 /// # Errors
 /// Chuỗi không dùng được, quá nhiều ví làm cây vượt trần, hoặc không dựng được
 /// cửa sổ.
-#[cfg(all(feature = "cua-so-raster", feature = "import-web-wallet"))]
+#[cfg(all(feature = "window", feature = "import-web-wallet"))]
 pub fn open_import_choice_raster(
     ds: &[tcc_chain::import::WebWallet],
     ngon_ngu: Language,
@@ -287,7 +287,7 @@ pub fn open_import_choice_raster(
 ///
 /// # Errors
 /// Chuỗi không dùng được, hoặc không dựng được cửa sổ.
-#[cfg(all(feature = "cua-so-raster", feature = "import-web-wallet"))]
+#[cfg(all(feature = "window", feature = "import-web-wallet"))]
 pub fn open_import_pin_raster(
     dia_chi: &str,
     ngon_ngu: Language,
@@ -309,7 +309,7 @@ pub fn open_import_pin_raster(
 /// đọc `fields` lúc ấy là đọc một bí mật họ vừa từ chối đưa.
 ///
 /// Cùng luật đã áp cho `toggles_on`, viết thành mã để không ai phải nhớ.
-#[cfg(feature = "cua-so-raster")]
+#[cfg(feature = "window")]
 #[must_use]
 pub fn field_if_submitted<'a>(
     ket: &'a tcc_render_raster::window::ScreenOutcome,
@@ -317,6 +317,251 @@ pub fn field_if_submitted<'a>(
 ) -> Option<&'a str> {
     ket.action.as_ref()?;
     ket.fields.get(nhan).map(String::as_str)
+}
+
+// ───────── Điểm vào của TRÌNH DUYỆT, trên bộ dựng ra pixel ─────────
+//
+// Bốn hàm dưới đây là bản raster của `window.rs`. Chúng ở cuối tệp chứ không
+// trộn vào nhóm 12 hàm màn-hình-đơn phía trên, vì chúng khác hạng: nhóm trên mở
+// MỘT màn hình rồi trả lời; nhóm này điều khiển cả một phiên.
+
+/// Hỏi quyền **từng mục một**, trên bộ dựng ra pixel.
+///
+/// ⚠️ Tiêu đề là chuỗi CỦA TRÌNH DUYỆT, không phải `m.name`. Một gói đặt tên
+/// `"TCC — quyền đã cấp"` mà được mượn tiêu đề thì có một cửa sổ **của trình
+/// duyệt** trông y hệt màn hình quản lý quyền — và đây mới là cửa sổ người dùng
+/// bấm "Cho phép". `SECURITY.md` §3.1c.
+///
+/// Hỏng ở bất kỳ bước nào thì **từ chối tất cả**: không dựng được hộp thoại
+/// nghĩa là không hỏi được, và không hỏi được thì câu trả lời là không.
+#[cfg(feature = "window")]
+fn hoi_quyen_tung_muc_raster(
+    m: &Manifest,
+    ngon_ngu: Language,
+    nguoi_ky: &crate::permission_store::SignerStatus,
+) -> (Option<String>, Vec<String>) {
+    let Ok(cay) = permission_dialog::build_with_signer(m, ngon_ngu, nguoi_ky) else {
+        eprintln!("[khung] không dựng được hộp thoại hỏi quyền — từ chối tất cả");
+        return (None, Vec::new());
+    };
+    match tcc_render_raster::window::open_screen(
+        &cay,
+        crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu),
+        &crate::text::raster_text(ngon_ngu),
+    ) {
+        Ok(k) => (k.action, k.toggles_on.into_iter().collect()),
+        Err(e) => {
+            eprintln!("[khung] không mở được hộp thoại: {e} — từ chối tất cả");
+            (None, Vec::new())
+        }
+    }
+}
+
+/// Kiểm chữ ký, hỏi quyền còn thiếu, rồi cấp — trên bộ dựng ra pixel.
+///
+/// # Errors
+/// Chữ ký hỏng, gói hỏng, hoặc cấp quyền thất bại.
+#[cfg(feature = "window")]
+pub fn open_package_raster(
+    duong_dan: &std::path::Path,
+    ngon_ngu: Language,
+    kho_quyen: Option<&std::path::Path>,
+) -> Result<tcc_runtime::LoadedApp, Box<dyn std::error::Error>> {
+    use crate::permission_store::{PermissionStore, SignerStatus};
+
+    // 1. Kiểm chữ ký. Chưa hiện gì lên màn hình.
+    let (app, noi_dung) = tcc_runtime::verify_from_dir(duong_dan, &tcc_crypto::HybridEd25519MlDsa)?;
+    let m = app.manifest().clone();
+
+    let mut nho = kho_quyen.map(PermissionStore::open);
+
+    // Hỏi TRƯỚC khi `nho` ghi đè khoá mới lên — sau đó không còn gì để so.
+    let nguoi_ky = nho
+        .as_ref()
+        .map_or(SignerStatus::LanDau, |n| n.signer_status(&m));
+    if let SignerStatus::DoiKhoa { van_tay_cu } = &nguoi_ky {
+        eprintln!(
+            "[khung] ⚠️ \"{}\" trước đây ký bằng khoá khác ({van_tay_cu})",
+            m.name
+        );
+    }
+
+    // 2. Quyền nào ĐÃ CÓ CÂU TRẢ LỜI thì không hỏi lại. `lookup` trả `None` với
+    //    mọi trường hợp không rõ ràng — chưa từng hỏi, khoá đổi, phạm vi nới —
+    //    nên "còn thiếu" luôn nghiêng về phía hỏi thêm.
+    let con_phai_hoi: Vec<_> = m
+        .capabilities
+        .iter()
+        .filter(|c| nho.as_ref().and_then(|n| n.lookup(&m, c)).is_none())
+        .cloned()
+        .collect();
+
+    let (hanh_dong, dang_bat) = if con_phai_hoi.is_empty() {
+        (None, Vec::new())
+    } else {
+        // Chỉ liệt kê quyền CÒN THIẾU. Bắt đọc lại thứ đã quyết định là đường
+        // dẫn tới bấm bừa.
+        let mut chi_con_thieu = m.clone();
+        chi_con_thieu.capabilities = con_phai_hoi;
+        hoi_quyen_tung_muc_raster(&chi_con_thieu, ngon_ngu, &nguoi_ky)
+    };
+
+    // 3. Cấp quyền — TỪNG MỤC MỘT.
+    let app = tcc_runtime::grant_verified(app, noi_dung, |xin| {
+        let qd = nho
+            .as_ref()
+            .and_then(|n| n.lookup(&m, xin))
+            .unwrap_or_else(|| {
+                permission_dialog::decide(hanh_dong.as_deref(), &dang_bat, &xin.name)
+            });
+        if let Some(n) = nho.as_mut() {
+            n.remember(&m, xin, qd);
+        }
+        qd
+    })?;
+
+    if let Some(n) = nho.as_ref()
+        && let Err(e) = n.save()
+    {
+        // Ghi hỏng KHÔNG được làm hỏng phiên đang chạy — chỉ là lần sau hỏi lại.
+        eprintln!("[khung] không ghi được kho quyền: {e} — lần sau sẽ hỏi lại");
+    }
+    Ok(app)
+}
+
+/// Chạy ứng dụng: vẽ màn hình, mỗi cú bấm chạy hành vi đã khai — qua đúng cổng
+/// quyền năng.
+///
+/// Cổng quyền năng nằm ở `tcc-runtime`, không ở đây: hàm này chỉ chuyển mã hành
+/// động xuống `LoadedApp::perform`, và `perform` kiểm trước khi chạm mạng.
+///
+/// # Errors
+/// Điểm vào không đọc được thành cây hợp lệ, hoặc không mở được cửa sổ.
+#[cfg(feature = "window")]
+pub fn run_app_raster(
+    app: &tcc_runtime::LoadedApp,
+    ngon_ngu: Language,
+    mang: &dyn tcc_runtime::Network,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use tcc_render_raster::window::{Next, Screen};
+
+    let cay = tcc_ui::wire::decode(app.entry_content())?;
+    let tieu_de = app_window_title(app.manifest());
+    let goc = cay.clone();
+
+    tcc_render_raster::window::open_sequence(
+        Screen {
+            tree: cay,
+            title: tieu_de.clone(),
+            text: crate::text::raster_text(ngon_ngu),
+        },
+        move |k| {
+            let Some(hanh_dong) = k.action.as_deref() else {
+                return Next::Done;
+            };
+            // Báo LÊN MÀN HÌNH, không chỉ ra terminal. Người dùng không đọc
+            // terminal, và một nút bấm mà màn hình không đổi gì là một nút họ
+            // sẽ bấm lại.
+            let cau = match app.perform(hanh_dong, mang) {
+                Ok(du_lieu) => crate::text::action_done(hanh_dong, du_lieu.len(), ngon_ngu),
+                // Bị quyền năng từ chối KHÔNG phải lỗi của trình duyệt — đó là
+                // hệ thống làm đúng việc. Nói ra, rồi chạy tiếp.
+                Err(_) => crate::text::action_refused(hanh_dong, ngon_ngu),
+            };
+            // Câu trả lời của KHUNG vẽ DƯỚI cây của ứng dụng, trong cùng một
+            // cửa sổ — y như `GiuVaBao` của đường kia. Ứng dụng vẫn tự viết
+            // được một dòng chữ trông giống; cái nó không làm được là đổi tiêu
+            // đề cửa sổ, và đó mới là chỗ người dùng phân biệt.
+            let Ok(cay_moi) = bao_duoi_cay(&goc, &cau) else {
+                return Next::Done;
+            };
+            Next::Show(Box::new(Screen {
+                tree: cay_moi,
+                title: tieu_de.clone(),
+                text: crate::text::raster_text(ngon_ngu),
+            }))
+        },
+    )?;
+    Ok(())
+}
+
+/// Cây của ứng dụng, kèm một dòng của KHUNG ở dưới.
+#[cfg(feature = "window")]
+fn bao_duoi_cay(goc: &tcc_ui::Node, cau: &str) -> Result<tcc_ui::Node, tcc_ui::UiError> {
+    tcc_ui::Node::group(tcc_ui::Flow::Column, tcc_ui::Gap::Medium)
+        .child(goc.clone())?
+        .child(tcc_ui::Node::text(cau)?)
+}
+
+/// Màn hình quản lý quyền, và các nút "Quên".
+///
+/// # Đây là màn hình CỦA TRÌNH DUYỆT
+///
+/// Ứng dụng không đưa được một byte nào vào đây — không có trình phục vụ tệp,
+/// không có ảnh từ gói. Cho phép là mở đường vẽ đè lên chính danh sách quyền mà
+/// người dùng đang đọc để quyết định thu hồi.
+///
+/// # Errors
+/// Dựng cây hỏng, hoặc không mở được cửa sổ.
+#[cfg(feature = "window")]
+pub fn manage_permissions_raster(
+    kho_quyen: &std::path::Path,
+    ngon_ngu: Language,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::{permission_screen, permission_store::PermissionStore};
+    use tcc_render_raster::window::{Next, Screen};
+
+    let ds = PermissionStore::open(kho_quyen).list_all();
+    if ds.is_empty() {
+        println!("[khung] chưa có quyền nào được trả lời");
+    }
+    let tieu_de = crate::text::label(crate::text::TextKey::QuanLyTieuDeCuaSo, ngon_ngu).to_owned();
+    let duong_dan = kho_quyen.to_path_buf();
+
+    tcc_render_raster::window::open_sequence(
+        Screen {
+            tree: permission_screen::build(&ds, ngon_ngu)?,
+            title: tieu_de.clone(),
+            text: crate::text::raster_text(ngon_ngu),
+        },
+        move |k| {
+            let Some(hanh_dong) = k.action.as_deref() else {
+                return Next::Done;
+            };
+            if hanh_dong == permission_screen::ACTION_CLOSE {
+                return Next::Done;
+            }
+            let Some(id) = permission_screen::app_to_forget(hanh_dong) else {
+                return Next::Done;
+            };
+            let mut g = PermissionStore::open(&duong_dan);
+            g.forget(id);
+            match g.save() {
+                Ok(()) => println!("[khung] đã quên \"{id}\" — lần sau nó sẽ hỏi lại"),
+                Err(e) => eprintln!("[khung] KHÔNG ghi được kho quyền: {e}"),
+            }
+            // ⚠️ VẼ LẠI, không đóng.
+            //
+            // Đường WebView phải đóng cửa sổ sau mỗi lần quên, vì `run_loop`
+            // giữ một tài liệu cố định và vẽ lại danh sách cần dựng lại cả tài
+            // liệu. Ở đây màn hình là một CÂY, và dựng cây mới thì rẻ — nên
+            // danh sách cập nhật ngay trước mắt người dùng, đúng thứ họ vừa
+            // bấm để thấy.
+            //
+            // Kho mở LẠI từ đĩa chứ không sửa một bản trong bộ nhớ: một danh
+            // sách lệch với đĩa là một danh sách nói dối về thứ đã được thu hồi.
+            let moi = PermissionStore::open(&duong_dan).list_all();
+            let Ok(cay) = permission_screen::build(&moi, ngon_ngu) else {
+                return Next::Done;
+            };
+            Next::Show(Box::new(Screen {
+                tree: cay,
+                title: tieu_de.clone(),
+                text: crate::text::raster_text(ngon_ngu),
+            }))
+        },
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -470,11 +715,6 @@ mod kiem_thu {
         ];
         let mien: &[(&str, &str)] = &[
             (
-                "address_bar::build",
-                "vành ngoài của TẦNG 2 — nó bao quanh một WebView thật đang nạp \
-                 trang, mà bộ dựng ra pixel chưa có gì để đặt vào trong",
-            ),
-            (
                 "permission_dialog::build_with_signer",
                 "biến thể của `build`, khác đúng một dòng cảnh báo đổi khoá",
             ),
@@ -555,7 +795,7 @@ mod kiem_thu {
     ///
     /// Người dùng gõ nửa cụm từ khôi phục rồi đóng cửa sổ là họ ĐỔI Ý. Đọc
     /// `fields` lúc ấy là đọc một bí mật họ vừa từ chối đưa.
-    #[cfg(feature = "cua-so-raster")]
+    #[cfg(feature = "window")]
     #[test]
     fn dong_cua_so_thi_khong_doc_duoc_o_nhap() {
         use tcc_render_raster::window::ScreenOutcome;

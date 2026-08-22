@@ -8,16 +8,16 @@ license.workspace = true
 [features]
 # Cầu nối trợ năng tới hệ điều hành (mục 4.4). Chuyển tiếp xuống bộ dựng pixel.
 accesskit = ["tcc-render-raster/accesskit"]
-# Chuyển tiếp xuống bộ dựng. Tầng trên bật cờ này, không bao giờ khai
-# tcc-render-webview trực tiếp.
-window = ["tcc-render-webview/window"]
-# Cửa sổ của bộ dựng RA PIXEL. Tách khỏi `window` có chủ ý: `window` kéo theo
-# `wry` và cả một máy dựng web, mà cổng ra giai đoạn 4 phải chứng minh được
-# KHÔNG cần thứ đó. Bật riêng thì cây phụ thuộc tự nói ra điều ấy.
-cua-so-raster = ["tcc-render-raster/window"]
-# Cửa sổ raster + trợ năng nối vào hệ điều hành. Tách khỏi `cua-so-raster` để
-# một bản dựng có cửa sổ mà CHƯA có trợ năng vẫn nhìn thấy được là chưa có.
-cua-so-raster-tro-nang = ["cua-so-raster", "tcc-render-raster/accesskit-platform"]
+# Cửa sổ. Chuyển tiếp xuống bộ dựng — tầng trên bật cờ này, không bao giờ khai
+# thẳng cờ của crate dưới.
+#
+# Cờ này từng tên là `cua-so-raster` và đứng cạnh một cờ `window` khác kéo theo
+# `wry` cùng cả một máy dựng web. Máy dựng ấy đã bỏ, nên cái tên phân biệt hai
+# đường cũng hết việc: ở đây chỉ còn MỘT cửa sổ.
+window = ["tcc-render-raster/window"]
+# Cửa sổ + trợ năng nối vào hệ điều hành. Tách khỏi `window` để một bản dựng có
+# cửa sổ mà CHƯA có trợ năng vẫn nhìn thấy được là chưa có.
+window-tro-nang = ["window", "tcc-render-raster/accesskit-platform"]
 # Nhập ví cũ từ ví web. Chuyển tiếp xuống tcc-chain — tầng trên không bao giờ
 # khai thẳng cờ của crate dưới.
 import-web-wallet = ["tcc-chain/import-web-wallet"]
@@ -42,7 +42,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 # Đây là ĐIỂM LẮP RÁP — crate duy nhất được phép biết tới một bộ dựng cụ thể.
 # Luật 2 trong tools/kiem-luat-phu-thuoc.sh chốt điều đó.
-tcc-render-webview = { workspace = true }
 tcc-render-raster = { workspace = true }
 tcc-net = { workspace = true, optional = true }
 
@@ -54,7 +53,6 @@ unicode-general-category = "1"
 serde_json = { workspace = true }
 tcc-spec = { workspace = true }
 tcc-capability = { workspace = true }
-tcc-render-webview = { workspace = true }
 tcc-ui = { workspace = true }
 tcc-crypto = { workspace = true }
 tcc-runtime = { workspace = true }
@@ -65,31 +63,13 @@ required-features = ["os-keystore"]
 
 [[example]]
 name = "man-hinh-raster"
-required-features = ["cua-so-raster"]
-
-[[example]]
-name = "kiem-khoi-tan-cong"
 required-features = ["window"]
 
-[[example]]
-name = "kiem-bam-nut"
-required-features = ["window"]
 
-[[example]]
-name = "kiem-man-hinh-ung-dung"
-required-features = ["window"]
 
-[[example]]
-name = "do-nen-tang"
-required-features = ["window"]
 
-[[example]]
-name = "thu-vi-mot-phien"
-required-features = ["wallet", "network"]
 
-[[example]]
-name = "kiem-cum-tu-sai"
-required-features = ["wallet"]
+
 
 [[example]]
 name = "nhap-vi"
@@ -105,13 +85,7 @@ name = "kiem-hanh-vi"
 [[example]]
 name = "kiem-ghi-nho"
 
-[[example]]
-name = "xem-man-hinh"
-required-features = ["window"]
 
-[[example]]
-name = "kiem-go-tieng-viet"
-required-features = ["window"]
 
 [lints]
 workspace = true

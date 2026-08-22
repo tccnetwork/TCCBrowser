@@ -223,17 +223,13 @@ pub const fn error_text(loi: &ImportError) -> TextKey {
 mod kiem_thu {
     use super::*;
     use tcc_chain::import::read_export;
-    use tcc_render_webview::WebViewRenderer;
-    use tcc_ui::Renderer as _;
 
     const MAU: &str = include_str!("../../tcc-chain/data/vi-web-mau.json");
     const PIN: &str = "matkhau-thu-nghiem";
     const DIA_CHI: &str = "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549";
 
     fn ve(cay: &Node) -> String {
-        let mut bd = WebViewRenderer::new();
-        bd.render(cay).unwrap();
-        bd.body().to_owned()
+        crate::do_cay::chu(cay)
     }
 
     fn da_nhap() -> ImportedWallet {
@@ -254,7 +250,7 @@ mod kiem_thu {
                 "thiếu câu về bản cũ ({ngon_ngu:?}):\n{s}"
             );
             assert!(
-                s.contains("data-nhan=\"canh-bao\""),
+                s.contains("[cảnh-báo]"),
                 "câu về bản cũ không mang dấu hiệu cảnh báo ({ngon_ngu:?}):\n{s}"
             );
         }
@@ -378,7 +374,7 @@ mod kiem_thu {
             build_pin(DIA_CHI, Language::Vi).unwrap(),
             build_done(&da_nhap(), Language::Vi).unwrap(),
         ] {
-            let mut bd = WebViewRenderer::new();
+            let mut bd = tcc_render_raster::RasterRenderer::new();
             tcc_ui::check_accessibility_parity(&mut bd, &cay)
                 .expect("màn nhập ví không qua được kiểm định trợ năng");
         }

@@ -33,11 +33,7 @@ use tcc_chain::{
     wallet::WalletSecret,
 };
 use tcc_keystore::SecretKey;
-use tcc_render_webview::{
-    WebViewRenderer,
-    window::{self as bo_dung_cua_so, Next, Screen},
-};
-use tcc_ui::Renderer as _;
+use tcc_render_raster::window::{self as bo_dung_cua_so, Next, Screen};
 
 use crate::{
     import_screen, recovery_screen,
@@ -65,7 +61,7 @@ pub enum WalletFlowError {
 ///
 /// `tao` chỉ cho dựng một vòng lặp sự kiện mỗi tiến trình; mở cửa sổ thứ hai
 /// làm nó hoảng loạn và nhìn từ ngoài chỉ thấy **treo**. Đã trả giá ngày
-/// 17/08/2026 — xem `tcc_render_webview::window::dialog_sequence`.
+/// 17/08/2026 — xem `tcc_render_raster::window::open_sequence`.
 ///
 /// # Errors
 /// Tệp hỏng, người dùng huỷ, sai PIN, hoặc kho khoá từ chối.
@@ -87,32 +83,34 @@ pub fn import_from_file(
     let man_dau = man_hinh(
         &import_screen::build_choice(&ds, ngon_ngu).map_err(|e| e.to_string())?,
         label(TextKey::NhapTieuDe, ngon_ngu),
-    )?;
+        ngon_ngu,
+    );
 
-    bo_dung_cua_so::dialog_sequence(&man_dau, move |t| {
+    bo_dung_cua_so::open_sequence(man_dau, move |t| {
+        // Đóng cửa sổ không phải một câu trả lời — `open_sequence` đã chắn, nên
+        // tới đây `action` luôn có. Vẫn viết ra: một `unwrap_or("")` ở đây rẻ
+        // hơn một `unwrap` sẽ nổ nếu chỗ chắn kia đổi.
+        let hanh_dong = t.action.as_deref().unwrap_or_default();
+
         // ── Màn 1 → 2: đã chọn ví, hỏi PIN ──
-        if let Some(dia_chi) = import_screen::address_to_import(&t.hanh_dong) {
+        if let Some(dia_chi) = import_screen::address_to_import(hanh_dong) {
             dia_chi_dang_chon = Some(dia_chi.to_owned());
             let Ok(cay) = import_screen::build_pin(dia_chi, ngon_ngu) else {
                 return Next::Done;
             };
-            return match man_hinh(&cay, label(TextKey::NhapPinTieuDe, ngon_ngu)) {
-                Ok(m) => Next::Show(Box::new(m)),
-                Err(_) => Next::Done,
-            };
+            return Next::Show(Box::new(man_hinh(
+                &cay,
+                label(TextKey::NhapPinTieuDe, ngon_ngu),
+                ngon_ngu,
+            )));
         }
 
         // ── Màn 2 → 3: mở khoá rồi cất ──
-        if t.hanh_dong == import_screen::ACTION_UNLOCK {
+        if hanh_dong == import_screen::ACTION_UNLOCK {
             let Some(dia_chi) = dia_chi_dang_chon.clone() else {
                 return Next::Done;
             };
-            let pin = t
-                .o_nhap
-                .iter()
-                .find(|(nhan, _)| *nhan == nhan_pin)
-                .map(|(_, gia_tri)| gia_tri.clone())
-                .unwrap_or_default();
+            let pin = t.fields.get(&nhan_pin).cloned().unwrap_or_default();
 
             let Some(vi) = ds.iter().find(|v| v.address == dia_chi) else {
                 return Next::Done;
@@ -125,10 +123,11 @@ pub fn import_from_file(
                     let Ok(cay) = recovery_screen::build_failure(&cau, ngon_ngu) else {
                         return Next::Done;
                     };
-                    return match man_hinh(&cay, label(TextKey::HongTieuDe, ngon_ngu)) {
-                        Ok(m) => Next::Show(Box::new(m)),
-                        Err(_) => Next::Done,
-                    };
+                    return Next::Show(Box::new(man_hinh(
+                        &cay,
+                        label(TextKey::HongTieuDe, ngon_ngu),
+                        ngon_ngu,
+                    )));
                 }
             };
             // `pin` hết vai trò ở đây. Không ghi, không trả về, không vào nhật ký.
@@ -143,10 +142,11 @@ pub fn import_from_file(
                     let Ok(cay) = recovery_screen::build_failure(&cau, ngon_ngu) else {
                         return Next::Done;
                     };
-                    return match man_hinh(&cay, label(TextKey::HongTieuDe, ngon_ngu)) {
-                        Ok(m) => Next::Show(Box::new(m)),
-                        Err(_) => Next::Done,
-                    };
+                    return Next::Show(Box::new(man_hinh(
+                        &cay,
+                        label(TextKey::HongTieuDe, ngon_ngu),
+                        ngon_ngu,
+                    )));
                 }
             }
 
@@ -154,10 +154,11 @@ pub fn import_from_file(
             let Ok(cay) = import_screen::build_done(&da_nhap, ngon_ngu) else {
                 return Next::Done;
             };
-            return match man_hinh(&cay, label(TextKey::NhapXongTieuDe, ngon_ngu)) {
-                Ok(m) => Next::Show(Box::new(m)),
-                Err(_) => Next::Done,
-            };
+            return Next::Show(Box::new(man_hinh(
+                &cay,
+                label(TextKey::NhapXongTieuDe, ngon_ngu),
+                ngon_ngu,
+            )));
         }
 
         Next::Done
@@ -179,20 +180,18 @@ fn cat_khoa(
         .map_err(|e| WalletFlowError::Store(e.to_string()))
 }
 
-/// Vẽ một cây thành màn hình. Vẽ TRƯỚC khi mở cửa sổ: tài liệu hỏng thì hỏng ở
-/// đây, không hỏng sau khi người dùng đã thấy một cửa sổ trống.
-fn man_hinh(cay: &tcc_ui::Node, tieu_de: &str) -> Result<Screen, WalletFlowError> {
-    let mut bo_dung = WebViewRenderer::new();
-    bo_dung.render(cay).map_err(|e| e.to_string())?;
-    Ok(Screen {
-        document: bo_dung.document().to_owned(),
+/// Gói một cây thành màn hình cho bộ dựng ra pixel.
+///
+/// Không có danh sách hành động "được phép" như bên kia: ở đó tài liệu là HTML
+/// và một trang chạy được kịch bản nên phải chặn hành động lạ từ ngoài danh
+/// sách. Ở đây cây chính là thứ được vẽ, và một mã hành động không có trong cây
+/// thì không có nút nào phát ra nó — chặn lại là chặn một đường không tồn tại.
+fn man_hinh(cay: &tcc_ui::Node, tieu_de: &str, ngon_ngu: Language) -> Screen {
+    Screen {
+        tree: cay.clone(),
         title: tieu_de.to_owned(),
-        allowed: cay
-            .action_ids()
-            .iter()
-            .map(|a| a.as_str().to_owned())
-            .collect(),
-    })
+        text: crate::text::raster_text(ngon_ngu),
+    }
 }
 
 impl From<String> for WalletFlowError {
@@ -240,13 +239,15 @@ mod kiem_thu {
     fn nhan_o_pin_khop_giua_man_hinh_va_luong() {
         for ngon_ngu in [Language::En, Language::Vi] {
             let cay = import_screen::build_pin("0xabc", ngon_ngu).unwrap();
-            let mut bd = WebViewRenderer::new();
-            bd.render(&cay).unwrap();
+            let s = crate::do_cay::chu(&cay);
             let nhan = label(TextKey::NhapPinNhan, ngon_ngu);
+            // Luồng tra ô nhập THEO NHÃN (`t.fields.get(&nhan_pin)`), nên nhãn
+            // trên màn hình và nhãn trong luồng phải là một chuỗi. Lệch một chữ
+            // là mã PIN người dùng gõ không bao giờ tới nơi, và màn hình vẫn
+            // trông bình thường.
             assert!(
-                bd.body().contains(&format!("aria-label=\"{nhan}\"")),
-                "màn hình không mang nhãn {nhan:?} mà luồng đang tìm:\n{}",
-                bd.body()
+                s.contains(&format!("] {nhan}:")),
+                "màn hình không mang nhãn {nhan:?} mà luồng đang tìm:\n{s}"
             );
         }
     }
@@ -312,58 +313,52 @@ pub fn restore_from_phrase(ngon_ngu: Language) -> Result<String, WalletFlowError
     let man_dau = man_hinh(
         &recovery_screen::build_entry(None, ngon_ngu).map_err(|e| e.to_string())?,
         label(TextKey::CumTuTieuDe, ngon_ngu),
-    )?;
+        ngon_ngu,
+    );
 
-    bo_dung_cua_so::dialog_sequence(&man_dau, move |t| {
-        if t.hanh_dong == recovery_screen::ACTION_CONTINUE {
-            let go = t
-                .o_nhap
-                .iter()
-                .find(|(nhan, _)| *nhan == nhan_o)
-                .map(|(_, gia_tri)| gia_tri.clone())
-                .unwrap_or_default();
+    bo_dung_cua_so::open_sequence(man_dau, move |t| {
+        let hanh_dong = t.action.as_deref().unwrap_or_default();
+        if hanh_dong == recovery_screen::ACTION_CONTINUE {
+            let go = t.fields.get(&nhan_o).cloned().unwrap_or_default();
             // Dùng CHÍNH hàm thuần đã kiểm được, thay vì lặp lại logic ở đây.
             // Lặp lại là để hai bên trôi dạt, và lúc đó phép thử xanh trong khi
             // cửa sổ làm một việc khác.
-            let (cay, tieu_de) =
-                if let PhraseStep::Confirm(dia_chi) = phrase_step(&t.hanh_dong, &go) {
-                    let Ok(khoa) = recovery_screen::read_phrase(&go) else {
-                        return Next::Done;
-                    };
-                    dang_cho = Some(khoa);
-                    let Ok(c) = recovery_screen::build_confirm(&dia_chi, ngon_ngu) else {
-                        return Next::Done;
-                    };
-                    (c, label(TextKey::CumTuXacNhanTieuDe, ngon_ngu))
-                } else {
-                    // Gõ lại NGAY TRÊN màn ấy, không đá về từ đầu — 24 chữ mà phải
-                    // gõ lại từ đầu vì một lỗi chính tả là cách chắc chắn để người
-                    // dùng đi dán từ chỗ khác.
-                    let cau = label(TextKey::CumTuLoiKhongHopLe, ngon_ngu);
-                    let Ok(c) = recovery_screen::build_entry(Some(cau), ngon_ngu) else {
-                        return Next::Done;
-                    };
-                    (c, label(TextKey::CumTuTieuDe, ngon_ngu))
+            let (cay, tieu_de) = if let PhraseStep::Confirm(dia_chi) = phrase_step(hanh_dong, &go) {
+                let Ok(khoa) = recovery_screen::read_phrase(&go) else {
+                    return Next::Done;
                 };
-            return match man_hinh(&cay, tieu_de) {
-                Ok(m) => Next::Show(Box::new(m)),
-                Err(_) => Next::Done,
+                dang_cho = Some(khoa);
+                let Ok(c) = recovery_screen::build_confirm(&dia_chi, ngon_ngu) else {
+                    return Next::Done;
+                };
+                (c, label(TextKey::CumTuXacNhanTieuDe, ngon_ngu))
+            } else {
+                // Gõ lại NGAY TRÊN màn ấy, không đá về từ đầu — 24 chữ mà phải
+                // gõ lại từ đầu vì một lỗi chính tả là cách chắc chắn để người
+                // dùng đi dán từ chỗ khác.
+                let cau = label(TextKey::CumTuLoiKhongHopLe, ngon_ngu);
+                let Ok(c) = recovery_screen::build_entry(Some(cau), ngon_ngu) else {
+                    return Next::Done;
+                };
+                (c, label(TextKey::CumTuTieuDe, ngon_ngu))
             };
+            return Next::Show(Box::new(man_hinh(&cay, tieu_de, ngon_ngu)));
         }
 
         // Quay lại màn gõ — giữ cửa sổ, cho sửa. KHÔNG phải huỷ.
-        if t.hanh_dong == recovery_screen::ACTION_BACK {
+        if hanh_dong == recovery_screen::ACTION_BACK {
             dang_cho = None;
             let Ok(cay) = recovery_screen::build_entry(None, ngon_ngu) else {
                 return Next::Done;
             };
-            return match man_hinh(&cay, label(TextKey::CumTuTieuDe, ngon_ngu)) {
-                Ok(m) => Next::Show(Box::new(m)),
-                Err(_) => Next::Done,
-            };
+            return Next::Show(Box::new(man_hinh(
+                &cay,
+                label(TextKey::CumTuTieuDe, ngon_ngu),
+                ngon_ngu,
+            )));
         }
 
-        if t.hanh_dong == recovery_screen::ACTION_SAVE {
+        if hanh_dong == recovery_screen::ACTION_SAVE {
             let Some(khoa) = dang_cho.take() else {
                 return Next::Done;
             };
@@ -382,10 +377,11 @@ pub fn restore_from_phrase(ngon_ngu: Language) -> Result<String, WalletFlowError
                     let Ok(cay) = recovery_screen::build_failure(&cau, ngon_ngu) else {
                         return Next::Done;
                     };
-                    return match man_hinh(&cay, label(TextKey::HongTieuDe, ngon_ngu)) {
-                        Ok(m) => Next::Show(Box::new(m)),
-                        Err(_) => Next::Done,
-                    };
+                    return Next::Show(Box::new(man_hinh(
+                        &cay,
+                        label(TextKey::HongTieuDe, ngon_ngu),
+                        ngon_ngu,
+                    )));
                 }
             }
         }
