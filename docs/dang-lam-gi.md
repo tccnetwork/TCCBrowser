@@ -5,7 +5,55 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **19/08/2026**.
+> Cập nhật lần cuối: **23/08/2026**.
+
+## Đứng ở đâu — 23/08/2026
+
+Nhánh `giai-doan-3.1`, CI xanh.
+
+**337 phép thử · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
+
+### Máy dựng web đã bỏ HẲN (23/08)
+
+Không còn `wry`, không còn `tcc-render-webview`, không còn tầng 2. Một bộ dựng
+(ra pixel), một cửa sổ, một đường. −7536 dòng.
+
+**Chỗ chặn thật không phải việc xoá.** Mười hai màn hình raster đã có sẵn, nên
+nhìn danh sách hàm thì tưởng chỉ việc đổi lời gọi. Nhưng `tao` chỉ cho MỘT vòng
+lặp sự kiện mỗi tiến trình, mà mỗi hàm ấy tự dựng một vòng — nên chúng gọi được
+đúng một lần, và mọi luồng nhiều màn hình không chạy được. `open_sequence` là
+thứ mở khoá; xoá crate chỉ là việc sau đó.
+
+**Mất gì:** 56 phép thử, thoát ký tự, CSP, `kiem-khoi-tan-cong`, tầng 2 cùng
+nhóm chắn của nó, thanh địa chỉ. Danh mục đầy đủ và lý do từng cái ở
+[`../SECURITY.md`](../SECURITY.md) §3.7. Điều đáng nhớ nhất: **không còn ai
+NGOÀI mã của ta nhìn vào thứ ta vẽ** — trước có thể hỏi WebKit "anh thấy gì",
+nay phép thử ta viết đọc lại cây ta cũng tự dựng.
+
+### Bẫy đã dẫm hôm nay
+
+- **Một phép thử xanh trên macOS, đỏ trên Linux, và hai chẩn đoán đầu của tôi
+  đều sai.** Cái giải được là **in HỘP vào thông báo lỗi** rồi để CI nói —
+  không phải đoán thêm vòng nữa. Hộp hai nền giống hệt nhau; sai là **nét chữ
+  vẽ tràn ra ngoài ô của chính nó**, vì chiều cao ô tính bằng `cỡ × 1.4`, một
+  con số đoán. Nợ ấy nay có tên: `net_khong_tran_ra_ngoai_o`.
+- **`clippy` chưa bao giờ được chạy theo từng cờ**, chỉ một lượt workspace. Mã
+  sau một cờ chỉ được soi khi cờ ấy bật. `CLAUDE.md` đã vá.
+- **`grep "webview"` không bắt hết.** Hai bước CI còn sống vì tên chúng là
+  "Measure the web platform (WebKitGTK)" và chúng gọi ví dụ `do-nen-tang`.
+- **Phép thử so hai TỔNG thì vỡ khi có cách gọi mới.** `cho_goi_raster_dung_cau_
+  da_dich` đếm `raster_text(...)` rồi so với số `open_screen(`; `open_sequence`
+  xuất hiện, một điểm vào gọi ba lần, hai số rời nhau trong khi mọi chỗ đều
+  đúng. Nay soi TỪNG chỗ dựng màn hình.
+
+### Còn nợ, có tên
+
+| Nợ | Ở đâu |
+|---|---|
+| `chay_chuoi` dài 169 dòng — cần gói phiên vào một struct | `tcc-render-raster/src/window.rs` |
+| Nét chữ tràn ra ngoài ô trên Linux — hỏi phông chiều cao thật | `net_khong_tran_ra_ngoai_o`, `#[ignore]` |
+| Chưa trình đọc màn hình nào chạy thật | SECURITY.md §3.1d |
+| `ttf-parser` phân tích phông trong tiến trình vẽ nội dung đã ký | SECURITY.md §3.5b |
 
 ## Đứng ở đâu — 19/08/2026
 
