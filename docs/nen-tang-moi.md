@@ -1,4 +1,18 @@
-# Một nền tảng ứng dụng mới — tư vấn kiến trúc
+# Bản cài đặt tham chiếu thế hệ sau — tư vấn kiến trúc
+
+> ⚠️ **Từ vựng: quyết định này đã chốt từ lâu, ở dòng đầu `README.md`.**
+>
+> *"Sản phẩm thật của kho này là **tiêu chuẩn TCC** — một định dạng cho ứng dụng
+> đã ký, có cổng quyền năng, **không mang mã**. Trình duyệt là **bản cài đặt
+> tham chiếu** của nó."*
+>
+> Nên: sản phẩm là **tiêu chuẩn**; thứ ta đang dựng là **bản cài đặt tham
+> chiếu**; `tcc-runtime` là **một crate** bên trong nó, không phải tên cả hệ
+> thống.
+>
+> Bản đầu tài liệu này gọi nó là "nền tảng ứng dụng", rồi tôi sửa thành
+> "runtime". **Cả hai đều sai**, và sai vì cùng một lý do: tôi đặt tên mới thay
+> vì đọc quyết định đã có.
 
 > Viết 22/08/2026, theo yêu cầu: *"hệ thống trình duyệt cũ quá cũ và chắp vá,
 > tư vấn một hướng hoàn toàn mới, hiện đại, tối ưu, đủ tính năng."*
@@ -18,6 +32,10 @@ dùng cụ thể. Viết ra trước, lúc còn tỉnh táo.
 ## Quyết định số 1 — cái gì chạy mã ứng dụng
 
 Mọi thứ khác suy ra từ đây. Trả lời: **WebAssembly Component Model**.
+
+Và nó phải vào **tiêu chuẩn** trước, vào mã sau — luật 1 của `spec/README.md`
+nói ngược lại (*"đặc tả rút ra từ mã ĐÃ CHẠY"*), nên trình tự đúng là: dựng chạy
+được ở bản tham chiếu, rồi mới rút thành điều khoản 0.2 kèm vector.
 
 Không phải "WASM" chung chung. Cụ thể là **component model + WIT** — vì nó biến
 mô hình quyền năng của dự án thành thứ **máy kiểm được**:
@@ -149,9 +167,10 @@ nền tảng mới phải chờ một máy dựng web ba năm nữa mới ra m�
 
 ## Ba điều tôi khuyên làm khác đi
 
-**1. Đừng gọi nó là trình duyệt.** Nó là **một nền tảng ứng dụng có cổng quyền
-năng và chữ ký hậu lượng tử**, cộng một cửa sổ xem web. Gọi là trình duyệt thì
-mọi người so nó với Chrome và nó thua ở mọi ô so sánh.
+**1. Lời khuyên "đừng gọi nó là trình duyệt" của tôi là THỪA.** `README.md` đã
+không gọi thế từ đầu: sản phẩm là **tiêu chuẩn**, cái này là **bản cài đặt tham
+chiếu**. Việc cần làm không phải đặt tên mới, mà là **giữ đúng tên đã có** —
+gồm cả ở đây, chỗ tôi đã tự ý đổi hai lần.
 
 **2. Bắt đầu bằng bố cục, không bằng WASM.** Bố cục là thứ chặn **mọi** màn hình
 hôm nay — `ui.json` chỉ có hai khái niệm bố cục. WASM chưa chặn gì cả.
