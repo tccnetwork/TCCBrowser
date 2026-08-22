@@ -40,9 +40,21 @@ tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu c
 cargo test -p tcc-shell --features accesskit --test hai-bo-dung
 cargo test -p tcc-shell --features cua-so-raster
 cargo test -p tcc-render-raster --features window
+cargo test -p tcc-render-raster --features accesskit-platform
 cargo test -p tcc-render-webview --features window
 cargo test -p tcc-shell --features window
+
+# `clippy` cũng phải chạy THEO TỪNG CỜ, không chỉ một lượt workspace:
+cargo clippy -p tcc-render-raster --features window --all-targets -- -D warnings
+cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
+cargo clippy -p tcc-shell --features cua-so-raster --all-targets -- -D warnings
+cargo clippy -p tcc-shell --features window --all-targets -- -D warnings
 ```
+
+Dòng `clippy` theo cờ thêm 22/08/2026, sau khi CI đỏ vì đúng chỗ ấy: một
+`.expect()` trong phép thử mới. `cargo test` của cờ ấy XANH, `clippy --workspace`
+XANH — vì mã sau cờ chỉ được `clippy` soi khi chính cờ ấy được bật. `-D warnings`
+là một cổng, và một cổng không soi tới thì không phải cổng.
 
 Nhóm cờ ở cuối thêm 19/08/2026, sau lần CI đỏ thứ hai trong ngày: mã sau một cờ
 mà `cargo test --workspace` không dựng thì **không tồn tại** đối với lượt kiểm ở
