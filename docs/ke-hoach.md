@@ -238,6 +238,25 @@ kiểm định được vào tiến trình người dùng. Netflix → Tầng 3.
 
 ---
 
+## Nhánh rẽ: bỏ hẳn WebView (22/08/2026)
+
+Kế hoạch trên **cố ý mượn WebView**. Chủ dự án muốn thử hướng ngược lại — tự
+dựng tất cả — nên có một kế hoạch riêng cho nhánh ấy:
+[`bo-webview.md`](bo-webview.md).
+
+Tóm tắt để không ai phải mở tệp kia mới biết cái giá:
+
+| | Bỏ WebView ở tầng 1 | Bỏ WebView ở tầng 2 |
+|---|---|---|
+| Là việc gì | nối nốt bộ dựng đã có | **viết một trình duyệt web** |
+| Còn thiếu | 10 chỗ gọi trong 2 tệp | mọi thứ |
+| Ước lượng | **3–6 tuần** | **12–18 tháng** (không JS) / **3–5 năm** (có JS) |
+
+Hai vế ấy khác nhau hai bậc độ lớn. Gộp chúng làm một là cách nhanh nhất để
+hỏng kế hoạch.
+
+---
+
 ## Rủi ro lớn nhất — và nó không phải kỹ thuật
 
 > **Vì sao một lập trình viên bỏ công triển khai theo cách TCC?**
