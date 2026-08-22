@@ -17,7 +17,7 @@
 //! Cả tệp này chỉ dùng `tao` (cửa sổ) và `softbuffer` (đưa điểm ảnh lên màn
 //! hình). Không `wry`, không WebKit, không máy dựng nào của hệ điều hành.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 #[cfg(feature = "accesskit-platform")]
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -70,7 +70,47 @@ pub struct ScreenOutcome {
     pub fields: std::collections::BTreeMap<String, String>,
 }
 
-/// Mở màn hình `tree` bằng bộ dựng ra pixel.
+/// Một màn hình trong chuỗi.
+///
+/// Sở hữu dữ liệu chứ không mượn: màn hình tiếp theo thường được dựng RA TỪ câu
+/// trả lời của màn hình trước, nên nó không mượn được của ai cả.
+pub struct Screen {
+    pub tree: Node,
+    pub title: String,
+    pub text: ScreenText,
+}
+
+/// Bên gọi quyết định đi tiếp hay dừng, sau mỗi màn hình.
+pub enum Next {
+    Show(Box<Screen>),
+    Done,
+}
+
+/// Nhiều màn hình nối nhau **trong MỘT cửa sổ và MỘT vòng lặp sự kiện**.
+///
+/// # ⚠️ Vì sao không gọi [`open_screen`] nhiều lần
+///
+/// `tao` chỉ cho dựng **một** vòng lặp sự kiện mỗi tiến trình. Gọi lần thứ hai
+/// làm nó hoảng loạn trong `app_state.rs`, và thông báo hoảng loạn ấy không nói
+/// gì về nguyên nhân — nhìn từ ngoài chỉ thấy chương trình treo. Đường WebView
+/// đã vấp đúng chỗ này và giải bằng `dialog_sequence`; đây là cùng lời giải, cho
+/// bộ dựng ra pixel.
+///
+/// Trả về kết quả của **từng** màn hình, theo thứ tự. Bên gọi cần cả chuỗi chứ
+/// không chỉ màn cuối: luồng ví đọc lại ô nhập của màn trước.
+///
+/// Đóng cửa sổ thì dừng cả chuỗi và KHÔNG hỏi `tiep` — đóng cửa sổ không phải
+/// một câu trả lời.
+///
+/// # Errors
+/// Cây không vẽ được, hoặc không dựng được cửa sổ.
+pub fn open_sequence(
+    dau: Screen,
+    tiep: impl FnMut(&ScreenOutcome) -> Next,
+) -> Result<Vec<ScreenOutcome>, String> {
+    chay_chuoi(dau, tiep)
+}
+
 ///
 /// **Nút** kết thúc màn hình. **Công tắc** đổi câu trả lời rồi vẽ lại, ở lại.
 ///
@@ -84,27 +124,57 @@ pub struct ScreenOutcome {
 ///
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
-// ⚠️ NỢ ĐÃ GHI TÊN: hàm này dài 125 dòng mã, quá trần 100.
+///
+/// Là chuỗi MỘT phần tử — xem [`open_sequence`].
+pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<ScreenOutcome, String> {
+    let man = Screen {
+        tree: tree.clone(),
+        title: tieu_de.to_owned(),
+        text: ScreenText {
+            destructive_note: chu.destructive_note.clone(),
+            destructive_role: chu.destructive_role.clone(),
+        },
+    };
+    let mut ket = open_sequence(man, |_| Next::Done)?;
+    // Chuỗi một phần tử luôn trả đúng một kết quả; nhưng nếu không, trả về một
+    // kết quả RỖNG chứ không hoảng loạn — rỗng nghĩa là "không bấm gì", và đó là
+    // câu trả lời an toàn.
+    Ok(ket.pop().unwrap_or(ScreenOutcome {
+        action: None,
+        toggles_on: BTreeSet::new(),
+        fields: BTreeMap::new(),
+    }))
+}
+
+// ⚠️ NỢ ĐÃ GHI TÊN: hàm này dài 169 dòng mã, quá trần 100.
 //
-// Nó là một MÁY TRẠNG THÁI: dựng cửa sổ, dựng bề mặt, nối trợ năng, rồi một
-// vòng lặp sáu nhánh cùng đọc và cùng sửa một mớ trạng thái. Tách tiếp bằng
-// cách moi từng nhánh ra hàm rời thì mỗi hàm phải nhận thêm bốn năm tham số —
-// trải một máy trạng thái ra sáu hàm KHÔNG làm nó dễ đọc hơn, chỉ làm chỗ nối
-// khó thấy hơn.
+// Trước khi có chuỗi màn hình nó dài 125, và chú thích ở đây đã ghi: "lời giải
+// đúng là gói cả phiên vào một struct có phương thức cho từng sự kiện; chưa làm
+// vì tệp này sắp phải sửa lớn, và tôi không muốn refactor hai lần." Lần sửa lớn
+// ấy chính là đây, và nó làm hàm DÀI THÊM chứ không ngắn đi.
 //
-// Lời giải đúng là gói cả phiên vào một struct có phương thức cho từng sự kiện.
-// Chưa làm vì tệp này sắp phải sửa lớn, và tôi không muốn refactor hai lần.
-// Ghi ra đây để nó là nợ có tên chứ không phải một `expect` lặng lẽ.
+// Vẫn chưa tách, và lần này lý do khác: tách bằng cách moi từng nhánh ra hàm rời
+// đã thử — mỗi hàm phải nhận bảy tám tham số, trong đó vài cái nằm sau `#[cfg]`,
+// nên chỗ nối càng khó thấy. Tách đúng là gói `bo_dung`/`bat`/`tt`/`da_bam`/
+// `man` vào một struct có phương thức, và đó là một lần sửa lớn nữa vào ĐÚNG
+// vòng lặp quyết định "người dùng vừa bấm Cho phép hay Từ chối" — chỗ đã sinh ra
+// F3 (một yêu cầu trợ năng còn trong hàng đợi ghi đè lựa chọn của người dùng).
+//
+// Nên: làm riêng, có phép thử đi kèm, không kèm vào lần thêm tính năng. Ghi ra
+// đây để nó là nợ có tên chứ không phải một `expect` lặng lẽ.
 #[expect(
     clippy::too_many_lines,
-    reason = "máy trạng thái của một phiên màn hình; nợ đã ghi ở chú thích trên"
+    reason = "máy trạng thái của một chuỗi màn hình; nợ đã ghi ở chú thích trên"
 )]
-pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<ScreenOutcome, String> {
+fn chay_chuoi(
+    dau: Screen,
+    mut tiep: impl FnMut(&ScreenOutcome) -> Next,
+) -> Result<Vec<ScreenOutcome>, String> {
     // `chu` chỉ tới tay trợ năng. Giữ tham số cho MỌI cờ chứ không đổi chữ ký
     // theo cờ: một hàm đổi hình dạng theo cờ là một hàm bên gọi phải nhớ hai
     // dạng, và sẽ có một dạng bị quên.
-    #[cfg(not(feature = "accesskit-platform"))]
-    let _ = chu;
+    let mut man_hien = dau;
+    let mut ket_qua: Vec<ScreenOutcome> = Vec::new();
     // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
     //
     // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
@@ -115,12 +185,17 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     let mut bat: BTreeSet<String> = BTreeSet::new();
     let mut bo_dung = RasterRenderer::new();
     bo_dung
-        .render(&tree.with_toggles(&bat).map_err(|e| e.to_string())?)
+        .render(
+            &man_hien
+                .tree
+                .with_toggles(&bat)
+                .map_err(|e| e.to_string())?,
+        )
         .map_err(|e| e.to_string())?;
     let cao = bo_dung.height();
 
     let mut vong = EventLoopBuilder::new().build();
-    let window = dung_cua_so(&vong, tieu_de, cao)?;
+    let window = dung_cua_so(&vong, &man_hien.title, cao)?;
 
     // ⚠️ `Context`/`Surface` phải sống lâu bằng cửa sổ. Thả sớm là mất bề mặt,
     // và triệu chứng là một cửa sổ trắng trơn — trông y như bộ dựng vẽ hỏng.
@@ -138,7 +213,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     let mut bang_hanh_dong = bang_hanh_dong_cua(&bo_dung);
     #[cfg(feature = "accesskit-platform")]
     let cay_chung: Arc<Mutex<accesskit::TreeUpdate>> = Arc::new(Mutex::new(
-        cay_accesskit(&bo_dung, chu).unwrap_or_else(cay_rong),
+        cay_accesskit(&bo_dung, &man_hien.text).unwrap_or_else(cay_rong),
     ));
     #[cfg(feature = "accesskit-platform")]
     let mut adapter = crate::accesskit_bridge::platform::ScreenReaderLink::attach(
@@ -152,6 +227,8 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
 
     let mut tt = TrangThai::default();
     let mut da_bam: Option<String> = None;
+    // Lỗi xảy ra GIỮA vòng lặp — không trả ra được từ bao đóng, nên để đây.
+    let mut loi_doi_man: Option<String> = None;
     let mut ve_lai = false;
     // Cuộn, đơn vị LOGIC, tính từ đỉnh nội dung.
     //
@@ -298,25 +375,94 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                     ap_ket_qua(k, &mut ve_lai, &mut da_bam, dieu_khien);
                 }
                 if core::mem::take(&mut ve_lai) {
-                    ve_lai_man_hinh(&mut bo_dung, tree, &bat, &tt.noi_dung_o);
+                    ve_lai_man_hinh(&mut bo_dung, &man_hien.tree, &bat, &tt.noi_dung_o);
                     // Gạt một công tắc mà không báo lại thì VoiceOver vẫn đọc
                     // trạng thái CŨ — người dùng nghe "tắt" trong khi màn hình
                     // hiện "bật". Ở màn hỏi quyền, đó là nghe một đằng cấp một
                     // nẻo.
                     #[cfg(feature = "accesskit-platform")]
-                    bao_tro_nang(&bo_dung, chu, &cay_chung, &mut adapter, &mut bang_hanh_dong);
+                    bao_tro_nang(
+                        &bo_dung,
+                        &man_hien.text,
+                        &cay_chung,
+                        &mut adapter,
+                        &mut bang_hanh_dong,
+                    );
                 }
                 trinh_bay(&bo_dung, &mut be_mat, &window, tt.cuon);
             }
             _ => {}
         }
+
+        // ── Màn hình vừa kết thúc? Hỏi bên gọi xem còn màn nào nữa ──────────
+        //
+        // ⚠️ Chỉ chạy khi có người BẤM. `CloseRequested` cũng đặt `Exit` nhưng
+        // để `da_bam` là `None`, và đóng cửa sổ KHÔNG phải một câu trả lời —
+        // hỏi `tiep` ở đó là biến cái đóng cửa sổ thành một lựa chọn.
+        if da_bam.is_none() {
+            return;
+        }
+        let ket = ScreenOutcome {
+            action: da_bam.take(),
+            toggles_on: core::mem::take(&mut bat),
+            fields: core::mem::take(&mut tt.noi_dung_o),
+        };
+        let sau = tiep(&ket);
+        ket_qua.push(ket);
+        let Next::Show(m) = sau else {
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        };
+        man_hien = *m;
+        tt = TrangThai::default();
+        // Không vẽ được màn tiếp thì DỪNG, không ở lại màn cũ: ở lại là người
+        // dùng bấm xong mà màn hình không đổi, và họ sẽ bấm lại.
+        if let Err(e) = doi_man_hinh(&mut bo_dung, &man_hien, &window) {
+            loi_doi_man = Some(e);
+            *dieu_khien = ControlFlow::Exit;
+            return;
+        }
+        #[cfg(feature = "accesskit-platform")]
+        bao_tro_nang(
+            &bo_dung,
+            &man_hien.text,
+            &cay_chung,
+            &mut adapter,
+            &mut bang_hanh_dong,
+        );
+        // Huỷ cái `Exit` mà `ap_ket_qua` vừa đặt. Đặt rồi gỡ nhìn vòng vo, nhưng
+        // đường kia là để `ap_ket_qua` biết nó đang ở trong chuỗi hay không — và
+        // một hàm đổi hành vi theo ngữ cảnh gọi là một hàm sẽ bị gọi nhầm ngữ
+        // cảnh.
+        *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
+        window.request_redraw();
     });
 
-    Ok(ScreenOutcome {
-        action: da_bam,
-        toggles_on: bat,
-        fields: tt.noi_dung_o,
-    })
+    loi_doi_man.map_or(Ok(ket_qua), Err)
+}
+
+/// Vẽ lại cửa sổ cho một màn hình MỚI: cây khác, tiêu đề khác, chiều cao khác.
+fn doi_man_hinh(
+    bo_dung: &mut RasterRenderer,
+    man: &Screen,
+    window: &tao::window::Window,
+) -> Result<(), String> {
+    bo_dung.render(&man.tree).map_err(|e| e.to_string())?;
+    window.set_title(&man.title);
+    // ⚠️ Đặt lại chiều cao cửa sổ theo màn mới. Không đặt thì một màn ngắn nối
+    // sau một màn dài để lại một khoảng trắng lớn, còn màn dài nối sau màn ngắn
+    // thì phần dưới **không nhìn thấy được** — kể cả nút.
+    let co = window.inner_size().to_logical::<f64>(window.scale_factor());
+    // Cùng một trần với `dung_cua_so`, và vì cùng một lý do: cây cao tới
+    // `MAX_HEIGHT` mà màn hình thì không, nên mở đúng chiều cao nội dung là đẩy
+    // nút xuống dưới mép màn hình. Chắn hai lớp: trần ở đây, cuộn ở dưới.
+    let cao_man = window.current_monitor().map_or(900.0, |m| {
+        m.size().to_logical::<f64>(m.scale_factor()).height
+    });
+    #[expect(clippy::cast_precision_loss, reason = "chiều cao ảnh, luôn nhỏ")]
+    let cao = (bo_dung.height() as f64).min(cao_man * 0.85);
+    window.set_inner_size(LogicalSize::new(co.width, cao));
+    Ok(())
 }
 
 /// Cú bấm dẫn tới cái gì.
@@ -722,15 +868,57 @@ mod kiem_thu {
         let nguon = include_str!("window.rs");
         let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
         // Kết quả lấy THẲNG từ trạng thái khung, không đi qua bước vẽ nào.
-        assert!(
-            than.contains("fields: tt.noi_dung_o"),
-            "kết quả không mang nội dung ô nhập"
-        );
+        // Mọi chỗ dựng `fields:` phải lấy thẳng từ `tt.noi_dung_o`. Soi theo
+        // CHỖ chứ không theo một chuỗi cố định: bản trước khớp đúng
+        // `fields: tt.noi_dung_o`, rồi việc bọc thêm `core::mem::take` làm nó
+        // đỏ trong khi điều nó canh vẫn nguyên. Một phép thử đỏ vì mã được viết
+        // lại chứ không vì mã sai là một phép thử người ta sẽ sửa cho im.
+        let cho = than.match_indices("fields:").collect::<Vec<_>>();
+        assert!(!cho.is_empty(), "kết quả không mang nội dung ô nhập");
+        for (i, _) in cho {
+            let doan = &than[i..(i + 60).min(than.len())];
+            // Bỏ qua chỗ KHAI BÁO trường (`fields: BTreeMap<…>`); chỉ soi chỗ
+            // DỰNG giá trị.
+            if doan.contains("BTreeMap<") {
+                continue;
+            }
+            assert!(
+                // Bản đồ RỖNG cũng được: nó không mang gì, nên không mang được
+                // thứ đã đi qua lượt vẽ.
+                doan.contains("tt.noi_dung_o") || doan.contains("BTreeMap::new()"),
+                "một chỗ dựng `fields:` không lấy từ trạng thái khung: {doan}"
+            );
+        }
         // Và chỗ DUY NHẤT biến chữ thành chấm phải nằm ở bộ dựng, không ở đây.
         assert!(
             !than.contains('•'),
             "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
              khung nhận về hàng chấm thay vì thứ người dùng gõ"
+        );
+    }
+
+    /// **Đóng cửa sổ KHÔNG được tính là một câu trả lời.**
+    ///
+    /// `CloseRequested` và một cú bấm đều đặt `ControlFlow::Exit`, nên nhìn từ
+    /// đuôi vòng lặp chúng giống hệt nhau — trừ `da_bam`. Hỏi `tiep` mà không
+    /// chắn chỗ ấy là biến cái đóng cửa sổ thành một lựa chọn: người dùng đóng
+    /// hộp thoại quyền và luồng đi tiếp như thể họ đã bấm.
+    ///
+    /// Soi mã nguồn vì phép thử thật cần một vòng lặp sự kiện, mà `tao` chỉ cho
+    /// một vòng mỗi tiến trình — hai phép thử như thế trong một lượt `cargo
+    /// test` là một lượt hoảng loạn.
+    #[test]
+    fn dong_cua_so_khong_hoi_ben_goi() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        let goi = than.find("tiep(&ket)").expect("không thấy chỗ gọi `tiep`");
+        let chan = than
+            .find("if da_bam.is_none() {")
+            .expect("không thấy chắn `da_bam.is_none()`");
+        assert!(
+            chan < goi,
+            "`tiep` được hỏi trước khi chắn `da_bam.is_none()` — đóng cửa sổ sẽ \
+             được tính là một câu trả lời"
         );
     }
 
