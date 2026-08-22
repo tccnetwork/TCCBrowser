@@ -74,6 +74,21 @@ pub struct ScreenOutcome {
 ///
 /// # Errors
 /// Cây không vẽ được, hoặc không dựng được cửa sổ.
+// ⚠️ NỢ ĐÃ GHI TÊN: hàm này dài 125 dòng mã, quá trần 100.
+//
+// Nó là một MÁY TRẠNG THÁI: dựng cửa sổ, dựng bề mặt, nối trợ năng, rồi một
+// vòng lặp sáu nhánh cùng đọc và cùng sửa một mớ trạng thái. Tách tiếp bằng
+// cách moi từng nhánh ra hàm rời thì mỗi hàm phải nhận thêm bốn năm tham số —
+// trải một máy trạng thái ra sáu hàm KHÔNG làm nó dễ đọc hơn, chỉ làm chỗ nối
+// khó thấy hơn.
+//
+// Lời giải đúng là gói cả phiên vào một struct có phương thức cho từng sự kiện.
+// Chưa làm vì tệp này sắp phải sửa lớn, và tôi không muốn refactor hai lần.
+// Ghi ra đây để nó là nợ có tên chứ không phải một `expect` lặng lẽ.
+#[expect(
+    clippy::too_many_lines,
+    reason = "máy trạng thái của một phiên màn hình; nợ đã ghi ở chú thích trên"
+)]
 pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<ScreenOutcome, String> {
     // `chu` chỉ tới tay trợ năng. Giữ tham số cho MỌI cờ chứ không đổi chữ ký
     // theo cờ: một hàm đổi hình dạng theo cờ là một hàm bên gọi phải nhớ hai
@@ -121,6 +136,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     // Nối trợ năng xong mới hiện — thứ tự này là cả nội dung của F6.
     window.set_visible(true);
 
+    let mut tt = TrangThai::default();
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
     // Cuộn, đơn vị LOGIC, tính từ đỉnh nội dung.
@@ -129,11 +145,15 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     // ngoài tầm, và người dùng **không bấm được gì cả**. Rà soát 21/08/2026, F7
     // — tôi xếp nó là "chuyện dùng được, không phải an ninh", rồi hôm sau nó
     // chặn đúng một người thật.
-    let mut cuon: f64 = 0.0;
+
+    // Nội dung ô nhập do KHUNG giữ, y như trạng thái công tắc — cây bất biến.
+
+    // Ô đang được chọn. `None` = chưa chọn ô nào, và lúc ấy gõ phím KHÔNG đi
+    // đâu cả — thà không nhận còn hơn nhận vào một ô người dùng không nhìn.
+
     // Vị trí chuột gần nhất, đơn vị LOGIC. `tao` báo vị trí theo pixel vật lý,
     // mà bộ dựng làm việc theo đơn vị logic — trên màn hình Retina hai thứ ấy
     // lệch nhau đúng hệ số 2, và bấm sẽ trúng ô khác.
-    let mut chuot = (0.0f64, 0.0f64);
 
     vong.run_return(|su_kien, _, dieu_khien| {
         // ⚠️ `WaitUntil`, KHÔNG phải `Wait` — đúng cái bẫy đã trả giá 18/08/2026
@@ -151,6 +171,45 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 ..
             } => *dieu_khien = ControlFlow::Exit,
 
+            // ⚠️ Chữ đến từ BỘ GÕ CỦA HỆ ĐIỀU HÀNH, không phải từ mã ta.
+            //
+            // `tao` cài `NSTextInputClient` trên macOS, nên dấu tiếng Việt —
+            // kể cả ca hai tầng như `ổ` — đã được ghép xong trước khi tới đây.
+            // Đường WebView cũng nhận đúng từ nguồn ấy. Ta KHÔNG tự viết bộ gõ,
+            // và không nên: bộ gõ là thứ người dùng đã chọn và đã quen.
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedImeText(chu),
+                ..
+            } => {
+                if let Some(nhan) = tt.o_dang_chon.clone() {
+                    tt.noi_dung_o.entry(nhan).or_default().push_str(&chu);
+                    ve_lai = true;
+                }
+            }
+
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            tao::event::KeyEvent {
+                                physical_key: tao::keyboard::KeyCode::Backspace,
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(nhan) = tt.o_dang_chon.clone()
+                    && let Some(v) = tt.noi_dung_o.get_mut(&nhan)
+                {
+                    // Xoá theo KÝ TỰ, không theo byte: một chữ có dấu là nhiều
+                    // byte, và cắt byte là cắt vào giữa một ký tự.
+                    v.pop();
+                    ve_lai = true;
+                }
+            }
+
             Event::WindowEvent {
                 event: WindowEvent::MouseWheel { delta, .. },
                 ..
@@ -158,8 +217,8 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 let co = window.inner_size().to_logical::<f64>(window.scale_factor());
                 #[expect(clippy::cast_precision_loss, reason = "chiều cao ảnh, luôn nhỏ")]
                 let cao_anh = bo_dung.height() as f64;
-                cuon = cuon_moi(
-                    cuon,
+                tt.cuon = cuon_moi(
+                    tt.cuon,
                     buoc_lan(&delta, window.scale_factor()),
                     cao_anh,
                     co.height,
@@ -173,7 +232,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 ..
             } => {
                 let l = position.to_logical::<f64>(window.scale_factor());
-                chuot = (l.x, l.y);
+                tt.chuot = (l.x, l.y);
             }
 
             Event::WindowEvent {
@@ -185,15 +244,14 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                     },
                 ..
             } => {
-                #[expect(
-                    clippy::cast_possible_truncation,
-                    reason = "toạ độ màn hình, luôn nằm gọn trong f32"
-                )]
-                let k = sau_cu_bam(
-                    bo_dung.hit_test(chuot.0 as f32, cong_cuon(chuot.1, cuon)),
+                xu_ly_cu_bam(
+                    &bo_dung,
+                    &mut tt,
                     &mut bat,
+                    &mut ve_lai,
+                    &mut da_bam,
+                    dieu_khien,
                 );
-                ap_ket_qua(k, &mut ve_lai, &mut da_bam, dieu_khien);
             }
 
             Event::RedrawRequested(_) | Event::MainEventsCleared => {
@@ -212,10 +270,8 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 {
                     ap_ket_qua(k, &mut ve_lai, &mut da_bam, dieu_khien);
                 }
-                if core::mem::take(&mut ve_lai)
-                    && let Ok(cay_moi) = tree.with_toggles(&bat)
-                {
-                    let _ = bo_dung.render(&cay_moi);
+                if core::mem::take(&mut ve_lai) {
+                    ve_lai_man_hinh(&mut bo_dung, tree, &bat, &tt.noi_dung_o);
                     // Gạt một công tắc mà không báo lại thì VoiceOver vẫn đọc
                     // trạng thái CŨ — người dùng nghe "tắt" trong khi màn hình
                     // hiện "bật". Ở màn hỏi quyền, đó là nghe một đằng cấp một
@@ -223,7 +279,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                     #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
                     bao_tro_nang(&bo_dung, chu, &cay_chung, &mut adapter, &mut bang_hanh_dong);
                 }
-                trinh_bay(&bo_dung, &mut be_mat, &window, cuon);
+                trinh_bay(&bo_dung, &mut be_mat, &window, tt.cuon);
             }
             _ => {}
         }
@@ -358,6 +414,74 @@ fn noi_tro_nang(
             tro_nang::KhiKichHoat(cay),
             tro_nang::NhanHanhDong(hang),
         )
+    }
+}
+
+/// Trạng thái người dùng tạo ra trên một màn hình raster.
+///
+/// Gom lại vì bốn thứ này **luôn đi cùng nhau**: cú bấm cần cuộn để biết nó rơi
+/// vào đâu, và gõ phím cần ô đang chọn để biết chữ đi đâu. Rời rạc thì mỗi hàm
+/// nhận thêm một tham số, và sẽ có hàm nhận thiếu một cái.
+#[derive(Debug, Default)]
+struct TrangThai {
+    /// Cuộn, đơn vị logic, tính từ đỉnh nội dung.
+    cuon: f64,
+    /// Vị trí chuột gần nhất, đơn vị LOGIC. `tao` báo theo pixel vật lý, mà bộ
+    /// dựng làm việc theo logic — trên màn hình Retina hai thứ lệch đúng hệ số
+    /// 2, và bấm sẽ trúng ô khác.
+    chuot: (f64, f64),
+    /// Nội dung ô nhập, tra theo NHÃN. Ô nhập không có mã hành động.
+    noi_dung_o: std::collections::BTreeMap<String, String>,
+    /// Ô đang được chọn. `None` = gõ phím KHÔNG đi đâu cả — thà không nhận còn
+    /// hơn nhận vào một ô người dùng không nhìn.
+    o_dang_chon: Option<String>,
+}
+
+/// Dựng lại cây từ trạng thái khung đang giữ, rồi vẽ.
+///
+/// Trạng thái công tắc và nội dung ô nhập do KHUNG giữ, không do cây giữ — cây
+/// bất biến. Đây là chỗ hai thứ ấy quay lại thành một màn hình.
+///
+/// Vẽ hỏng thì **giữ nguyên lần vẽ trước**: hình học cũ vẫn khớp với thứ người
+/// dùng đang nhìn, nên một cú bấm vẫn trúng đúng ô. Đổi lại, trạng thái trong
+/// bụng đã đi trước — xem F4 của rà soát 21/08/2026, vẫn chưa có lời giải.
+fn ve_lai_man_hinh(
+    bo_dung: &mut RasterRenderer,
+    tree: &Node,
+    bat: &BTreeSet<String>,
+    noi_dung_o: &std::collections::BTreeMap<String, String>,
+) {
+    if let Ok(cay_moi) = tree
+        .with_toggles(bat)
+        .and_then(|c| c.with_fields(noi_dung_o))
+    {
+        let _ = bo_dung.render(&cay_moi);
+    }
+}
+
+/// Một cú bấm chuột: hoặc CHỌN một ô nhập, hoặc chạy một hành động.
+///
+/// Hỏi ô nhập TRƯỚC. Một cú bấm chỉ thuộc về một trong hai, và nếu hỏi hành
+/// động trước thì một cú bấm vào ô nhập nằm đè lên nút sẽ chạy mất nút ấy.
+fn xu_ly_cu_bam(
+    bo_dung: &RasterRenderer,
+    tt: &mut TrangThai,
+    bat: &mut BTreeSet<String>,
+    ve_lai: &mut bool,
+    da_bam: &mut Option<String>,
+    dieu_khien: &mut ControlFlow,
+) {
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "toạ độ màn hình, luôn nằm gọn trong f32"
+    )]
+    let x = tt.chuot.0 as f32;
+    let y = cong_cuon(tt.chuot.1, tt.cuon);
+    if let Some(nhan) = bo_dung.hit_test_field(x, y) {
+        tt.o_dang_chon = Some(nhan.to_owned());
+    } else {
+        let k = sau_cu_bam(bo_dung.hit_test(x, y), bat);
+        ap_ket_qua(k, ve_lai, da_bam, dieu_khien);
     }
 }
 
@@ -727,16 +851,22 @@ mod kiem_thu {
     fn cuon_duoc_cong_vao_toa_do_bam() {
         let nguon = include_str!("window.rs");
         let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
-        let Some(goi) = than.split("fn open_screen").nth(1) else {
-            panic!("không tìm thấy `open_screen`")
+        // Soi hàm xử lý cú bấm, không soi `open_screen`: phép tính này đã dời
+        // sang đó, và phép thử BẮT ĐƯỢC lúc nó dời — đúng việc của nó.
+        let Some(goi) = than.split("fn xu_ly_cu_bam").nth(1) else {
+            panic!("không tìm thấy `xu_ly_cu_bam`")
         };
+        let goi = &goi[..goi.find("\n}").unwrap_or(goi.len())];
         assert!(
-            goi.contains("cong_cuon(chuot.1, cuon)"),
+            goi.contains("cong_cuon(tt.chuot.1, tt.cuon)"),
             "phép bấm KHÔNG cộng cuộn — cuộn xuống rồi bấm là trúng ô khác"
         );
         // Và cửa sổ không được mở cao bằng cả nội dung.
+        let Some(dung) = than.split("fn dung_cua_so").nth(1) else {
+            panic!("không tìm thấy `dung_cua_so`")
+        };
         assert!(
-            goi.contains("cao_man") && goi.contains(".min("),
+            dung.contains("cao_man") && dung.contains(".min("),
             "cửa sổ mở đúng chiều cao nội dung — nút dưới đáy sẽ nằm ngoài màn hình"
         );
     }

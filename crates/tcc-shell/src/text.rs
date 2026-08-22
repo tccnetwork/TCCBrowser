@@ -132,6 +132,33 @@ pub enum TextKey {
     QuanLyTieuDeCuaSo,
     /// Tiêu đề cửa sổ hộp thoại hỏi quyền — **của TRÌNH DUYỆT**.
     HoiQuyenTieuDeCuaSo,
+    // ── Tiêu đề CỬA SỔ, tách khỏi tiêu đề TRONG màn hình ──
+    //
+    // Hai thứ khác nhau và phải khác nhau. Tiêu đề trong màn hình trả lời "màn
+    // này nói về cái gì"; tiêu đề cửa sổ trả lời "cửa sổ này là của AI". Câu
+    // thứ hai mới là câu người dùng dùng để phân biệt một cửa sổ của trình
+    // duyệt với một cửa sổ do gói ứng dụng dựng — xem `window_title.rs`.
+    //
+    // Nên mọi chuỗi dưới đây mở đầu bằng "TCC — " và KHÔNG BAO GIỜ mang mã ứng
+    // dụng: đó chính là dấu phân biệt, và có phép thử chốt cả hai vế.
+    /// Tiêu đề cửa sổ màn xác nhận giao dịch.
+    GdTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn **đã gửi**.
+    XongTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn hỏi trước khi ra ngoài (tầng 3).
+    RaNgoaiTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn gõ cụm từ khôi phục.
+    CumTuTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn gõ cụm từ của **phiên thử** — khoá không được cất.
+    PhienTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn đối chiếu địa chỉ trước khi lưu ví.
+    CumTuXacNhanTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn báo hỏng.
+    HongTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn chọn ví để nhập.
+    NhapTieuDeCuaSo,
+    /// Tiêu đề cửa sổ màn hỏi mã PIN.
+    NhapPinTieuDeCuaSo,
 }
 
 /// Bản dịch.
@@ -480,6 +507,29 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::HoiQuyenTieuDeCuaSo, Language::Vi) => "TCC — hỏi quyền",
         (TextKey::QuanLyTieuDeCuaSo, Language::En) => "TCC — permissions granted",
         (TextKey::QuanLyTieuDeCuaSo, Language::Vi) => "TCC — quyền đã cấp",
+
+        // Tiêu đề CỬA SỔ. Mở đầu bằng "TCC — " để người dùng đọc từ trái sang
+        // là biết ngay cửa sổ này của trình duyệt; không dấu chấm, không mã ứng
+        // dụng, vì `AppId::parse` ép mã ứng dụng về `a-z0-9.` nên một mã không
+        // bắt chước nổi hình dạng này.
+        (TextKey::GdTieuDeCuaSo, Language::En) => "TCC — confirm transaction",
+        (TextKey::GdTieuDeCuaSo, Language::Vi) => "TCC — xác nhận giao dịch",
+        (TextKey::XongTieuDeCuaSo, Language::En) => "TCC — transaction sent",
+        (TextKey::XongTieuDeCuaSo, Language::Vi) => "TCC — đã gửi giao dịch",
+        (TextKey::RaNgoaiTieuDeCuaSo, Language::En) => "TCC — leaving TCC Browser",
+        (TextKey::RaNgoaiTieuDeCuaSo, Language::Vi) => "TCC — rời khỏi TCC Browser",
+        (TextKey::CumTuTieuDeCuaSo, Language::En) => "TCC — restore a wallet",
+        (TextKey::CumTuTieuDeCuaSo, Language::Vi) => "TCC — khôi phục ví",
+        (TextKey::PhienTieuDeCuaSo, Language::En) => "TCC — wallet for this session only",
+        (TextKey::PhienTieuDeCuaSo, Language::Vi) => "TCC — ví chỉ trong phiên này",
+        (TextKey::CumTuXacNhanTieuDeCuaSo, Language::En) => "TCC — check the wallet address",
+        (TextKey::CumTuXacNhanTieuDeCuaSo, Language::Vi) => "TCC — đối chiếu địa chỉ ví",
+        (TextKey::HongTieuDeCuaSo, Language::En) => "TCC — that did not work",
+        (TextKey::HongTieuDeCuaSo, Language::Vi) => "TCC — việc này không xong",
+        (TextKey::NhapTieuDeCuaSo, Language::En) => "TCC — import a wallet",
+        (TextKey::NhapTieuDeCuaSo, Language::Vi) => "TCC — nhập ví",
+        (TextKey::NhapPinTieuDeCuaSo, Language::En) => "TCC — unlock this wallet",
+        (TextKey::NhapPinTieuDeCuaSo, Language::Vi) => "TCC — mở khoá ví này",
     }
 }
 
@@ -564,7 +614,61 @@ mod kiem_thu {
         TextKey::VaiTroMatMat,
         TextKey::QuanLyTieuDeCuaSo,
         TextKey::HoiQuyenTieuDeCuaSo,
+        TextKey::GdTieuDeCuaSo,
+        TextKey::XongTieuDeCuaSo,
+        TextKey::RaNgoaiTieuDeCuaSo,
+        TextKey::CumTuTieuDeCuaSo,
+        TextKey::PhienTieuDeCuaSo,
+        TextKey::CumTuXacNhanTieuDeCuaSo,
+        TextKey::HongTieuDeCuaSo,
+        TextKey::NhapTieuDeCuaSo,
+        TextKey::NhapPinTieuDeCuaSo,
     ];
+
+    /// **MỌI tiêu đề cửa sổ CỦA TRÌNH DUYỆT**, để phép thử dưới đây quét hết.
+    ///
+    /// Danh sách riêng chứ không lọc theo tên khoá: một khoá đặt tên lệch quy
+    /// ước sẽ lặng lẽ rơi khỏi bộ lọc, mà rơi khỏi đây là rơi khỏi đúng phép
+    /// kiểm giữ cho tiêu đề không giả mạo được.
+    const MOI_TIEU_DE_CUA_SO: &[TextKey] = &[
+        TextKey::QuanLyTieuDeCuaSo,
+        TextKey::HoiQuyenTieuDeCuaSo,
+        TextKey::GdTieuDeCuaSo,
+        TextKey::XongTieuDeCuaSo,
+        TextKey::RaNgoaiTieuDeCuaSo,
+        TextKey::CumTuTieuDeCuaSo,
+        TextKey::PhienTieuDeCuaSo,
+        TextKey::CumTuXacNhanTieuDeCuaSo,
+        TextKey::HongTieuDeCuaSo,
+        TextKey::NhapTieuDeCuaSo,
+        TextKey::NhapPinTieuDeCuaSo,
+    ];
+
+    /// **Cửa sổ của TRÌNH DUYỆT không bao giờ trông giống cửa sổ của một GÓI.**
+    ///
+    /// `window_title.rs` dựng tiêu đề của ứng dụng là `mã — tên`, và mã ứng
+    /// dụng luôn có dấu chấm. Nên dấu chấm ở đầu chuỗi là thứ người dùng dùng
+    /// để phân biệt, và một tiêu đề của khung mang dấu chấm là xoá mất dấu ấy.
+    ///
+    /// Trước 22/08/2026 chỉ hai tiêu đề được kiểm, ở `window.rs`. Bảy tiêu đề
+    /// thêm vào cho đường raster mà không ai canh thì luật này lại trôi đúng
+    /// kiểu nó đã trôi một lần.
+    #[test]
+    fn tieu_de_cua_so_khung_khong_bat_chuoc_cua_so_goi() {
+        for &k in MOI_TIEU_DE_CUA_SO {
+            for n in [Language::En, Language::Vi] {
+                let td = label(k, n);
+                assert!(
+                    td.starts_with("TCC — "),
+                    "{k:?}/{n:?} không tự nhận là cửa sổ của trình duyệt: {td}"
+                );
+                assert!(
+                    !td.contains('.'),
+                    "{k:?}/{n:?} trông giống một mã ứng dụng: {td}"
+                );
+            }
+        }
+    }
 
     /// Không chuỗi nào được rỗng, và hai ngôn ngữ không được trùng nhau —
     /// trùng nhau gần như luôn nghĩa là quên dịch một bên.
@@ -680,13 +784,21 @@ mod kiem_thu {
     /// hai hàm vẫn khớp, phép thử vẫn xanh, và người dùng tiếng Việt vẫn nghe
     /// tiếng Anh — kiểm đột biến chỉ ra đúng điều đó, lần thứ hai trong một
     /// ngày. So hàm với hàm không thay được việc soi chỗ dùng.
+    ///
+    /// Con số cố định `2` đã bị bỏ ngày 22/08/2026, khi tệp ấy có thêm chín
+    /// điểm vào: một phép thử phải sửa mỗi lần thêm màn hình là một phép thử
+    /// người ta sửa cho xanh chứ không đọc. Đếm theo **số điểm vào thật có** thì
+    /// nó tự đúng, và vẫn đỏ đúng lúc ai đó thêm một điểm vào quên dịch chữ.
     #[test]
     fn cho_goi_raster_dung_cau_da_dich() {
         let nguon = include_str!("window_raster.rs");
+        // Cắt phần kiểm thử: nó nhắc tới cả hai chuỗi, và đếm cả nó vào thì hai
+        // con số vẫn khớp trong khi một điểm vào thật đã quên.
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
         assert_eq!(
-            nguon.matches("raster_text(ngon_ngu)").count(),
-            2,
-            "cửa sổ raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
+            than.matches("raster_text(ngon_ngu)").count(),
+            than.matches("\npub fn ").count(),
+            "một điểm vào raster không lấy câu \"không hoàn tác\" theo ngôn ngữ đang dùng"
         );
     }
 }

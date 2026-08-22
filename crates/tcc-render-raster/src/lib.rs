@@ -128,6 +128,30 @@ impl RasterRenderer {
             .collect()
     }
 
+    /// Cú bấm ở `(x, y)` rơi vào Ô NHẬP nào.
+    ///
+    /// Tách khỏi [`Self::hit_test`] vì hai câu hỏi khác nhau: một cái hỏi "chạy
+    /// việc gì", cái này hỏi "gõ vào đâu". Gộp lại là chỗ một cú bấm vào ô nhập
+    /// lỡ chạy mất một hành động.
+    #[must_use]
+    pub fn hit_test_field(&self, x: f32, y: f32) -> Option<&str> {
+        #[expect(clippy::cast_precision_loss, reason = "kích thước ảnh, luôn nhỏ")]
+        if x < 0.0 || y < 0.0 || x >= WIDTH as f32 || y >= self.height as f32 {
+            return None;
+        }
+        self.da_dat
+            .iter()
+            .rev()
+            .find(|d| {
+                d.o.nhan.is_some()
+                    && x >= d.trai
+                    && x < d.trai + d.o.rong
+                    && y >= d.tren
+                    && y < d.tren + d.o.cao
+            })
+            .and_then(|d| d.o.nhan.as_deref())
+    }
+
     /// Cú bấm ở `(x, y)` rơi vào hành động nào.
     ///
     /// Trả `None` khi rơi vào chữ, ảnh, ô nhập, hoặc khoảng trống.
@@ -204,6 +228,11 @@ struct O {
     /// bố cục sai — mà lúc ấy tra cây sẽ trả về một nút người dùng không nhìn
     /// thấy, và cú bấm chạy một việc họ không định chạy.
     hanh_dong: Option<String>,
+    /// Nhãn ô nhập, nếu ô này là một ô nhập.
+    ///
+    /// Ô nhập **không có mã hành động** — 0.1 không định nghĩa hành động nào
+    /// cho nó — nên nhãn là thứ duy nhất phân biệt hai ô.
+    nhan: Option<String>,
     /// Ô này là CÔNG TẮC chứ không phải nút.
     ///
     /// Hai thứ phải tách được: bấm nút là kết thúc màn hình, gạt công tắc là
@@ -373,6 +402,7 @@ impl RasterRenderer {
             // Mặc định KHÔNG bấm được. Nhánh nào bấm được thì tự gắn vào — quên
             // gắn thì nút chết chứ không phải chữ thường bỗng bấm được.
             hanh_dong: None,
+            nhan: None,
             cong_tac: false,
             chu: chu.to_owned(),
             co,
@@ -435,13 +465,15 @@ impl RasterRenderer {
                     action: None,
                     children: Vec::new(),
                 });
-                self.do_o(
+                let mut o = self.do_o(
                     &format!("{label}: {hien}"),
                     CO_CHU,
                     false,
                     true,
                     rong_toi_da,
-                )
+                );
+                o.nhan = Some(label.clone());
+                o
             }
             NodeKind::Toggle { label, on, action } => {
                 access.push(AccessNode {
@@ -1368,6 +1400,32 @@ mod kiem_thu_hop_thanh {
         // Ngoài mọi ô.
         assert!(bd.hit_test(-5.0, -5.0).is_none());
         assert!(bd.hit_test(0.0, bd.height() as f32 + 50.0).is_none());
+    }
+
+    /// **Bấm vào ô nhập thì trúng ô nhập ấy, và KHÔNG chạy hành động nào.**
+    #[test]
+    fn bam_vao_o_nhap_khong_chay_hanh_dong() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Địa chỉ", "", false).unwrap())
+            .unwrap()
+            .child(Node::button("Gửi", "gui", Tone::Primary).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let o = bd.placed_boxes();
+        let tam = |i: usize| (o[i].0 + o[i].2 / 2.0, o[i].1 + o[i].3 / 2.0);
+
+        assert_eq!(bd.hit_test_field(tam(0).0, tam(0).1), Some("Địa chỉ"));
+        assert!(
+            bd.hit_test(tam(0).0, tam(0).1).is_none(),
+            "bấm vào ô nhập mà chạy một hành động"
+        );
+        // Và ngược lại: bấm vào nút thì không phải là gõ vào đâu cả.
+        assert!(bd.hit_test_field(tam(1).0, tam(1).1).is_none());
+        assert_eq!(
+            bd.hit_test(tam(1).0, tam(1).1).map(|h| h.action),
+            Some("gui")
+        );
     }
 
     /// **Công tắc bấm được**; ô nhập và ảnh thì không.

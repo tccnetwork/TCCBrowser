@@ -45,7 +45,7 @@
 pub mod wire;
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use tcc_spec::{SpecError, TextKind, check_display_text, tree::TreeError, tree::check_path_public};
 
 // `ActionId` sống ở `tcc-spec`, không ở đây: mã hành động xuất hiện ở CẢ cây
@@ -494,19 +494,52 @@ impl Node {
     /// `Result` vì các hàm dựng đều kiểm, và bỏ qua lỗi của chúng bằng `unwrap`
     /// ở đây là đặt một chỗ hoảng loạn vào đường chạy giao diện.
     pub fn with_toggles(&self, bat: &BTreeSet<String>) -> Result<Self, UiError> {
-        let mut moi = match &self.kind {
-            NodeKind::Toggle { label, action, .. } => Self::toggle(
-                label.clone(),
-                bat.contains(action.as_str()),
-                action.as_str(),
-            )?,
-            // Mọi loại khác giữ nguyên. Dựng qua `la` chứ không dựng thẳng
-            // `Self { .. }`: `count` và `depth` là bất biến của cây, và đặt tay
-            // hai con số ấy là chỗ trần độ sâu lặng lẽ hỏng.
-            khac => Self::la(khac.clone()),
-        };
+        self.dat_lai(&|n| match &n.kind {
+            NodeKind::Toggle { label, action, .. } => Some(NodeKind::Toggle {
+                label: label.clone(),
+                on: bat.contains(action.as_str()),
+                action: action.clone(),
+            }),
+            _ => None,
+        })
+    }
+
+    /// Dựng lại cây với **nội dung ô nhập** lấy từ `noi_dung`, tra theo NHÃN.
+    ///
+    /// # Vì sao tra theo nhãn chứ không theo mã hành động
+    ///
+    /// Ô nhập **không có** mã hành động — tiêu chuẩn 0.1 không định nghĩa hành
+    /// động nào cho nó. Nhãn là thứ duy nhất phân biệt được hai ô, và đó cũng
+    /// đúng thứ đường WebView đang dùng: kịch bản khung đọc `input[aria-label]`
+    /// rồi gửi kèm nhãn.
+    ///
+    /// Nhãn trùng nhau thì hai ô dùng chung một giá trị. Chấp nhận được ở 0.1:
+    /// hai ô cùng nhãn vốn đã là một màn hình hỏng — người dùng không phân biệt
+    /// nổi chúng.
+    ///
+    /// # Errors
+    /// Như [`Self::with_toggles`].
+    pub fn with_fields(&self, noi_dung: &BTreeMap<String, String>) -> Result<Self, UiError> {
+        self.dat_lai(&|n| match &n.kind {
+            NodeKind::Field { label, secret, .. } => Some(NodeKind::Field {
+                label: label.clone(),
+                value: noi_dung.get(label).cloned().unwrap_or_default(),
+                secret: *secret,
+            }),
+            _ => None,
+        })
+    }
+
+    /// Dựng lại cây, thay loại nút nào hàm `doi` trả về `Some`.
+    ///
+    /// Gom lại vì `with_toggles` và `with_fields` khác nhau đúng một dòng, và
+    /// hai bản sao của cùng một phép duyệt cây là hai chỗ phải sửa khi trần độ
+    /// sâu hay số nút đổi — sẽ có một chỗ bị quên.
+    fn dat_lai(&self, doi: &dyn Fn(&Self) -> Option<NodeKind>) -> Result<Self, UiError> {
+        let kind = doi(self).unwrap_or_else(|| self.kind.clone());
+        let mut moi = Self::la(kind);
         for c in &self.children {
-            moi = moi.child(c.with_toggles(bat)?)?;
+            moi = moi.child(c.dat_lai(doi)?)?;
         }
         Ok(moi)
     }
@@ -1108,5 +1141,57 @@ mod kiem_thu {
             .with_toggles(&std::collections::BTreeSet::new())
             .unwrap();
         assert!(matches!(moi.kind(), NodeKind::Toggle { on: false, .. }));
+    }
+
+    /// **Nội dung ô nhập dựng lại đúng ô, không đụng ô khác.**
+    #[test]
+    fn dat_noi_dung_o_nhap_dung_o() {
+        fn di(n: &Node, ra: &mut Vec<(String, String)>) {
+            if let NodeKind::Field { label, value, .. } = n.kind() {
+                ra.push((label.clone(), value.clone()));
+            }
+            for c in n.children() {
+                di(c, ra);
+            }
+        }
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Địa chỉ", "", false).unwrap())
+            .unwrap()
+            .child(Node::field("Ghi nhớ", "cũ", false).unwrap())
+            .unwrap()
+            .child(Node::text("không phải ô nhập").unwrap())
+            .unwrap();
+
+        let mut noi_dung = std::collections::BTreeMap::new();
+        noi_dung.insert("Địa chỉ".to_owned(), "chào buổi sáng".to_owned());
+        let moi = cay.with_fields(&noi_dung).unwrap();
+
+        assert_eq!(moi.node_count(), cay.node_count(), "dựng lại làm rơi nút");
+        let mut o = Vec::new();
+        di(&moi, &mut o);
+        assert_eq!(
+            o,
+            vec![
+                ("Địa chỉ".to_owned(), "chào buổi sáng".to_owned()),
+                // KHÔNG có trong bảng → rỗng. Bảng là nguồn sự thật DUY NHẤT,
+                // không phải "giữ giá trị cũ nếu chưa gõ" — giữ lại là hai chỗ
+                // nhớ cùng một thứ, và chúng sẽ lệch nhau.
+                ("Ghi nhớ".to_owned(), String::new()),
+            ]
+        );
+        // Cây gốc không đổi.
+        let mut cu = Vec::new();
+        di(&cay, &mut cu);
+        assert_eq!(cu[1].1, "cũ");
+    }
+
+    /// Ô **che chữ** vẫn che sau khi dựng lại — mất cờ ấy là lộ mật khẩu.
+    #[test]
+    fn dung_lai_khong_lam_mat_co_che_chu() {
+        let cay = Node::field("PIN", "", true).unwrap();
+        let mut n = std::collections::BTreeMap::new();
+        n.insert("PIN".to_owned(), "1234".to_owned());
+        let moi = cay.with_fields(&n).unwrap();
+        assert!(matches!(moi.kind(), NodeKind::Field { secret: true, .. }));
     }
 }
