@@ -95,19 +95,7 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
     let cao = bo_dung.height();
 
     let mut vong = EventLoopBuilder::new().build();
-    let window = WindowBuilder::new()
-        .with_title(tieu_de)
-        .with_inner_size(LogicalSize::new(WIDTH as f64, cao as f64))
-        // ⚠️ DỰNG ẨN, hiện SAU khi đã nối trợ năng.
-        //
-        // `SubclassingAdapter::new` đòi được gọi trước khi khung nhìn được hiện
-        // hay nhận tiêu điểm lần đầu. Chú thích bên dưới từng KHẲNG ĐỊNH điều
-        // đó trong khi mã làm ngược lại — `build` của `tao` hiện và lấy tiêu
-        // điểm ngay. Hậu quả đúng như chú thích tự mô tả: VoiceOver hỏi trước,
-        // nhận "không có gì ở đây", rồi không hỏi lại. Rà soát 21/08/2026, F6.
-        .with_visible(false)
-        .build(&vong)
-        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+    let window = dung_cua_so(&vong, tieu_de, cao)?;
 
     // ⚠️ `Context`/`Surface` phải sống lâu bằng cửa sổ. Thả sớm là mất bề mặt,
     // và triệu chứng là một cửa sổ trắng trơn — trông y như bộ dựng vẽ hỏng.
@@ -135,6 +123,13 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
 
     let mut da_bam: Option<String> = None;
     let mut ve_lai = false;
+    // Cuộn, đơn vị LOGIC, tính từ đỉnh nội dung.
+    //
+    // ⚠️ Không có nó thì một cây cao hơn cửa sổ đẩy nút Cho phép / Từ chối ra
+    // ngoài tầm, và người dùng **không bấm được gì cả**. Rà soát 21/08/2026, F7
+    // — tôi xếp nó là "chuyện dùng được, không phải an ninh", rồi hôm sau nó
+    // chặn đúng một người thật.
+    let mut cuon: f64 = 0.0;
     // Vị trí chuột gần nhất, đơn vị LOGIC. `tao` báo vị trí theo pixel vật lý,
     // mà bộ dựng làm việc theo đơn vị logic — trên màn hình Retina hai thứ ấy
     // lệch nhau đúng hệ số 2, và bấm sẽ trúng ô khác.
@@ -157,6 +152,23 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
             } => *dieu_khien = ControlFlow::Exit,
 
             Event::WindowEvent {
+                event: WindowEvent::MouseWheel { delta, .. },
+                ..
+            } => {
+                let co = window.inner_size().to_logical::<f64>(window.scale_factor());
+                #[expect(clippy::cast_precision_loss, reason = "chiều cao ảnh, luôn nhỏ")]
+                let cao_anh = bo_dung.height() as f64;
+                cuon = cuon_moi(
+                    cuon,
+                    buoc_lan(&delta, window.scale_factor()),
+                    cao_anh,
+                    co.height,
+                );
+                window.request_redraw();
+                window.request_redraw();
+            }
+
+            Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => {
@@ -172,20 +184,16 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                         ..
                     },
                 ..
-            } =>
-            {
+            } => {
                 #[expect(
                     clippy::cast_possible_truncation,
                     reason = "toạ độ màn hình, luôn nằm gọn trong f32"
                 )]
-                match sau_cu_bam(bo_dung.hit_test(chuot.0 as f32, chuot.1 as f32), &mut bat) {
-                    SauCuBam::VeLai => ve_lai = true,
-                    SauCuBam::Ket(a) => {
-                        da_bam = Some(a);
-                        *dieu_khien = ControlFlow::Exit;
-                    }
-                    SauCuBam::Khong => {}
-                }
+                let k = sau_cu_bam(
+                    bo_dung.hit_test(chuot.0 as f32, cong_cuon(chuot.1, cuon)),
+                    &mut bat,
+                );
+                ap_ket_qua(k, &mut ve_lai, &mut da_bam, dieu_khien);
             }
 
             Event::RedrawRequested(_) | Event::MainEventsCleared => {
@@ -202,28 +210,20 @@ pub fn open_screen(tree: &Node, tieu_de: &str, chu: &ScreenText) -> Result<Scree
                 if da_bam.is_none()
                     && let Some(k) = rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut bat)
                 {
-                    match k {
-                        SauCuBam::VeLai => ve_lai = true,
-                        SauCuBam::Ket(h) => {
-                            da_bam = Some(h);
-                            *dieu_khien = ControlFlow::Exit;
-                        }
-                        SauCuBam::Khong => {}
-                    }
+                    ap_ket_qua(k, &mut ve_lai, &mut da_bam, dieu_khien);
                 }
-                if ve_lai {
-                    ve_lai = false;
-                    if let Ok(cay_moi) = tree.with_toggles(&bat) {
-                        let _ = bo_dung.render(&cay_moi);
-                        // Gạt một công tắc mà không báo lại thì VoiceOver vẫn
-                        // đọc trạng thái CŨ — người dùng nghe "tắt" trong khi
-                        // màn hình hiện "bật". Ở màn hỏi quyền, đó là nghe một
-                        // đằng cấp một nẻo.
-                        #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
-                        bao_tro_nang(&bo_dung, chu, &cay_chung, &mut adapter, &mut bang_hanh_dong);
-                    }
+                if core::mem::take(&mut ve_lai)
+                    && let Ok(cay_moi) = tree.with_toggles(&bat)
+                {
+                    let _ = bo_dung.render(&cay_moi);
+                    // Gạt một công tắc mà không báo lại thì VoiceOver vẫn đọc
+                    // trạng thái CŨ — người dùng nghe "tắt" trong khi màn hình
+                    // hiện "bật". Ở màn hỏi quyền, đó là nghe một đằng cấp một
+                    // nẻo.
+                    #[cfg(all(feature = "accesskit-platform", target_os = "macos"))]
+                    bao_tro_nang(&bo_dung, chu, &cay_chung, &mut adapter, &mut bang_hanh_dong);
                 }
-                trinh_bay(&bo_dung, &mut be_mat, &window);
+                trinh_bay(&bo_dung, &mut be_mat, &window, cuon);
             }
             _ => {}
         }
@@ -361,11 +361,109 @@ fn noi_tro_nang(
     }
 }
 
+/// Áp kết quả một cú bấm — dùng chung cho chuột VÀ cho trợ năng.
+///
+/// Một hàm, hai đường vào: mọi luật của hộp thoại áp cho chuột thì áp cho trợ
+/// năng, và không có nhánh nào sửa được một bên mà quên bên kia.
+fn ap_ket_qua(
+    k: SauCuBam,
+    ve_lai: &mut bool,
+    da_bam: &mut Option<String>,
+    dieu_khien: &mut ControlFlow,
+) {
+    match k {
+        SauCuBam::VeLai => *ve_lai = true,
+        SauCuBam::Ket(a) => {
+            *da_bam = Some(a);
+            *dieu_khien = ControlFlow::Exit;
+        }
+        SauCuBam::Khong => {}
+    }
+}
+
+/// Toạ độ y trên MÀN HÌNH cộng với cuộn → toạ độ y trong NỘI DUNG.
+///
+/// ⚠️ Quên phép cộng này là bấm trúng ô khác — người dùng thấy một nút, hệ
+/// thống chạy một nút khác. Cùng hạng lỗi với F1 của rà soát 21/08/2026, chỉ
+/// khác chỗ sinh ra: ở đó là bố cục tràn, ở đây là cuộn.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "toạ độ màn hình, luôn nằm gọn trong f32"
+)]
+fn cong_cuon(y_man_hinh: f64, cuon: f64) -> f32 {
+    (y_man_hinh + cuon) as f32
+}
+
+/// Dựng cửa sổ, **giới hạn chiều cao theo màn hình**.
+///
+/// # Errors
+/// Không dựng được cửa sổ.
+fn dung_cua_so(
+    vong: &tao::event_loop::EventLoop<()>,
+    tieu_de: &str,
+    cao: usize,
+) -> Result<tao::window::Window, String> {
+    // ⚠️ KHÔNG mở cửa sổ cao bằng cả nội dung.
+    //
+    // Cây cao tới `MAX_HEIGHT` = 4096, mà màn hình thì không. Mở đúng chiều cao
+    // nội dung nghĩa là nút Cho phép / Từ chối nằm dưới mép màn hình và người
+    // dùng **không bấm được gì**. Hộp thoại hỏi quyền để ứng dụng quyết định cả
+    // số quyền lẫn độ dài từng câu `reason`, nên độ cao ấy do ứng dụng điều
+    // khiển — nó không được điều khiển luôn việc nút có bấm tới được hay không.
+    //
+    // Chặn hai lớp: giới hạn ở đây, và cuộn được ở dưới.
+    let cao_man = vong.primary_monitor().map_or(900.0, |m| {
+        m.size().to_logical::<f64>(m.scale_factor()).height
+    });
+    #[expect(clippy::cast_precision_loss, reason = "chiều cao ảnh, luôn nhỏ")]
+    let cao_cua_so = (cao as f64).min(cao_man * 0.85);
+    let w = WindowBuilder::new()
+        .with_title(tieu_de)
+        .with_inner_size(LogicalSize::new(WIDTH as f64, cao_cua_so))
+        // ⚠️ DỰNG ẨN, hiện SAU khi đã nối trợ năng.
+        //
+        // `SubclassingAdapter::new` đòi được gọi trước khi khung nhìn được hiện
+        // hay nhận tiêu điểm lần đầu. Chú thích bên dưới từng KHẲNG ĐỊNH điều
+        // đó trong khi mã làm ngược lại — `build` của `tao` hiện và lấy tiêu
+        // điểm ngay. Hậu quả đúng như chú thích tự mô tả: VoiceOver hỏi trước,
+        // nhận "không có gì ở đây", rồi không hỏi lại. Rà soát 21/08/2026, F6.
+        .with_visible(false)
+        .build(vong)
+        .map_err(|e| format!("không dựng được cửa sổ: {e}"))?;
+    Ok(w)
+}
+
+/// Vị trí cuộn mới sau một nhịp lăn, đã **kẹp trong khoảng hợp lệ**.
+///
+/// Nhận toàn số — không nhận cửa sổ — để **kiểm được**. Bản đầu nhận
+/// `&tao::window::Window` cho tiện, và phép kẹp trở thành thứ chỉ chạy khi có
+/// một cửa sổ thật, tức là thứ `cargo test` không bao giờ chạm tới.
+///
+/// Kẹp là bắt buộc ở cả hai đầu: cuộn quá đáy thì lượt vẽ đọc ngoài ảnh và
+/// người dùng nhìn một khoảng trắng không giải thích được; cuộn ngược lên trên
+/// đỉnh thì nội dung trôi khỏi khung.
+#[must_use]
+fn cuon_moi(cuon: f64, buoc: f64, cao_anh: f64, cao_cua_so: f64) -> f64 {
+    let toi_da = (cao_anh - cao_cua_so).max(0.0);
+    (cuon - buoc).clamp(0.0, toi_da)
+}
+
+/// Số điểm ảnh logic một nhịp lăn tương ứng.
+fn buoc_lan(delta: &tao::event::MouseScrollDelta, ty_le: f64) -> f64 {
+    match *delta {
+        // Một "dòng" không có kích thước chuẩn; 24 px là một dòng chữ cỡ thường.
+        tao::event::MouseScrollDelta::LineDelta(_, d) => f64::from(d) * 24.0,
+        tao::event::MouseScrollDelta::PixelDelta(p) => p.to_logical::<f64>(ty_le).y,
+        _ => 0.0,
+    }
+}
+
 /// Đưa lần vẽ gần nhất lên màn hình.
 fn trinh_bay(
     bo_dung: &RasterRenderer,
     be_mat: &mut Surface<&tao::window::Window, &tao::window::Window>,
     window: &tao::window::Window,
+    cuon: f64,
 ) {
     let co = window.inner_size();
     let (Some(w), Some(h)) = (
@@ -380,7 +478,14 @@ fn trinh_bay(
     let Ok(mut dem) = be_mat.buffer_mut() else {
         return;
     };
-    to_mau(bo_dung, &mut dem, w.get(), h.get(), window.scale_factor());
+    to_mau(
+        bo_dung,
+        &mut dem,
+        w.get(),
+        h.get(),
+        window.scale_factor(),
+        cuon,
+    );
     let _ = dem.present();
 }
 
@@ -456,7 +561,7 @@ fn cay_accesskit(bd: &RasterRenderer, chu: &ScreenText) -> Option<accesskit::Tre
 /// `0RGB`, đơn vị vật lý. Nên vừa nhân ba kênh vừa chia tỷ lệ — chia bằng lấy
 /// mẫu gần nhất, vì đây là để NHÌN THẤY được, không phải để so ảnh; phép so ảnh
 /// chạy trên `image()` ở đơn vị logic, không chạy trên đệm này.
-fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64) {
+fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64, cuon: f64) {
     let anh = bd.image();
     let cao_anh = bd.height();
     for y in 0..cao {
@@ -468,7 +573,7 @@ fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64) 
             )]
             let (lx, ly) = (
                 (f64::from(x) / ty_le) as usize,
-                (f64::from(y) / ty_le) as usize,
+                (f64::from(y) / ty_le + cuon) as usize,
             );
             // Ngoài ảnh thì trắng: cửa sổ kéo to hơn ảnh là chuyện thường, và
             // để nguyên bộ nhớ chưa ghi thì ra một mảng nhiễu.
@@ -591,6 +696,49 @@ mod kiem_thu {
             action: a,
             toggle: true,
         }
+    }
+
+    /// **Cuộn bị KẸP ở cả hai đầu.**
+    ///
+    /// Quá đáy thì lượt vẽ đọc ngoài ảnh — người dùng nhìn một khoảng trắng
+    /// không giải thích được. Quá đỉnh thì nội dung trôi khỏi khung.
+    #[test]
+    fn cuon_bi_kep_o_ca_hai_dau() {
+        // Nội dung 1000, cửa sổ 300 → cuộn tối đa 700.
+        assert!((cuon_moi(0.0, 24.0, 1000.0, 300.0) - 0.0).abs() < f64::EPSILON);
+        assert!((cuon_moi(0.0, -24.0, 1000.0, 300.0) - 24.0).abs() < f64::EPSILON);
+        assert!((cuon_moi(690.0, -9999.0, 1000.0, 300.0) - 700.0).abs() < f64::EPSILON);
+        assert!((cuon_moi(10.0, 9999.0, 1000.0, 300.0) - 0.0).abs() < f64::EPSILON);
+        // Nội dung vừa khít hoặc nhỏ hơn cửa sổ → KHÔNG cuộn được chút nào.
+        assert!((cuon_moi(0.0, -50.0, 300.0, 300.0) - 0.0).abs() < f64::EPSILON);
+        assert!((cuon_moi(0.0, -50.0, 100.0, 300.0) - 0.0).abs() < f64::EPSILON);
+    }
+
+    /// **Cuộn phải được CỘNG vào toạ độ bấm.**
+    ///
+    /// Đây là hạng lỗi F1 mặc áo khác: người dùng thấy một nút, hệ thống chạy
+    /// một nút khác. Cuộn xuống 100 px rồi bấm ở y=10 trên màn hình thì cú bấm
+    /// ấy thuộc về y=110 trong nội dung.
+    ///
+    /// Phép thử soi CHỖ GỌI, vì phép tính nằm trong vòng lặp sự kiện — mà vòng
+    /// lặp ấy cần một cửa sổ thật nên `cargo test` không chạm tới được. Cùng
+    /// cách đã dùng cho tiêu đề hộp thoại hỏi quyền.
+    #[test]
+    fn cuon_duoc_cong_vao_toa_do_bam() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        let Some(goi) = than.split("fn open_screen").nth(1) else {
+            panic!("không tìm thấy `open_screen`")
+        };
+        assert!(
+            goi.contains("cong_cuon(chuot.1, cuon)"),
+            "phép bấm KHÔNG cộng cuộn — cuộn xuống rồi bấm là trúng ô khác"
+        );
+        // Và cửa sổ không được mở cao bằng cả nội dung.
+        assert!(
+            goi.contains("cao_man") && goi.contains(".min("),
+            "cửa sổ mở đúng chiều cao nội dung — nút dưới đáy sẽ nằm ngoài màn hình"
+        );
     }
 
     /// **Gạt công tắc KHÔNG đóng hộp thoại.**

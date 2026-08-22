@@ -467,3 +467,33 @@ phép thử vẫn xanh** — vì một khi bố cục đúng thì không ô nào
 Giữ lại có chủ ý, và nói ra rằng nó **không được kiểm**: giá trị của nó là ngày
 bố cục hỏng trở lại. Nó biến một lỗi bố cục thành một **nút chết** thay vì một
 **nút vô hình bấm được**.
+
+
+## F7 đã vá — cuộn cho bộ dựng raster (22/08/2026)
+
+Rà soát 21/08 xếp F7 là *"chuyện dùng được, không phải chuyện an ninh"*. Hôm sau
+nó chặn đúng một người thật: nút nằm sát đáy, và **không bấm được**.
+
+Đo lại thì **đường WebView vốn đã cuộn** — `body` không có `overflow:hidden`, có
+phép thử canh, và tôi lái thử: thu cửa sổ còn 760×300, cuộn xuống đáy, bấm được
+nút, nhật ký tăng đúng một dòng. Chỗ hở chỉ ở **bộ dựng raster**.
+
+Vá hai lớp:
+
+1. **Không mở cửa sổ cao bằng cả nội dung.** Cây cao tới 4096 mà màn hình thì
+   không. Giới hạn ở 85% chiều cao màn hình. Quan trọng vì hộp thoại hỏi quyền
+   để **ứng dụng** quyết định số quyền và độ dài từng câu `reason` — nên ứng
+   dụng điều khiển được chiều cao, và nó không được điều khiển luôn việc nút có
+   bấm tới được hay không.
+2. **Lăn chuột để cuộn**, kẹp ở cả hai đầu.
+
+### Chỗ dễ hỏng nhất của bản vá này
+
+**Cuộn phải được CỘNG vào toạ độ bấm.** Quên là bấm trúng ô khác — cùng hạng lỗi
+với F1, chỉ khác nguồn: ở đó là bố cục tràn, ở đây là cuộn. Có phép thử soi chỗ
+gọi, và đột biến bỏ phép cộng thì nó đỏ.
+
+Phép kẹp **ban đầu không kiểm được**: tôi viết nó nhận `&Window` cho tiện, và nó
+thành thứ chỉ chạy khi có cửa sổ thật — tức là thứ `cargo test` không bao giờ
+chạm tới. Tách thành số học thuần rồi mới kiểm được, và đột biến bỏ `clamp` thì
+đỏ.
