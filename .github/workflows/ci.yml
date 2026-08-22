@@ -187,9 +187,9 @@ jobs:
         run: which cargo-audit || cargo install cargo-audit --locked
 
       # Fails on a vulnerability. Maintenance warnings are reported without
-      # failing: they are wry's GTK backend and build-time codegen, none of
-      # them reach tcc-crypto, and none can be fixed from here. SECURITY.md
-      # §3.5b says which and why.
+      # failing: none of them reach tcc-crypto, and none can be fixed from here.
+      # SECURITY.md §3.5b says which and why — that list shrank on 2026-08-23
+      # when the web engine went, and it needs re-reading rather than trusting.
       - name: Vulnerabilities
         run: cargo audit
       - name: Maintenance warnings, reported not enforced
@@ -219,33 +219,29 @@ jobs:
 
   # Does the renderer even BUILD on Linux?
   #
-  # `wry` is meant to be portable — WKWebView on macOS, WebKitGTK on Linux,
-  # WebView2 on Windows — and that portability is the whole reason for the
-  # `tcc-ui` / `tcc-render-*` seam. It had never been compiled anywhere but
-  # macOS, so the claim was untested, and an auditor on Linux would have been
-  # the one to find out.
-  #
-  # It compiles, so this is a real check now, not a trial.
+  # The `tcc-ui` / `tcc-render-*` seam exists so the renderer can be replaced.
+  # It was replaced on 2026-08-23, and the replacement has only ever run on
+  # macOS — so the portability claim is untested again, and an auditor on Linux
+  # would be the one to find out. That is what this job is for.
   linux-render:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: WebKitGTK development files
+      # `tao` vẫn cần GTK để mở cửa sổ trên Linux. WebKitGTK thì không còn ai
+      # cần — máy dựng web đã bỏ.
+      - name: GTK development files
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+          sudo apt-get install -y libgtk-3-dev
       - run: cargo check -p tcc-shell --features window --all-targets
       # ⚠️ `check` KHÔNG chạy phép thử nào. Mã sau một cờ mà CI chỉ `check` thì
       # biên dịch được mà chưa lần nào thực thi, và một phép thử chưa từng chạy
       # không phải một chắn. Luật 21 canh việc mỗi cờ được `check` thì cũng
       # phải được `test`.
       - run: cargo test -p tcc-shell --features window
-      # Bộ dựng RA PIXEL: cửa sổ riêng, trợ năng riêng, KHÔNG `wry`. Luật 21 đòi
-      # cờ nào được `check` thì cũng phải được `test` — và những phép thử chốt
-      # hai bộ dựng nói cùng một câu nằm sau đúng cờ này.
-      - run: cargo check -p tcc-shell --features window --all-targets
-      - run: cargo test -p tcc-shell --features window
+      # Bộ dựng ra pixel: cửa sổ riêng, trợ năng riêng. Luật 21 đòi cờ nào được
+      # `check` thì cũng phải được `test`.
       - run: cargo check -p tcc-render-raster --features window --all-targets
       - run: cargo test -p tcc-render-raster --features window
       # Trợ năng trên nền AT-SPI (`accesskit_unix`). Suốt giai đoạn 4 chỗ này
@@ -262,68 +258,16 @@ jobs:
       - run: cargo test -p tcc-render-raster --features accesskit-platform
 
 
-      # The adversarial examples on a SECOND platform. They are the checks that
-      # drive a real WebKit view and ask it what it sees, so running them on one
-      # operating system only proves the defence on that one operating system.
-      #
-      # These were continue-on-error for months, behind a comment that said
-      # WebKitGTK under xvfb does not reliably get a window handle. That comment
-      # was wrong, and it is kept here in corrected form because the mistake is
-      # more useful than the fix.
-      #
-      # The failure was "không dựng được WebView: the underlying handle is not
-      # available", which mentions nothing about GTK — so it read exactly like a
-      # virtual display that had not come up. It was not flaky at all: a probe
-      # that ran the same binary three times in one job failed 3/3, then passed
-      # 3/3 once the code built the WebView the way Linux requires. The bug was
-      # ours, and the exemption is what kept anyone from finding it.
-      #
-      # A check exempted because "the infrastructure is unreliable" is the best
-      # hiding place a real bug has. The flag is off. If Linux goes red here,
-      # that is now a fact to investigate rather than a footnote.
-      - name: Virtual display
-        run: sudo apt-get install -y xvfb
-
-      # Four variables, and the middle one is the one that matters on this
-      # runner. WebKitGTK 2.4x renders through a DMA-BUF path that wants a real
-      # GPU; under xvfb it gets none, and the failure surfaces late and
-      # confusingly as "the underlying handle is not available" rather than as
-      # anything mentioning graphics. Ubuntu 24.04 ships 2.44, so this is the
-      # engine's default path, not an edge case.
-      #
-      # Set at JOB level so every xvfb step below gets them. Missing one step is
-      # how a fix gets reported as flaky.
-      - name: WebKitGTK under a virtual display
-        run: |
-          {
-            echo "WEBKIT_DISABLE_DMABUF_RENDERER=1"
-            echo "WEBKIT_DISABLE_COMPOSITING_MODE=1"
-            echo "LIBGL_ALWAYS_SOFTWARE=1"
-            echo "GDK_BACKEND=x11"
-          } >> "$GITHUB_ENV"
-
-      # Measure the web engine rather than describing it. The published baseline
-      # is the INTERSECTION of three engines, so it must be measured on each —
-      # see docs/nen-tang.md.
-      #
-      - name: Measure the web platform (WebKitGTK)
-        run: xvfb-run -a cargo run -p tcc-shell --features window --example do-nen-tang
-      - name: App text cannot escape the document (Linux)
-        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
-      - name: Content policy blocks script, layer 3 alone (Linux)
-        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
-      - name: App screen through real WebKitGTK (Linux)
-        run: xvfb-run -a cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung examples/hello-tcc
+      # ⚠️ Cả khối ví dụ đối kháng chạy dưới `xvfb` đã bỏ ngày 23/08/2026, cùng
+      # bộ dựng web mà chúng lái. Chúng là những phép kiểm hỏi MỘT BÊN THỨ BA
+      # ("engine, anh thấy gì?"), và mất chúng là mất bên thứ ba — xem
+      # SECURITY.md §3.7. Không có gì thay thế ở đây; chỗ trống này là thật.
 
   # Does the renderer build on Windows? It has never been compiled there.
   #
   # Same question as linux-render, and that one found nothing while adding
-  # Windows to the main matrix found a broken checkout. wry uses WebView2 here,
-  # a third engine behind the same `tcc-ui` seam — if the seam is real, this
-  # compiles; if it does not, the seam is macOS plus Linux and the architecture
-  # document is overstating it.
-  # It compiles. A build check is deterministic, unlike the xvfb runs, so this
-  # one is enforced after a single pass without the mistake made there.
+  # Windows to the main matrix found a broken checkout. A build check is
+  # deterministic, so this one is enforced after a single passing run.
   windows-render:
     runs-on: windows-latest
     steps:
@@ -335,11 +279,8 @@ jobs:
       # không phải một chắn. Luật 21 canh việc mỗi cờ được `check` thì cũng
       # phải được `test`.
       - run: cargo test -p tcc-shell --features window
-      # Bộ dựng RA PIXEL: cửa sổ riêng, trợ năng riêng, KHÔNG `wry`. Luật 21 đòi
-      # cờ nào được `check` thì cũng phải được `test` — và những phép thử chốt
-      # hai bộ dựng nói cùng một câu nằm sau đúng cờ này.
-      - run: cargo check -p tcc-shell --features window --all-targets
-      - run: cargo test -p tcc-shell --features window
+      # Bộ dựng ra pixel: cửa sổ riêng, trợ năng riêng. Luật 21 đòi cờ nào được
+      # `check` thì cũng phải được `test`.
       - run: cargo check -p tcc-render-raster --features window --all-targets
       - run: cargo test -p tcc-render-raster --features window
       # Trợ năng trên UI Automation (`accesskit_windows`). Cùng lý do, cùng giới
@@ -348,7 +289,3 @@ jobs:
       - run: cargo check -p tcc-render-raster --features accesskit-platform --all-targets
       - run: cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
       - run: cargo test -p tcc-render-raster --features accesskit-platform
-      # Bộ máy thứ ba: WebView2. Đo được thì nền tảng công bố mới có phần giao
-      # đủ ba — xem docs/nen-tang.md.
-      - name: Measure the web platform (WebView2)
-        run: cargo run -p tcc-shell --features window --example do-nen-tang

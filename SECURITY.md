@@ -871,16 +871,26 @@ distribution for TCC packages meets it before their users do.
 maintenance warnings without failing, because none of them can be fixed from
 here.
 
-Current state (re-checked 2026-08-20): **0 vulnerabilities**, 15 warnings across
-468 dependencies. The count rose because RustSec added RUSTSEC-2026-0097 on
-2026-04-09 against `rand 0.7.3`, which was already in the table below for a
-different advisory and is still build-time only. The dependency count rose with
-the second renderer and its window.
+Current state (re-checked 2026-08-23, after the web engine was removed):
+**0 vulnerabilities**, 12 warnings across 452 dependencies. Both numbers fell —
+468 → 452 dependencies, 15 → 12 warnings — and the fall is the point of the entry
+below about where GTK comes from.
 
 | Warnings | Where they come from |
 |---|---|
-| 11 GTK crates — `gtk`, `gdk*`, `atk*`, `glib` (unmaintained; `glib` also unsound) | `wry`'s **Linux** WebView backend. Not compiled on macOS at all — measured: 15 GTK crates in the Linux tree, 0 in the macOS tree |
-| `proc-macro-error`, `fxhash`, `rand 0.7.3` (unsound) | Build-time code generation. `rand 0.7.3` arrives through `phf_generator`, which runs at compile time and is not in the shipped binary |
+| 9 GTK crates — `gtk`, `gdk*`, `atk*`, `gtk3-macros` (unmaintained) and `glib` (also unsound) | **`tao`**, the windowing library, on **Linux** only. Until 2026-08-23 this row said `wry`'s WebView backend; `wry` is gone and the row did not empty, because `tao` needs GTK to open a window at all. Removing the web engine did not remove GTK — it removed the *reason to believe* GTK left with it, which is why this was re-measured rather than assumed |
+| `proc-macro-error` | Build-time code generation; not in the shipped binary |
+| `ttf-parser` (unmaintained) | `cosmic-text` → `fontdb`. This one is **new** and arrived with the pixel renderer: text shaping needs a font parser, and that parser is now on the path between a signed package and the screen |
+
+`fxhash` and `rand 0.7.3` left the tree with the web engine.
+
+⚠️ `ttf-parser` deserves a second look that this section does not give it. Every
+other warning above is either build-time or Linux-window plumbing; this one
+parses **untrusted-ish input** — font files from the operating system — inside
+the process that draws signed content. The advisory is "unmaintained", not a
+vulnerability, and fonts come from the OS rather than from a package. But an
+independent audit should be told where it sits rather than left to find it in a
+dependency list.
 
 **None of them reach `tcc-crypto`** — checked by intersecting the warning list
 with that crate's dependency tree, and the intersection is empty. That matters
