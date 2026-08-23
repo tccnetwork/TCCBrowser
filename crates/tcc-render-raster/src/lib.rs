@@ -292,6 +292,41 @@ const DEM: f32 = 8.0;
 /// [`cao_dong_that`] nới ra.
 const CAO_DONG: f32 = 1.4;
 
+/// Tạo hình một chuỗi — **đường DUY NHẤT**, dùng chung cho lượt đo và lượt vẽ.
+///
+/// # Vì sao phải là một hàm, không phải hai đoạn mã giống nhau
+///
+/// Vì đã là hai đoạn, và chúng trôi khỏi nhau. Lượt đo tạo hình ở bề rộng chữ
+/// đo được; lượt vẽ tạo hình ở `o.rong`, mà `o.rong` đã bị bộ tính bố cục ghi
+/// đè bằng một số **làm tròn**. Tròn xuống một phần mười pixel là đủ để chuỗi
+/// ngắt thành hai dòng ở lượt vẽ trong khi lượt đo thấy một dòng — nét cao gấp
+/// đôi số đã đo, và ô không chứa nổi nó.
+///
+/// Ba vòng CI mới ra, vì cả ba lần thông báo lỗi chỉ nói kết quả chứ không nói
+/// hai lượt đã tạo hình bằng gì. Sau khi gộp, chúng không lệch được nữa: cùng
+/// một hàm, cùng tham số thì cùng kết quả.
+fn tao_hinh(
+    fonts: &mut FontSystem,
+    chu: &str,
+    co: f32,
+    dam: bool,
+    cao_dong: f32,
+    rong: f32,
+) -> Buffer {
+    let mut buffer = Buffer::new(fonts, Metrics::new(co, cao_dong));
+    let mut b = buffer.borrow_with(fonts);
+    b.set_size(Some(rong), None);
+    let mut attrs = Attrs::new().family(Family::SansSerif);
+    if dam {
+        attrs = attrs.weight(cosmic_text::Weight::BOLD);
+    }
+    // `Shaping::Advanced` — bắt buộc cho tiếng Việt. `Basic` bỏ qua việc xếp dấu
+    // phụ, và với tiếng Việt thì đó không phải "nhanh hơn", đó là SAI.
+    b.set_text(chu, &attrs, Shaping::Advanced, None);
+    b.shape_until_scroll(false);
+    buffer
+}
+
 /// Mép trên và mép dưới của NÉT THẬT, theo toạ độ của hộp chữ.
 ///
 /// # Vì sao không dùng số liệu phông
@@ -401,44 +436,31 @@ impl RasterRenderer {
         let dem = if khung { DEM * 2.0 } else { 0.0 };
         let cho_chu = (rong_toi_da - dem).max(co);
 
-        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(co, co * CAO_DONG));
-        let mut attrs = Attrs::new().family(Family::SansSerif);
-        if dam {
-            attrs = attrs.weight(cosmic_text::Weight::BOLD);
+        // ⚠️ BA lượt, đúng thứ tự này. Hai lượt đầu chỉ để biết đủ tham số cho
+        // lượt thứ ba — và lượt thứ ba phải tạo hình bằng ĐÚNG những gì `ve_o`
+        // sẽ dùng, nếu không thì đo một đằng vẽ một nẻo.
+        let dau = tao_hinh(&mut self.fonts, chu, co, dam, co * CAO_DONG, cho_chu);
+        let mut rong_chu: f32 = 0.0;
+        let mut so_dong = 0usize;
+        for run in dau.layout_runs() {
+            rong_chu = rong_chu.max(run.line_w);
+            so_dong += 1;
         }
+        let so_dong = so_dong.max(1);
+        let cao_dong = cao_dong_that(&dau, co);
 
-        // ⚠️ BA lượt, đúng thứ tự này — tôi đã làm sai một lần và CI trên Linux
-        // bác bỏ.
+        // ⚠️ LÀM TRÒN LÊN, và giữ con số này làm bề rộng của ô.
         //
-        // Chiều cao dòng chỉ đọc được SAU khi tạo hình; và nét chỉ đo đúng SAU
-        // khi đã tạo hình lại bằng chính chiều cao ấy, vì `centering_offset` của
-        // cosmic-text phụ thuộc nó. Đo nét ở lượt tạo hình đầu là đo một cách
-        // xếp glyph mà lượt vẽ sẽ không dùng.
-        let (rong_chu, so_dong) = {
-            let mut b = buffer.borrow_with(&mut self.fonts);
-            b.set_size(Some(cho_chu), None);
-            // `Shaping::Advanced` — bắt buộc cho tiếng Việt. `Basic` bỏ qua việc
-            // xếp dấu phụ, và với tiếng Việt thì đó không phải "nhanh hơn", đó
-            // là SAI.
-            b.set_text(chu, &attrs, Shaping::Advanced, None);
-            b.shape_until_scroll(false);
-            let mut rong: f32 = 0.0;
-            let mut dong = 0usize;
-            for run in b.layout_runs() {
-                rong = rong.max(run.line_w);
-                dong += 1;
-            }
-            (rong, dong.max(1))
-        };
-        let cao_dong = cao_dong_that(&buffer, co);
+        // Bộ tính bố cục làm tròn toạ độ về số nguyên, nên `o.rong` có thể tròn
+        // XUỐNG dưới bề rộng chữ đo được. Thiếu một phần mười pixel là đủ để
+        // chuỗi ngắt thành hai dòng ở lượt vẽ — đo được trên Linux ngày
+        // 23/08/2026: lượt đo thấy nét cao 12px, lượt vẽ ra 22px, và ô 21px
+        // không chứa nổi.
+        let rong_o = (rong_chu + dem).ceil();
+
+        let mut b = tao_hinh(&mut self.fonts, chu, co, dam, cao_dong, rong_o - dem);
         let (net_tren, net_duoi) = {
-            let mut b = buffer.borrow_with(&mut self.fonts);
-            b.set_metrics(Metrics::new(co, cao_dong));
-            // Và cùng BỀ RỘNG với lượt vẽ: `ve_o` tạo hình ở bề rộng tự nhiên
-            // của chữ (`o.rong` trừ đệm), không phải ở bề rộng tối đa được phép.
-            // Đo ở một bề rộng khác là đo một cách ngắt dòng khác.
-            b.set_size(Some(rong_chu), None);
-            b.shape_until_scroll(false);
+            let mut b = b.borrow_with(&mut self.fonts);
             do_net(&mut b, &mut self.cache)
         };
 
@@ -452,7 +474,7 @@ impl RasterRenderer {
             co,
             dam,
             khung,
-            rong: rong_chu + dem,
+            rong: rong_o,
             // Ô phải chứa ĐƯỢC NÉT, không chỉ chứa được hộp dòng theo lý
             // thuyết. `max` giữ nguyên hình học ở nơi nét vốn đã vừa.
             cao: (cao_dong * so_dong as f32).max(net_duoi - net_tren.min(0.0))
@@ -566,17 +588,18 @@ impl RasterRenderer {
         }
 
         let dem = if o.khung { DEM } else { 0.0 };
-        // ⚠️ `o.cao_dong`, KHÔNG tính lại. Lượt đo đã hỏi phông một lần; tính
-        // lại ở đây là mở đường cho hai con số rời nhau.
-        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(o.co, o.cao_dong));
+        // ⚠️ CÙNG hàm tạo hình với lượt đo, và cùng tham số. Viết lại các bước
+        // ấy ở đây — dù chép đúng từng dòng — là dựng lại đúng chỗ hai lượt đã
+        // trôi khỏi nhau ba vòng CI liền.
+        let mut buffer = tao_hinh(
+            &mut self.fonts,
+            &o.chu,
+            o.co,
+            o.dam,
+            o.cao_dong,
+            o.rong - dem * 2.0,
+        );
         let mut b = buffer.borrow_with(&mut self.fonts);
-        b.set_size(Some(o.rong - dem * 2.0), None);
-        let mut attrs = Attrs::new().family(Family::SansSerif);
-        if o.dam {
-            attrs = attrs.weight(cosmic_text::Weight::BOLD);
-        }
-        b.set_text(&o.chu, &attrs, Shaping::Advanced, None);
-        b.shape_until_scroll(false);
 
         let (pixel, rong_anh, cao_anh) = (&mut self.pixel, WIDTH, self.height);
         let nen_x = (dat.trai + dem) as i32;
@@ -1019,24 +1042,30 @@ mod kiem_thu_43 {
             .split_once("fn ve_o(")
             .map(|(_, sau)| sau)
             .expect("có `ve_o`");
+        // Lượt vẽ phải đi qua ĐÚNG hàm tạo hình chung, và truyền số đã đo.
         assert!(
-            ve.contains("Metrics::new(o.co, o.cao_dong)"),
-            "lượt vẽ không dùng chiều cao dòng đã đo"
+            ve.contains("tao_hinh(") && ve.contains("o.cao_dong"),
+            "lượt vẽ không đi qua `tao_hinh` với chiều cao dòng đã đo"
         );
-        // Và lượt vẽ KHÔNG được nhắc tới mức sàn: nhắc tới nghĩa là nó đang tự
-        // tính, và hai bên sẽ trôi khỏi nhau.
-        //
-        // Mức sàn xuất hiện đúng hai chỗ, cả hai đều ở lượt ĐO: một lần làm sàn
-        // trong `cao_dong_that`, một lần cho lượt tạo hình ĐẦU — phải tạo hình
-        // rồi mới đo được, nên nó không tránh được.
+        // Và nó KHÔNG được tự dựng `Buffer` hay tự đặt `Metrics`: tự dựng là
+        // dựng lại đúng chỗ hai lượt đã trôi khỏi nhau ba vòng CI liền, kể cả
+        // khi chép đúng từng dòng.
+        assert!(
+            !ve.contains("Metrics::new") && !ve.contains("Buffer::new"),
+            "lượt vẽ đang tự dựng buffer thay vì gọi `tao_hinh`"
+        );
+        // Mức sàn chỉ được nhắc ở lượt ĐO.
         assert!(
             !ve.contains("CAO_DONG"),
             "lượt vẽ đang tự tính chiều cao dòng thay vì đọc lại số đã đo"
         );
+        // Và chỉ ĐƯỢC có MỘT chỗ dựng `Buffer` trong cả tệp — bên trong
+        // `tao_hinh`. Hai chỗ là hai đường, và hai đường thì trôi.
         assert_eq!(
-            than.matches("CAO_DONG").count(),
-            3,
-            "số chỗ nhắc `CAO_DONG` đã đổi — kiểm lại từng chỗ, đừng sửa con số"
+            than.matches("Buffer::new(").count(),
+            1,
+            "có nhiều hơn một chỗ dựng `Buffer` — mọi lượt tạo hình phải đi qua \
+             `tao_hinh`"
         );
     }
 
