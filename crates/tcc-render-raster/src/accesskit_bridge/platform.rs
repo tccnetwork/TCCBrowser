@@ -164,16 +164,26 @@ impl ActivationHandler for InitialTree {
 /// Khác nhau theo nền, và đó là lý do hàng đợi phải là `Arc<Mutex<…>>` chứ
 /// không phải một `RefCell`: trên macOS/Windows nó *có thể* là luồng cửa sổ,
 /// trên Linux `accesskit_unix` nói rõ **luôn luôn là một luồng khác**.
-struct ClickQueue(Arc<Mutex<Vec<u64>>>);
+struct ClickQueue(Arc<Mutex<Vec<(u64, bool)>>>);
 
 impl ActionHandler for ClickQueue {
     fn do_action(&mut self, yeu_cau: ActionRequest) {
-        // CHỈ nhận "bấm". Mọi hành động khác — cuộn, đặt tiêu điểm, đặt giá
-        // trị — chưa được nghĩ tới, và im lặng bỏ qua đúng hơn là đoán.
-        if yeu_cau.action == accesskit::Action::Click
-            && let Ok(mut q) = self.0.lock()
-        {
-            q.push(yeu_cau.target_node.0);
+        // Nhận "bấm" và "đặt tiêu điểm", KHÔNG nhận gì khác — cuộn, đặt giá trị
+        // và phần còn lại chưa được nghĩ tới, và im lặng bỏ qua đúng hơn là đoán.
+        //
+        // ⚠️ Hai hành động này đi kèm một cờ phân biệt, và vòng lặp sự kiện
+        // PHẢI dùng nó: `Focus` chỉ được phép chạm tới Ô NHẬP.
+        //
+        // Nếu `Focus` cũng kích hoạt nút thì người dùng VoiceOver vừa DI CHUYỂN
+        // tới "Cho phép" là đã cấp quyền — di chuyển tiêu điểm không phải một
+        // câu trả lời, y như đóng cửa sổ không phải một câu trả lời.
+        let la_tieu_diem = match yeu_cau.action {
+            accesskit::Action::Click => false,
+            accesskit::Action::Focus => true,
+            _ => return,
+        };
+        if let Ok(mut q) = self.0.lock() {
+            q.push((yeu_cau.target_node.0, la_tieu_diem));
         }
     }
 }
@@ -235,7 +245,7 @@ impl ScreenReaderLink {
     pub fn attach(
         window: &tao::window::Window,
         initial: Arc<Mutex<TreeUpdate>>,
-        clicks: Arc<Mutex<Vec<u64>>>,
+        clicks: Arc<Mutex<Vec<(u64, bool)>>>,
     ) -> Self {
         Self(backend::Backend::attach(window, initial, clicks))
     }
@@ -298,7 +308,7 @@ mod backend {
         pub(super) fn attach(
             window: &tao::window::Window,
             initial: Arc<Mutex<TreeUpdate>>,
-            clicks: Arc<Mutex<Vec<u64>>>,
+            clicks: Arc<Mutex<Vec<(u64, bool)>>>,
         ) -> Self {
             use tao::platform::macos::WindowExtMacOS as _;
 
@@ -374,7 +384,7 @@ mod backend {
         pub(super) fn attach(
             window: &tao::window::Window,
             initial: Arc<Mutex<TreeUpdate>>,
-            clicks: Arc<Mutex<Vec<u64>>>,
+            clicks: Arc<Mutex<Vec<(u64, bool)>>>,
         ) -> Self {
             use tao::platform::windows::WindowExtWindows as _;
 
@@ -460,7 +470,7 @@ mod backend {
         pub(super) fn attach(
             window: &tao::window::Window,
             initial: Arc<Mutex<TreeUpdate>>,
-            clicks: Arc<Mutex<Vec<u64>>>,
+            clicks: Arc<Mutex<Vec<(u64, bool)>>>,
         ) -> Self {
             // ⚠️ KHÔNG có tay nắm cửa sổ, và cũng KHÔNG có `unsafe`.
             //
@@ -555,7 +565,7 @@ mod backend {
         pub(super) fn attach(
             window: &tao::window::Window,
             initial: Arc<Mutex<TreeUpdate>>,
-            clicks: Arc<Mutex<Vec<u64>>>,
+            clicks: Arc<Mutex<Vec<(u64, bool)>>>,
         ) -> Self {
             let _ = window;
             Self {

@@ -55,6 +55,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_ngon_ngu_khong_lam_doi_dau_hieu_may` — rewritten 2026-08-23 |
 | B40 | A manifest field the standard does not define is **rejected** | Conformance: three `truong la` vectors, mutation-tested in both directions |
 | B41 | Every action **announced** to the accessibility axis is also **clickable**, and vice versa | `hanh_dong_doc_len_duoc_thi_cung_bam_duoc` — added 2026-08-23, see §3.11 |
+| B42 | A **text field** is reachable from the accessibility axis, and `Focus` **never** activates a button | `o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc`, `tieu_diem_khong_kich_hoat_nut` — added 2026-08-23, see §3.12 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1087,6 +1088,37 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.12 The mirror of B41: a blind user could not type a PIN
+
+Applying §3.11's rule in the other direction — *what can the mouse do that the
+accessibility axis cannot?* — found the sharpest gap of the day.
+
+**Text fields carry no action id.** The 0.1 standard defines no action for a
+field, so `AccessNode.action` is `None`, so the field never entered the table the
+platform's activation requests are looked up in. The mouse focuses a field
+through `hit_test_field`; the accessibility axis had no path at all.
+
+A VoiceOver user could hear *"PIN, secure text field"*, press it, and nothing
+would happen — and then typing went nowhere, because `nhan_chu` drops input when
+no field is focused. The two screens this lands on are **the PIN prompt and the
+24-word recovery phrase**. On this product that means a blind user could not
+import or restore a wallet.
+
+**The fix, and the trap inside it.** Fields now enter the table under a separate
+target kind, and the queue accepts `Action::Focus` as well as `Action::Click`.
+Accepting `Focus` naively would have been much worse than the bug: screen readers
+send `Focus` every time the user *moves* to a node, so a button would fire as the
+user swept past it — **moving the cursor onto "Allow" would grant the
+permission**. `Focus` is therefore accepted only for fields; on a button it is
+dropped. Both halves are mutation-tested.
+
+⚠️ **Unverified against a real screen reader.** Which action macOS, Windows and
+Orca actually deliver for a text field is taken from AccessKit's role mapping,
+not from observation — no screen reader has ever run against this renderer
+(§3.1d). The reasoning is written down so the first person with VoiceOver can
+check it in a minute rather than re-derive it. If macOS sends something other
+than `Focus`, this fix is inert and the gap is still open.
 
 ### 3.11 A gap that parity checking cannot see (B41, new)
 

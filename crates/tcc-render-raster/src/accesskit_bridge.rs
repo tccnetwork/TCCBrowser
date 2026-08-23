@@ -82,10 +82,24 @@ impl Default for AccessText {
 /// `bool` là **có phải công tắc không** — nút và công tắc kết thúc màn hình khác
 /// nhau.
 #[must_use]
+/// Một yêu cầu từ trục trợ năng trỏ tới cái gì.
+///
+/// Thay cho `(String, bool)`: hai loại đích khác nhau về BẢN CHẤT — một cái kết
+/// thúc màn hình hoặc gạt công tắc, cái kia chỉ đặt tiêu điểm. Gói chung một
+/// kiểu thì chỗ nhận phải nhớ cờ nào nghĩa là gì, và sẽ có lúc nhớ nhầm.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Dich {
+    /// Nút hoặc công tắc — `bool` là "đây là công tắc".
+    Bam(String, bool),
+    /// Ô nhập, tra theo NHÃN: ô nhập không có mã hành động.
+    O(String),
+}
+
+#[must_use]
 pub fn to_accesskit_with_actions(
     goc: &AccessNode,
     chu: &AccessText,
-) -> (TreeUpdate, std::collections::BTreeMap<u64, (String, bool)>) {
+) -> (TreeUpdate, std::collections::BTreeMap<u64, Dich>) {
     let mut bang = std::collections::BTreeMap::new();
     let cap_nhat = to_accesskit_inner(goc, chu, &mut bang);
     (cap_nhat, bang)
@@ -100,7 +114,7 @@ pub fn to_accesskit(goc: &AccessNode, chu: &AccessText) -> TreeUpdate {
 fn to_accesskit_inner(
     goc: &AccessNode,
     chu: &AccessText,
-    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+    bang: &mut std::collections::BTreeMap<u64, Dich>,
 ) -> TreeUpdate {
     let mut nodes = Vec::new();
     let mut dem = 0u64;
@@ -120,12 +134,30 @@ fn them(
     chu: &AccessText,
     ra: &mut Vec<(NodeId, AkNode)>,
     dem: &mut u64,
-    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+    bang: &mut std::collections::BTreeMap<u64, Dich>,
 ) -> NodeId {
     let id = NodeId(*dem);
     *dem += 1;
-    if let Some(a) = &n.action {
-        bang.insert(id.0, (a.clone(), matches!(n.role, Role::Switch { .. })));
+    match (&n.action, &n.role) {
+        (Some(a), r) => {
+            bang.insert(id.0, Dich::Bam(a.clone(), matches!(r, Role::Switch { .. })));
+        }
+        // ⚠️ Ô NHẬP không có mã hành động — 0.1 không định nghĩa hành động nào
+        // cho nó — nên bản trước nó KHÔNG vào bảng, và trục trợ năng không có
+        // cách nào chọn nó.
+        //
+        // Hậu quả: chuột chọn được ô, trình đọc màn hình thì không. Người dùng
+        // VoiceOver nghe "Mã PIN, ô nhập" rồi gõ, và chữ rơi đi đâu mất. Hai màn
+        // hình dính đúng chỗ ấy là HỎI MÃ PIN và 24 CHỮ KHÔI PHỤC.
+        //
+        // Đây là bất đối xứng B41 soi gương lần nữa, và lần này chuột là bên
+        // mạnh hơn.
+        (None, Role::TextInput { .. }) => {
+            if let Some(nhan) = &n.label {
+                bang.insert(id.0, Dich::O(nhan.clone()));
+            }
+        }
+        (None, _) => {}
     }
 
     let mut nut = AkNode::new(match n.role {
@@ -211,6 +243,57 @@ mod kiem_thu {
 
     /// **Nút không hoàn tác phải NÓI RA điều đó.**
     ///
+    /// **Ô NHẬP phải vào được bảng — nếu không, trợ năng không chọn được nó.**
+    ///
+    /// Ô nhập không có mã hành động (0.1 không định nghĩa hành động nào cho nó),
+    /// nên bản trước bỏ qua nó khi dựng bảng. Hậu quả: chuột chọn được ô, trình
+    /// đọc màn hình thì không — người dùng VoiceOver nghe "Mã PIN, ô nhập" rồi
+    /// gõ, và chữ rơi đi đâu mất. Hai màn hình dính đúng chỗ ấy là hỏi mã PIN và
+    /// 24 chữ khôi phục.
+    #[test]
+    fn o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc() {
+        let goc = AccessNode {
+            role: Role::Group,
+            label: None,
+            action: None,
+            children: vec![
+                cay(Role::TextInput { secret: true }, Some("Mã PIN")),
+                cay(Role::Button { destructive: false }, Some("Mở khoá")),
+            ],
+        };
+        let (_, bang) = to_accesskit_with_actions(&goc, &AccessText::default());
+        let co_o = bang.values().any(|d| *d == Dich::O("Mã PIN".to_owned()));
+        assert!(
+            co_o,
+            "ô nhập không vào bảng — trợ năng không chọn được: {bang:?}"
+        );
+        // Và nút vẫn là NÚT, không lẫn thành ô.
+        assert!(
+            bang.values().any(|d| matches!(d, Dich::Bam(..))),
+            "nút biến mất khỏi bảng: {bang:?}"
+        );
+    }
+
+    /// **`Focus` KHÔNG được kích hoạt nút.**
+    ///
+    /// Trình đọc màn hình gửi `Focus` mỗi khi người dùng DI CHUYỂN tới một nút.
+    /// Cho nó kích hoạt nút thì lướt qua "Cho phép" là đã cấp quyền — di chuyển
+    /// tiêu điểm không phải một câu trả lời, y như đóng cửa sổ không phải một
+    /// câu trả lời.
+    ///
+    /// Soi mã nguồn: nhánh quyết định nằm trong vòng lặp sự kiện, cần một cửa sổ
+    /// thật và một trình đọc màn hình thật mới chạy được.
+    #[test]
+    fn tieu_diem_khong_kich_hoat_nut() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        assert!(
+            than.contains("(crate::accesskit_bridge::Dich::Bam(..), true) => continue,"),
+            "không thấy nhánh chặn `Focus` trên nút — lướt tiêu điểm qua một nút \
+             sẽ kích hoạt nó"
+        );
+    }
+
     /// AccessKit không có vai trò riêng, nên nếu không đẩy vào `description`
     /// thì "Xoá dữ liệu, nút" nghe y hệt "Huỷ, nút".
     #[test]

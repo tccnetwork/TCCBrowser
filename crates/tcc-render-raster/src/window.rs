@@ -336,7 +336,8 @@ fn chay_chuoi(
     // xong và nhận câu "không có gì ở đây", rồi không hỏi lại.
     // Hàng đợi yêu cầu bấm từ trợ năng, và bảng tra `NodeId` → hành động.
     #[cfg(feature = "accesskit-platform")]
-    let hang_tro_nang: Arc<Mutex<Vec<u64>>> = Arc::new(Mutex::new(Vec::new()));
+    // `(mã nút, có phải yêu cầu ĐẶT TIÊU ĐIỂM không)`.
+    let hang_tro_nang: Arc<Mutex<Vec<(u64, bool)>>> = Arc::new(Mutex::new(Vec::new()));
     #[cfg(feature = "accesskit-platform")]
     let mut bang_hanh_dong = bang_hanh_dong_cua(&p.bo_dung);
     #[cfg(feature = "accesskit-platform")]
@@ -469,7 +470,7 @@ fn chay_chuoi(
                 #[cfg(feature = "accesskit-platform")]
                 if p.da_bam.is_none()
                     && let Some(k) =
-                        rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut p.bat)
+                        rut_yeu_cau_tro_nang(&hang_tro_nang, &bang_hanh_dong, &mut p.bat, &mut p.tt)
                 {
                     ap_ket_qua(k, &mut p.ve_lai, &mut p.da_bam, dieu_khien);
                 }
@@ -597,21 +598,37 @@ fn sau_cu_bam(cham: Option<crate::Hit<'_>>, bat: &mut BTreeSet<String>) -> SauCu
 /// áp cho đây, vì cả hai đi qua cùng một [`sau_cu_bam`].
 #[cfg(feature = "accesskit-platform")]
 fn rut_yeu_cau_tro_nang(
-    hang: &Arc<Mutex<Vec<u64>>>,
-    bang: &std::collections::BTreeMap<u64, (String, bool)>,
+    hang: &Arc<Mutex<Vec<(u64, bool)>>>,
+    bang: &std::collections::BTreeMap<u64, crate::accesskit_bridge::Dich>,
     bat: &mut BTreeSet<String>,
+    tt: &mut TrangThai,
 ) -> Option<SauCuBam> {
-    let yeu_cau: Vec<u64> = hang
+    let yeu_cau: Vec<(u64, bool)> = hang
         .lock()
         .map(|mut q| core::mem::take(&mut *q))
         .unwrap_or_default();
     let mut cuoi = None;
-    for id in yeu_cau {
+    for (id, la_tieu_diem) in yeu_cau {
         // Không tra ra thì BỎ QUA. Yêu cầu tới sau khi cây đã đổi thì con số cũ
         // trỏ vào một nút không còn nữa — đoán bừa ở đây là bấm nhầm nút.
-        let Some((a, la_cong_tac)) = bang.get(&id).cloned() else {
+        let Some(dich) = bang.get(&id).cloned() else {
             continue;
         };
+        // ⚠️ `Focus` CHỈ được chạm tới ô nhập.
+        //
+        // Trình đọc màn hình gửi `Focus` mỗi khi người dùng DI CHUYỂN tới một
+        // nút. Cho nó kích hoạt nút thì lướt qua "Cho phép" là đã cấp quyền —
+        // di chuyển tiêu điểm không phải một câu trả lời.
+        let a = match (dich, la_tieu_diem) {
+            (crate::accesskit_bridge::Dich::O(nhan), _) => {
+                tt.o_dang_chon = Some(nhan);
+                cuoi = Some(SauCuBam::VeLai);
+                continue;
+            }
+            (crate::accesskit_bridge::Dich::Bam(..), true) => continue,
+            (crate::accesskit_bridge::Dich::Bam(a, la_cong_tac), false) => (a, la_cong_tac),
+        };
+        let (a, la_cong_tac) = a;
         let k = sau_cu_bam(
             Some(crate::Hit {
                 action: &a,
@@ -847,7 +864,9 @@ fn trinh_bay(
 
 /// Bảng tra `NodeId` → (mã hành động, có phải công tắc không).
 #[cfg(feature = "accesskit-platform")]
-fn bang_hanh_dong_cua(bd: &RasterRenderer) -> std::collections::BTreeMap<u64, (String, bool)> {
+fn bang_hanh_dong_cua(
+    bd: &RasterRenderer,
+) -> std::collections::BTreeMap<u64, crate::accesskit_bridge::Dich> {
     use tcc_ui::Renderer as _;
     // Bảng tra không phụ thuộc chữ nghĩa — chỉ cần `NodeId`. Nên chỗ này dùng
     // mặc định là ĐÚNG, khác hẳn `cay_accesskit` bên dưới.
@@ -881,7 +900,7 @@ fn bao_tro_nang(
     chu: &ScreenText,
     cay_chung: &Arc<Mutex<accesskit::TreeUpdate>>,
     adapter: &mut crate::accesskit_bridge::platform::ScreenReaderLink,
-    bang: &mut std::collections::BTreeMap<u64, (String, bool)>,
+    bang: &mut std::collections::BTreeMap<u64, crate::accesskit_bridge::Dich>,
 ) {
     *bang = bang_hanh_dong_cua(bo_dung);
     if let Some(moi) = cay_accesskit(bo_dung, chu) {
