@@ -56,7 +56,7 @@ nay phép thử ta viết đọc lại cây ta cũng tự dựng.
 
 | Nợ | Ở đâu |
 |---|---|
-| `chay_chuoi` dài 169 dòng — cần gói phiên vào một struct | `tcc-render-raster/src/window.rs` |
+| `chay_chuoi` còn 134 dòng (từ 169) — phần đáng cắt đã cắt, phần còn lại cắt chỉ để qua ngưỡng | `tcc-render-raster/src/window.rs`, lý do ghi ngay trên hàm |
 | Chưa trình đọc màn hình nào chạy thật | SECURITY.md §3.1d |
 | `ttf-parser` phân tích phông trong tiến trình vẽ nội dung đã ký | SECURITY.md §3.5b |
 
