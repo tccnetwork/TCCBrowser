@@ -145,21 +145,7 @@ impl Cay {
             scroll,
         } = n.kind()
         else {
-            let o = do_la(n, rong_toi_da, access);
-            let dang = Style {
-                // Kích thước CỐ ĐỊNH theo số đo. Không giao việc đo cho `taffy`
-                // qua hàm đo: đo hai lần với hai bề rộng khác nhau thì một nút
-                // có thể đổi số dòng giữa lượt đo và lượt vẽ, và cái vẽ ra
-                // không còn khớp cái `hit_test` tin.
-                size: Size {
-                    width: length(o.rong),
-                    height: length(o.cao),
-                },
-                ..Style::default()
-            };
-            self.la.push(o);
-            let ngu_canh = self.la.len() - 1;
-            return self.cay.new_leaf_with_context(dang, ngu_canh).ok();
+            return self.dung_la(n, rong_toi_da, do_la, access);
         };
 
         let khe = khe_cua(*gap);
@@ -170,13 +156,6 @@ impl Cay {
                 con.push(id);
             }
         }
-        access.push(AccessNode {
-            role: Role::Group,
-            label: None,
-            action: None,
-            children: con_access,
-        });
-
         let dang = Style {
             flex_direction: match flow {
                 Flow::Column => FlexDirection::Column,
@@ -259,7 +238,57 @@ impl Cay {
             },
             ..Style::default()
         };
-        self.cay.new_with_children(dang, &con).ok()
+        // Cùng luật với lá: nhóm chỉ vào cây trợ năng khi nút bố cục của nó
+        // dựng XONG. Đẩy trước thì một nhóm không xếp được vẫn được đọc lên, và
+        // mọi con của nó đi theo.
+        let id = self.cay.new_with_children(dang, &con).ok()?;
+        access.push(AccessNode {
+            role: Role::Group,
+            label: None,
+            action: None,
+            children: con_access,
+        });
+        Some(id)
+    }
+
+    /// Nhánh LÁ của [`Cay::dung`] — tách ra vì hàm kia đã chạm trần độ dài.
+    fn dung_la(
+        &mut self,
+        n: &Node,
+        rong_toi_da: f32,
+        do_la: &mut dyn FnMut(&Node, f32, &mut Vec<AccessNode>) -> O,
+        access: &mut Vec<AccessNode>,
+    ) -> Option<NodeId> {
+        // ⚠️ Nút trợ năng viết vào chỗ TẠM, chỉ nhập vào cây thật khi nút
+        // bố cục dựng XONG.
+        //
+        // Bản trước đẩy thẳng vào `access` rồi mới dựng nút bố cục. Bước sau
+        // hỏng thì nút ấy **có trong cây trợ năng mà không có trong bố cục**:
+        // không vẽ ra, chuột không bấm tới, nhưng `bang_hanh_dong_cua` dựng
+        // bảng TỪ cây trợ năng nên trục trợ năng vẫn kích hoạt được nó.
+        //
+        // Cùng hình dạng với F1 (nút vô hình mà `hit_test` vẫn trả về), chỉ
+        // soi gương: vô hình với mắt và với chuột, mà trình đọc màn hình vẫn
+        // với tới. `check_accessibility_parity` KHÔNG bắt được — nó so cây
+        // nguồn với cây công bố, và cả hai đều có nút ấy.
+        let mut tam = Vec::new();
+        let o = do_la(n, rong_toi_da, &mut tam);
+        let dang = Style {
+            // Kích thước CỐ ĐỊNH theo số đo. Không giao việc đo cho `taffy`
+            // qua hàm đo: đo hai lần với hai bề rộng khác nhau thì một nút
+            // có thể đổi số dòng giữa lượt đo và lượt vẽ, và cái vẽ ra
+            // không còn khớp cái `hit_test` tin.
+            size: Size {
+                width: length(o.rong),
+                height: length(o.cao),
+            },
+            ..Style::default()
+        };
+        self.la.push(o);
+        let ngu_canh = self.la.len() - 1;
+        let id = self.cay.new_leaf_with_context(dang, ngu_canh).ok()?;
+        access.append(&mut tam);
+        Some(id)
     }
 }
 

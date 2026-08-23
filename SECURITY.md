@@ -54,6 +54,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B38 | A destructive button **does not stretch the full width** | `nut_mat_mat_khong_gian_het_be_ngang` — rewritten 2026-08-23 |
 | B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_ngon_ngu_khong_lam_doi_dau_hieu_may` — rewritten 2026-08-23 |
 | B40 | A manifest field the standard does not define is **rejected** | Conformance: three `truong la` vectors, mutation-tested in both directions |
+| B41 | Every action **announced** to the accessibility axis is also **clickable**, and vice versa | `hanh_dong_doc_len_duoc_thi_cung_bam_duoc` — added 2026-08-23, see §3.11 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1072,7 +1073,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 348.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 349.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1086,6 +1087,35 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.11 A gap that parity checking cannot see (B41, new)
+
+`check_accessibility_parity` compares the **source** tree with the **published**
+tree. Both are trees. Neither is the thing that was actually drawn.
+
+So a node present in both, but absent from **layout**, passes. And that is not a
+harmless state: the action table the platform uses is built from the published
+tree (`bang_hanh_dong_cua`), so such a node stays activatable over the
+accessibility axis while being invisible on screen and unreachable by mouse.
+
+The layout builder made this possible by ordering: it pushed the accessibility
+node **before** creating the layout node, so a failure of the second left the
+first behind. Now the accessibility node is written to a scratch list and merged
+only after the layout node exists — for leaves and for groups alike.
+
+This is the F1 shape reflected. F1 (2026-08-21) was a button drawn outside the
+image that `hit_test` still returned: **the mouse could reach what the eye could
+not**. This is the mirror: **the screen reader could reach what the mouse could
+not**. Neither direction is acceptable, and the general rule is worth stating
+plainly because it will come up again:
+
+> Any asymmetry between input paths is a way around whatever the stronger path
+> enforces. Three defects this week were exactly that — F3 (the accessibility
+> queue outliving a screen), B19 (the guard on one path only), and this one.
+
+B41 now watches it directly: the set of actions in the published tree must equal
+the set of actions on drawn boxes. Mutation-tested by dropping one leaf from
+layout while still announcing it.
 
 ### 3.10 B19 was enforced on one input path and not the other
 
@@ -1339,7 +1369,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 348 tests
+cargo test --workspace                              # 349 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

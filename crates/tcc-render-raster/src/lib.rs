@@ -1007,6 +1007,63 @@ mod kiem_thu_43 {
         Some((tren, duoi))
     }
 
+    /// **Mọi hành động ĐỌC LÊN ĐƯỢC cũng phải BẤM ĐƯỢC — và ngược lại.**
+    ///
+    /// # Vì sao `check_accessibility_parity` không đủ
+    ///
+    /// Phép kiểm ấy so cây NGUỒN với cây CÔNG BỐ. Cả hai đều là cây; không cái
+    /// nào là thứ đã VẼ RA. Một nút có mặt ở cả hai mà không có trong bố cục thì
+    /// vẫn qua — và khi ấy trục trợ năng kích hoạt được một điều khiển mà người
+    /// nhìn không thấy và chuột không bấm tới, vì `bang_hanh_dong_cua` dựng bảng
+    /// TỪ cây trợ năng.
+    ///
+    /// Cùng hình dạng với F1 (nút vô hình mà `hit_test` vẫn trả về), soi gương:
+    /// ở đó mắt thiếu thứ chuột có, ở đây chuột thiếu thứ trình đọc màn hình có.
+    /// Bất đối xứng nào cũng là một đường vòng.
+    #[test]
+    fn hanh_dong_doc_len_duoc_thi_cung_bam_duoc() {
+        fn gom(n: &AccessNode, ra: &mut Vec<String>) {
+            if let Some(a) = &n.action {
+                ra.push(a.clone());
+            }
+            for c in &n.children {
+                gom(c, ra);
+            }
+        }
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::text_with("Tiêu đề", Emphasis::Title).unwrap())
+            .unwrap()
+            .child(Node::button("Cho phép", "cho-phep", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Xoá hết", "xoa", Tone::Danger).unwrap())
+            .unwrap()
+            .child(Node::toggle("Micro", false, "micro").unwrap())
+            .unwrap()
+            .child(Node::field("Ghi chú", "", false).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let mut doc_len = Vec::new();
+        gom(
+            &bd.published_accessibility().expect("đã vẽ thì phải có cây"),
+            &mut doc_len,
+        );
+        let mut bam_duoc: Vec<String> = bd
+            .da_dat
+            .iter()
+            .filter_map(|d| d.o.hanh_dong.clone())
+            .collect();
+        doc_len.sort();
+        bam_duoc.sort();
+        assert_eq!(
+            doc_len, bam_duoc,
+            "tập hành động ĐỌC LÊN ĐƯỢC khác tập BẤM ĐƯỢC — một bên với tới thứ \
+             bên kia không"
+        );
+        assert!(!doc_len.is_empty(), "cây thử không có hành động nào để so");
+    }
+
     /// **B30 — nhãn điều khiển phải VẼ RA cho người nhìn, không chỉ cho trợ năng.**
     ///
     /// Một công tắc hay ô nhập chỉ mang nhãn trong cây trợ năng là một điều
