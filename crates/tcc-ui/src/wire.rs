@@ -205,7 +205,7 @@ impl TryFrom<UiNode> for Node {
                     align_cross,
                     padding,
                 )?;
-                g = g.with_wrap(wrap).with_scroll(scroll);
+                g = g.with_wrap(wrap).with_scroll(scroll)?;
                 for c in children {
                     // `child` kiểm trần độ sâu và trần số nút ở TỪNG lần thêm,
                     // nên một cây khổng lồ bị chặn giữa chừng chứ không phải sau

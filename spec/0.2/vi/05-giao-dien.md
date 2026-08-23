@@ -531,6 +531,36 @@ Cả hai luật được canh bởi vector hình học (§12) và không mang m�
 không gói nào vi phạm được chúng.
 
 
+### 8.2 Bộ dựng tham chiếu hiện TỪ CHỐI những gì, và vì sao ghi ở đây
+
+Hai lời khai mà bản nháp này cho phép thì bộ dựng tham chiếu **từ chối**, vì nó
+không làm cho chúng có tác dụng được. Ghi ra đây chứ không để người đọc tự vấp:
+một điều khoản không bản cài đặt nào tuân theo là một điều khoản chia rẽ các bản
+cài đặt — đúng thứ một tiêu chuẩn không được phép làm.
+
+**Phân số trên trục DỌC là `bad-layout`.** §4.1 nói phân số tính theo bề trong
+của cha trên trục ấy. Khung của bộ dựng tham chiếu **cuộn được** (§1), nên bề dọc
+của nó suy từ nội dung — và mọi nhóm bên dưới thừa hưởng đúng tính chất ấy. Đo
+ngày 23/08/2026: trên trục ngang `half` cho ra đúng một nửa (con căn về mép cuối
+nằm ở x=312 trên khung rộng 640, so với 620 khi không khai gì); trên trục dọc lời
+khai **không có tác dụng gì** và nhóm vẫn cao bằng nội dung.
+
+Đây là luật §3 đi vào bằng một cửa khác, và nó HẸP hơn §3: §3 từ chối phân số có
+CHA suy từ nội dung — cần một lượt đi khắp cây; luật này từ chối phân số trên
+TRỤC DỌC — quyết được từ chính nút ấy, và đúng bằng tập §3 sẽ từ chối trong một
+khung cuộn được.
+
+**`scroll: true` là `bad-scroll`.** Không phải vì lời khai ấy bất khả về nguyên
+tắc — §9 định nghĩa nó đầy đủ — mà vì **chưa bộ dựng nào trong kho này cắt được
+nội dung theo nhóm**. Đo cùng ngày: một nhóm `scroll: true` với bốn con cao hơn
+khung đã vẽ đủ cả bốn, không cắt gì, và đẩy nhóm sau xuống như thể vùng cuộn
+không tồn tại.
+
+Một vùng cuộn không cuộn là một lời hứa chỉ vỡ trên màn hình nhỏ hơn màn hình của
+người viết. Từ chối thì người viết mất một tính năng; nhận thì người dùng mất một
+màn hình họ không đọc nổi, trên phần cứng người viết chưa từng thấy. Ngày bộ dựng
+cắt được, lời từ chối thu hẹp lại đúng những ca mà §9.2 và §9.3 đã gọi tên.
+
 ## 9. Tràn và cuộn
 
 ### 9.1 Nội dung không bao giờ bị huỷ

@@ -129,6 +129,34 @@ pub enum UiError {
     #[error("bề `{1}` không dùng được ở `{0}`")]
     BadExtent(&'static str, &'static str),
 
+    /// Phân số đặt trên trục DỌC, nơi nó không giải ra được.
+    ///
+    /// Phân số tính theo bề TRONG của cha. Khung của bộ dựng **cuộn được**, nên
+    /// bề dọc của nó suy từ nội dung — và suy từ nội dung thì không có con số
+    /// nào để lấy một nửa. Mọi nhóm bên dưới thừa hưởng đúng tính chất ấy.
+    ///
+    /// Đo được ngày 23/08/2026: trên trục NGANG `half` cho ra đúng một nửa
+    /// (con ở x=312 trên khung 640, so với 620 khi không khai), còn trên trục
+    /// DỌC lời khai **không có tác dụng gì** và nhóm vẫn cao bằng nội dung.
+    ///
+    /// Từ chối chứ không lặng lẽ bỏ qua, vì cùng một lý do với vùng cuộn: một
+    /// lời khai bị bỏ qua trông y hệt một lời khai có tác dụng.
+    #[error(
+        "`{0}` là phân số trên trục DỌC — bề dọc suy từ nội dung nên không có gì \
+         để lấy một phần của"
+    )]
+    VerticalFraction(&'static str),
+
+    /// Vùng cuộn khai ra được nhưng chưa bộ dựng nào cắt được nội dung.
+    ///
+    /// Từ chối chứ không lặng lẽ vẽ đủ: một vùng cuộn không cuộn là một lời hứa
+    /// chỉ vỡ trên màn hình nhỏ hơn màn hình của người viết ứng dụng.
+    #[error(
+        "vùng cuộn chưa dùng được — bộ dựng chưa cắt được nội dung theo nhóm, \
+         và một vùng cuộn không cuộn thì tràn ra ngoài trên màn hình nhỏ"
+    )]
+    ScrollNotSupported,
+
     /// Ô nhập che chữ là **thứ của khung trình duyệt**, không phải của ứng dụng.
     ///
     /// Ô che chữ chính là hình dạng người dùng được dạy để tin: thấy chấm tròn
@@ -165,7 +193,9 @@ impl UiError {
             // xuất hiện ở đây trước khi 0.2 phát hành vì lời khai bố cục đã
             // dựng được: mã lỗi phải có TRƯỚC lời khai đầu tiên bị từ chối, chứ
             // không phải sau.
-            Self::BadExtent { .. } => "bad-layout",
+            Self::BadExtent { .. } | Self::VerticalFraction { .. } => "bad-layout",
+            // `bad-scroll` — mã của 0.2, xem `spec/0.2/06-error-codes.md`.
+            Self::ScrollNotSupported => "bad-scroll",
             Self::SecretFieldFromApp => "secret-field-from-app",
         }
     }
@@ -237,6 +267,14 @@ pub enum Gap {
     #[default]
     Medium,
     Large,
+}
+
+/// Hướng xếp của một nhóm; `None` nếu không phải nhóm.
+const fn flow_cua(k: &NodeKind) -> Option<Flow> {
+    match k {
+        NodeKind::Group { flow, .. } => Some(*flow),
+        _ => None,
+    }
 }
 
 /// Chặn một bề đặt ở chỗ nó không có nghĩa.
@@ -596,16 +634,9 @@ impl Node {
         align_cross: AlignCross,
         padding: Gap,
     ) -> Result<Self, UiError> {
-        let NodeKind::Group {
-            size: s,
-            min: mn,
-            max: mx,
-            align_main: am,
-            align_cross: ac,
-            padding: p,
-            ..
-        } = &mut self.kind
-        else {
+        // Đọc hướng xếp TRƯỚC khi mượn khả biến — mọi phép kiểm dưới đây chỉ
+        // đọc, và mượn khả biến sớm thì chúng không đọc được nữa.
+        let Some(flow) = flow_cua(&self.kind) else {
             return Err(UiError::NotAContainer(self.kind.ten()));
         };
         if let Some(m) = size.main {
@@ -622,6 +653,36 @@ impl Node {
                 kiem_be(ten, c, &[Extent::Fill])?;
             }
         }
+        // Trục DỌC không nhận phân số — xem [`UiError::VerticalFraction`].
+        let doc = |la_chinh: bool| match flow {
+            Flow::Row => !la_chinh,
+            Flow::Column => la_chinh,
+        };
+        for (la_chinh, ten, be) in [
+            (true, "size.main", size.main),
+            (false, "size.cross", size.cross),
+            (true, "min.main", min.main),
+            (false, "min.cross", min.cross),
+            (true, "max.main", max.main),
+            (false, "max.cross", max.cross),
+        ] {
+            if doc(la_chinh) && be.is_some_and(|b| b.ti_le().is_some()) {
+                return Err(UiError::VerticalFraction(ten));
+            }
+        }
+
+        let NodeKind::Group {
+            size: s,
+            min: mn,
+            max: mx,
+            align_main: am,
+            align_cross: ac,
+            padding: p,
+            ..
+        } = &mut self.kind
+        else {
+            unreachable!("`flow_cua` vừa xác nhận đây là nhóm")
+        };
         *s = size;
         *mn = min;
         *mx = max;
@@ -640,13 +701,35 @@ impl Node {
         self
     }
 
-    /// Bật vùng cuộn. Không phải nhóm thì không làm gì.
-    #[must_use]
-    pub fn with_scroll(mut self, bat: bool) -> Self {
-        if let NodeKind::Group { scroll, .. } = &mut self.kind {
-            *scroll = bat;
+    /// Bật vùng cuộn.
+    ///
+    /// # ⚠️ Hiện TỪ CHỐI mọi lời khai `true`
+    ///
+    /// Không bộ dựng nào của dự án cắt được nội dung theo nhóm. Nhận lời khai
+    /// rồi vẽ ra y như không có nó thì **một lời khai bị bỏ qua trông y hệt một
+    /// lời khai có tác dụng** — người viết ứng dụng khai `scroll: true`, thấy
+    /// màn hình dựng lên bình thường, và tin rằng nội dung dài đã được cuộn.
+    /// Trên máy họ nó "chạy"; trên màn hình nhỏ hơn nó tràn ra ngoài.
+    ///
+    /// Đo được ngày 23/08/2026: một nhóm `scroll: true` với bốn con cao hơn
+    /// khung — cả bốn vẫn vẽ đủ, không cắt, không cuộn, và con của nhóm sau nó
+    /// bị đẩy xuống như thể vùng cuộn không tồn tại.
+    ///
+    /// Nên từ chối. Ngày bộ dựng cắt được thì hàm này mở lại, và lúc ấy lời khai
+    /// mới có nghĩa. Quyền năng không tồn tại cho tới khi được cấp.
+    ///
+    /// # Errors
+    ///
+    /// [`UiError::ScrollNotSupported`] khi `bat` là `true`.
+    pub fn with_scroll(mut self, bat: bool) -> Result<Self, UiError> {
+        if !bat {
+            return Ok(self);
         }
-        self
+        if let NodeKind::Group { scroll, .. } = &mut self.kind {
+            *scroll = true;
+            return Err(UiError::ScrollNotSupported);
+        }
+        Ok(self)
     }
 
     /// Một nhóm chứa các nút khác. Đây là loại DUY NHẤT nhận nút con.
@@ -1000,8 +1083,89 @@ pub fn check_accessibility_parity<R: Renderer>(
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "kiểm thử: hỏng thì phải nổ ngay"
+)]
 mod kiem_thu {
+
+    /// **Phân số trên trục DỌC bị TỪ CHỐI; trên trục NGANG thì nhận.**
+    ///
+    /// Nửa nào dùng được thì giữ, nửa nào không thì chặn — chứ không cấm cả hai
+    /// cho gọn, và cũng không nhận cả hai rồi để một nửa lặng lẽ không có tác
+    /// dụng.
+    #[test]
+    fn phan_so_chi_nhan_tren_truc_ngang() {
+        let khai = |flow, size| {
+            Node::group(flow, Gap::Medium).with_layout(
+                size,
+                Sizing::default(),
+                Sizing::default(),
+                AlignMain::Start,
+                AlignCross::Start,
+                Gap::None,
+            )
+        };
+        let nua = Sizing {
+            main: Some(Extent::Half),
+            cross: None,
+        };
+        // HÀNG: trục chính là NGANG → nhận.
+        assert!(khai(Flow::Row, nua).is_ok());
+        // CỘT: trục chính là DỌC → từ chối.
+        let e = khai(Flow::Column, nua).expect_err("phân số dọc phải bị từ chối");
+        assert_eq!(e.ma(), "bad-layout", "{e}");
+
+        // Và ngược lại với trục phụ.
+        let nua_phu = Sizing {
+            main: None,
+            cross: Some(Extent::Half),
+        };
+        assert!(khai(Flow::Column, nua_phu).is_ok());
+        assert!(khai(Flow::Row, nua_phu).is_err());
+
+        // `content` và `fill` KHÔNG phải phân số — chúng đi qua ở cả hai trục.
+        for be in [Extent::Content, Extent::Fill] {
+            assert!(
+                khai(
+                    Flow::Column,
+                    Sizing {
+                        main: Some(be),
+                        cross: None
+                    }
+                )
+                .is_ok(),
+                "{be:?} bị chặn nhầm"
+            );
+        }
+    }
+
+    /// **Vùng cuộn bị TỪ CHỐI, không bị lờ đi.**
+    ///
+    /// Cây vẫn dựng được `scroll: true` về mặt hình dạng — cái bị chặn là dùng
+    /// nó. Phân biệt ấy quan trọng: nếu chỉ lặng lẽ bỏ trường đi thì người viết
+    /// ứng dụng khai một đằng, màn hình dựng một nẻo, và không ai báo gì.
+    #[test]
+    fn vung_cuon_bi_tu_choi_chu_khong_bi_lo_di() {
+        let e = Node::group(Flow::Column, Gap::Medium)
+            .with_scroll(true)
+            .expect_err("phải từ chối");
+        assert_eq!(e.ma(), "bad-scroll", "{e}");
+
+        // `false` thì đi qua: đó là trạng thái mặc định, không phải một lời khai.
+        assert!(
+            Node::group(Flow::Column, Gap::Medium)
+                .with_scroll(false)
+                .is_ok()
+        );
+
+        // Và đường từ ĐĨA cũng bị chặn — không có cửa sau nào cho gói.
+        let tu_dia = crate::wire::decode(br#"{"kind":"group","scroll":true}"#)
+            .expect_err("gói khai `scroll` phải bị từ chối");
+        assert_eq!(tu_dia.ma(), "bad-scroll", "{tu_dia}");
+    }
+
     use super::*;
     use std::fmt::Write as _;
 

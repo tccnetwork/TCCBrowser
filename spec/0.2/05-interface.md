@@ -548,6 +548,37 @@ Both rules are watched by geometry vectors (§12) and carry no error code
 (§11.3): a package cannot violate either.
 
 
+### 8.2 What the reference renderer refuses today, and why it is written here
+
+Two declarations this draft permits are **rejected** by the reference renderer,
+because it cannot make them take effect. They are recorded here rather than left
+to a reader's surprise: a clause that no implementation honours is a clause that
+divides implementations, which is the one thing a standard must not do.
+
+**A fraction on the vertical axis is `bad-layout`.** §4.1 says a fraction
+resolves against the parent's inner extent on that axis. The reference renderer's
+frame **scrolls** (§1), so its vertical extent is content-derived — and every
+group below inherits that. Measured 2026-08-23: on the horizontal axis `half`
+gives exactly half (a child end-aligned inside it lands at x=312 on a 640-wide
+frame, against 620 with no declaration); on the vertical axis the declaration has
+**no effect at all** and the group stays as tall as its content.
+
+This is §3's rule arriving through a different door, and it is narrower than §3:
+§3 rejects a fraction whose *parent* is content-derived, which needs a whole-tree
+pass; this rejects a fraction on the *vertical axis*, which is decidable from the
+node alone and is exactly the set §3 would reject in a scrolling frame.
+
+**`scroll: true` is `bad-scroll`.** Not because the declaration is impossible in
+principle — §9 defines it fully — but because **no renderer in this repository
+clips content to a group**. Measured the same day: a group with `scroll: true`
+and four children taller than the frame drew all four, clipped nothing, and
+pushed the next group down as though the scroll container did not exist.
+
+A scroll container that does not scroll is a promise that breaks only on a screen
+smaller than the author's. Refusing it costs an author a feature; accepting it
+costs a user a screen they cannot read, on hardware the author never saw. When a
+renderer can clip, the refusal narrows to the cases §9.2 and §9.3 already name.
+
 ## 9. Overflow and scrolling
 
 ### 9.1 Content is never destroyed
