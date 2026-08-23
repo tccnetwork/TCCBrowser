@@ -540,6 +540,28 @@ fn kiem_chu(field: &'static str, s: &str, kind: TextKind) -> Result<(), UiError>
     Ok(())
 }
 
+/// Kiểm một giá trị ô nhập **do KHUNG giữ** — chữ người dùng vừa gõ.
+///
+/// # Vì sao cần hàm này ở đây
+///
+/// `Node::field` kiểm giá trị khi cây được DỰNG. Nhưng nội dung ô nhập trên bộ
+/// dựng ra pixel do khung giữ ngoài cây, và quay lại cây qua `with_fields` —
+/// đường ấy KHÔNG đi qua hàm dựng. B16 hứa "giải mã từ đĩa không lách được hàm
+/// dựng"; hứa ấy đúng cho đĩa và **hở ở bàn phím**.
+///
+/// Kiểm ở đây thì khung từ chối được ngay PHÍM VỪA GÕ, thay vì nhận rồi mới phát
+/// hiện lúc vẽ — và lúc vẽ thì đường duy nhất còn lại là nuốt lỗi, tức là màn
+/// hình đứng im trong khi người dùng vẫn gõ.
+///
+/// # Errors
+/// Chuỗi quá dài, hoặc mang ký tự giả mạo.
+pub fn check_field_value(v: &str) -> Result<(), UiError> {
+    if v.is_empty() {
+        return Ok(());
+    }
+    kiem_chu("giá trị ô nhập", v, TextKind::Paragraph)
+}
+
 impl Node {
     /// Một đoạn chữ. Nhiều dòng được phép.
     ///
@@ -893,11 +915,25 @@ impl Node {
     /// Như [`Self::with_toggles`].
     pub fn with_fields(&self, noi_dung: &BTreeMap<String, String>) -> Result<Self, UiError> {
         self.dat_lai(&|n| match &n.kind {
-            NodeKind::Field { label, secret, .. } => Some(NodeKind::Field {
-                label: label.clone(),
-                value: noi_dung.get(label).cloned().unwrap_or_default(),
-                secret: *secret,
-            }),
+            // ⚠️ Giá trị đi qua `check_field_value`, y như khi cây được dựng
+            // lần đầu. Nhận thẳng chuỗi từ khung là mở đúng cái lỗ mà B16 đóng
+            // cho đường đĩa: chữ chưa kiểm vào thẳng thứ được VẼ RA.
+            //
+            // Không hợp lệ thì GIỮ giá trị cũ, không xoá trắng: xoá là làm mất
+            // thứ người dùng đã gõ vì một phím sai.
+            NodeKind::Field {
+                label,
+                value,
+                secret,
+            } => {
+                let moi = noi_dung.get(label).cloned().unwrap_or_default();
+                let dung = check_field_value(&moi).is_ok();
+                Some(NodeKind::Field {
+                    label: label.clone(),
+                    value: if dung { moi } else { value.clone() },
+                    secret: *secret,
+                })
+            }
             _ => None,
         })
     }
@@ -1124,6 +1160,45 @@ pub fn check_accessibility_parity<R: Renderer>(
     reason = "kiểm thử: hỏng thì phải nổ ngay"
 )]
 mod kiem_thu {
+
+    /// **Chữ do KHUNG giữ cũng phải qua phép kiểm, y như chữ từ đĩa.**
+    ///
+    /// B16 hứa "giải mã từ đĩa không lách được hàm dựng". Hứa ấy đúng cho đĩa và
+    /// **hở ở bàn phím**: nội dung ô nhập trên bộ dựng ra pixel do khung giữ
+    /// ngoài cây, rồi quay lại cây qua `with_fields` — đường không đi qua
+    /// `Node::field`.
+    ///
+    /// Ca đáng nhất là ký tự ĐẢO CHIỀU: nó làm chữ HIỆN RA khác chữ đã gõ, và
+    /// một ô nhập trên màn xác nhận giao dịch là chỗ tệ nhất để điều đó xảy ra.
+    #[test]
+    fn chu_do_khung_giu_khong_lach_duoc_phep_kiem() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Ghi chú", "an toàn", false).unwrap())
+            .unwrap();
+        let mut noi_dung = BTreeMap::new();
+
+        // Ký tự đảo chiều — `check_display_text` chặn nó ở mọi đường khác.
+        noi_dung.insert("Ghi chú".to_owned(), "gui \u{202e}tnv 001".to_owned());
+        let sau = cay.with_fields(&noi_dung).unwrap();
+        let gia_tri = |n: &Node| match n.children()[0].kind() {
+            NodeKind::Field { value, .. } => value.clone(),
+            _ => panic!("không phải ô nhập"),
+        };
+        assert_eq!(
+            gia_tri(&sau),
+            "an toàn",
+            "chuỗi có ký tự đảo chiều lọt vào cây — chữ hiện ra khác chữ đã gõ"
+        );
+
+        // Quá dài cũng bị chặn, và ô GIỮ giá trị cũ chứ không bị xoá trắng.
+        noi_dung.insert("Ghi chú".to_owned(), "a".repeat(MAX_TEXT_LEN + 1));
+        assert_eq!(gia_tri(&cay.with_fields(&noi_dung).unwrap()), "an toàn");
+
+        // Chuỗi hợp lệ thì vào bình thường — nếu không, phép thử trên xanh vì
+        // `with_fields` chẳng bao giờ nhận gì cả.
+        noi_dung.insert("Ghi chú".to_owned(), "đã sửa".to_owned());
+        assert_eq!(gia_tri(&cay.with_fields(&noi_dung).unwrap()), "đã sửa");
+    }
 
     /// **Phân số trên trục DỌC bị TỪ CHỐI; trên trục NGANG thì nhận.**
     ///

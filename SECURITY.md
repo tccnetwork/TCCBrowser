@@ -56,6 +56,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B40 | A manifest field the standard does not define is **rejected** | Conformance: three `truong la` vectors, mutation-tested in both directions |
 | B41 | Every action **announced** to the accessibility axis is also **clickable**, and vice versa | `hanh_dong_doc_len_duoc_thi_cung_bam_duoc` — added 2026-08-23, see §3.11 |
 | B42 | A **text field** is reachable from the accessibility axis, and `Focus` **never** activates a button | `o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc`, `tieu_diem_khong_kich_hoat_nut` — added 2026-08-23, see §3.12 |
+| B43 | Text the **frame** holds passes the same display-string checks as text from disk | `chu_do_khung_giu_khong_lach_duoc_phep_kiem`, `phim_go_khong_hop_le_bi_tu_choi_ngay` — added 2026-08-23, see §3.13 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1074,7 +1075,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 349.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 350.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1088,6 +1089,37 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.13 B16 held for disk and leaked at the keyboard (B43, new)
+
+B16 says decoding from disk **cannot bypass the constructors**. It is true, and
+it was answering the wrong question by 2026-08-23.
+
+On the pixel renderer, a text field's content is not in the tree. The frame holds
+it (`TrangThai::noi_dung_o`), a keystroke appends to it, and it re-enters the tree
+through `with_fields` — which built `NodeKind::Field { value }` **directly**. So
+every check `Node::field` performs, including the display-string rules that
+B6 rests on, was skipped for anything typed.
+
+The character that matters is a **bidi override**. It makes the text *displayed*
+differ from the text *entered* — and this project rejects it everywhere else
+precisely because a screen that shows something other than what was signed is the
+whole threat model. A field on a transaction screen is the worst place for it.
+
+**Fixed in two layers, deliberately:**
+
+1. `with_fields` now validates, so no path can put unchecked text into a drawn
+   tree. On failure it **keeps the previous value** rather than clearing — losing
+   what someone typed because of one bad character is its own defect.
+2. `Phien::nhan_chu` rejects the keystroke at entry. Without this, the failure
+   surfaces at draw time inside `ve_lai_man_hinh`, which has nobody to report to
+   and therefore swallows it: the user types, the screen does not change, and
+   they type again.
+
+The second layer is the interesting one. Layer 1 alone is *correct* and
+*unusable* — the classic shape of a check placed where its failure cannot be
+communicated. Mutation-tested separately: removing layer 1 lets the character
+into the tree; removing layer 2 lets it into the field.
 
 ### 3.12 The mirror of B41: a blind user could not type a PIN
 
@@ -1401,7 +1433,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 349 tests
+cargo test --workspace                              # 350 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

@@ -196,21 +196,53 @@ impl Phien {
     /// Chưa chọn ô nào thì chữ **rơi đi**, không vào đâu cả: thà không nhận còn
     /// hơn nhận vào một ô người dùng không nhìn.
     fn nhan_chu(&mut self, chu: &str) {
-        if let Some(nhan) = self.tt.o_dang_chon.clone() {
-            self.tt.noi_dung_o.entry(nhan).or_default().push_str(chu);
-            self.ve_lai = true;
+        let Some(nhan) = self.tt.o_dang_chon.clone() else {
+            return;
+        };
+        let o = self.tt.noi_dung_o.entry(nhan).or_default();
+        // ⚠️ Kiểm TRƯỚC khi nhận, không phải lúc vẽ.
+        //
+        // Chữ về từ bộ gõ của hệ điều hành, và nó KHÔNG đi qua `Node::field` —
+        // `with_fields` dựng lại cây từ chuỗi này. Nhận trước rồi mới phát hiện
+        // lúc vẽ thì đường duy nhất còn lại là nuốt lỗi, và màn hình đứng im
+        // trong khi người dùng vẫn gõ: họ gõ, không thấy gì đổi, gõ tiếp.
+        //
+        // Từ chối cả cụm vừa nhận chứ không cắt bớt: cắt một chuỗi có dấu là cắt
+        // vào giữa một ký tự, và cắt im lặng là đổi thứ người dùng gõ.
+        let mut thu = o.clone();
+        thu.push_str(chu);
+        if tcc_ui::check_field_value(&thu).is_err() {
+            return;
         }
+        *o = thu;
+        self.ve_lai = true;
     }
 
     /// Xoá theo KÝ TỰ, không theo byte: một chữ có dấu là nhiều byte, và cắt
     /// byte là cắt vào giữa một ký tự.
     fn xoa_lui(&mut self) {
-        if let Some(nhan) = self.tt.o_dang_chon.clone()
-            && let Some(v) = self.tt.noi_dung_o.get_mut(&nhan)
-        {
-            v.pop();
-            self.ve_lai = true;
+        let Some(nhan) = self.tt.o_dang_chon.clone() else {
+            return;
+        };
+        let Some(v) = self.tt.noi_dung_o.get_mut(&nhan) else {
+            return;
+        };
+        // Xoá theo KÝ TỰ, không theo byte: một chữ có dấu là nhiều byte, và cắt
+        // byte là cắt vào giữa một ký tự.
+        let mut thu = v.clone();
+        thu.pop();
+        // ⚠️ Kiểm cả khi XOÁ, dù xoá chỉ rút ngắn.
+        //
+        // Không phải vì rút ngắn sinh ra chuỗi dài quá, mà vì bất biến cần giữ
+        // là: **`noi_dung_o` LUÔN hợp lệ**. Giữ được nó thì `with_fields` không
+        // bao giờ phải lùi về giá trị cũ, và thứ VẼ RA luôn bằng thứ TRẢ VỀ cho
+        // bên gọi. Để hai thứ ấy lệch nhau là để người dùng xác nhận một chuỗi
+        // họ chưa từng nhìn thấy.
+        if tcc_ui::check_field_value(&thu).is_err() {
+            return;
         }
+        *v = thu;
+        self.ve_lai = true;
     }
 
     /// Lăn chuột — cuộn nội dung, KẸP ở cả hai đầu.
@@ -1021,6 +1053,67 @@ mod kiem_thu {
             !than.contains('•'),
             "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
              khung nhận về hàng chấm thay vì thứ người dùng gõ"
+        );
+    }
+
+    /// **Phím gõ vào bị TỪ CHỐI ngay, không đẩy xuống lượt vẽ.**
+    ///
+    /// `with_fields` cũng chặn chuỗi hỏng, nhưng chặn ở đó thì lỗi rơi vào
+    /// `ve_lai_man_hinh` — nơi không có ai để báo, nên nó nuốt. Người dùng gõ,
+    /// màn hình đứng im, họ gõ tiếp. Chặn ở ĐÂY thì ô giữ nguyên giá trị cũ và
+    /// không có gì để báo cả.
+    #[test]
+    fn phim_go_khong_hop_le_bi_tu_choi_ngay() {
+        use tcc_ui::{Flow, Gap};
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Ghi chú", "", false).unwrap())
+            .unwrap();
+        let mut p = Phien::moi(Screen {
+            tree: cay,
+            title: "thử".to_owned(),
+            text: ScreenText {
+                destructive_note: "n".to_owned(),
+                destructive_role: "r".to_owned(),
+            },
+        })
+        .expect("dựng được phiên");
+        p.tt.o_dang_chon = Some("Ghi chú".to_owned());
+
+        p.nhan_chu("an toàn");
+        assert_eq!(
+            p.tt.noi_dung_o.get("Ghi chú").map(String::as_str),
+            Some("an toàn")
+        );
+
+        // Ký tự đảo chiều — làm chữ HIỆN RA khác chữ đã gõ.
+        p.ve_lai = false;
+        p.nhan_chu("\u{202e}");
+        assert_eq!(
+            p.tt.noi_dung_o.get("Ghi chú").map(String::as_str),
+            Some("an toàn"),
+            "ký tự đảo chiều được nhận vào ô"
+        );
+        assert!(!p.ve_lai, "từ chối rồi mà vẫn xin vẽ lại");
+
+        // Chưa chọn ô nào thì chữ RƠI ĐI, không tạo ô mới.
+        p.tt.o_dang_chon = None;
+        p.nhan_chu("lạc");
+        assert_eq!(
+            p.tt.noi_dung_o.len(),
+            1,
+            "gõ khi chưa chọn ô lại tạo ra ô mới"
+        );
+
+        // XOÁ cũng đi qua đúng phép kiểm ấy. Không phải vì xoá làm chuỗi dài
+        // ra, mà vì bất biến cần giữ là `noi_dung_o` LUÔN hợp lệ: giữ được thì
+        // thứ VẼ RA luôn bằng thứ TRẢ VỀ, và người dùng không xác nhận một
+        // chuỗi họ chưa từng nhìn thấy.
+        p.tt.o_dang_chon = Some("Ghi chú".to_owned());
+        p.xoa_lui();
+        assert_eq!(
+            p.tt.noi_dung_o.get("Ghi chú").map(String::as_str),
+            Some("an toà"),
+            "xoá lùi không bỏ đúng một ký tự"
         );
     }
 

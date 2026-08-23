@@ -42,7 +42,7 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 349 tests
+cargo test --workspace                              # 350 tests
 # Feature-gated code is NOT built by --workspace. These are what CI runs, and
 # skipping them locally is how three red builds happened in one week:
 cargo test -p tcc-shell --features window
@@ -239,5 +239,5 @@ Not a public issue. Use GitHub's private vulnerability reporting on this
 repository, or the TCC IT department.
 
 A report that the **design** is wrong is worth more here than a report that the
-code disagrees with the design. The code has 349 tests watching it. The design
+code disagrees with the design. The code has 350 tests watching it. The design
 has had one pair of eyes.
