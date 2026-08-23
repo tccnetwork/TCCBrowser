@@ -85,6 +85,40 @@ else
 fi
 
 
+# ── Mọi PHÉP THỬ mà SECURITY.md trích dẫn phải TỒN TẠI ───────────────────────
+#
+# §1 của `SECURITY.md` là bảng "bất biến → phép thử giữ nó". Cấu trúc ấy chỉ có
+# giá trị khi phép thử được trích còn tồn tại.
+#
+# Ngày 23/08/2026 xoá một bộ dựng, và **13 trong 40** bất biến trỏ vào phép thử
+# đã đi cùng nó. Một trong số đó — B31, "sắc thái mất mát phải được VẼ khác" —
+# đồng thời trở thành SAI: bộ dựng mới đọc `Tone` chỉ để đặt cờ trợ năng. Tài
+# liệu vẫn khẳng định bất biến ấy được giữ, và trỏ vào một hàm không còn.
+#
+# Cổng này không kiểm được bất biến còn ĐÚNG hay không — không cổng nào kiểm
+# được. Nó kiểm điều duy nhất kiểm được bằng máy: bằng chứng được trích có tồn
+# tại hay không. Một bất biến mất bằng chứng phải nói ra là mất, chứ không im.
+thieu_thu=$(python3 - <<'PY2'
+import re, subprocess, pathlib
+# CHỈ soi các dòng của bảng bất biến (`| B…`). Quét cả tệp thì bắt nhầm tên
+# mô-đun và thuộc tính serde — `deny_unknown_fields` không phải một phép thử.
+# Bảng ấy đúng là chỗ "bất biến → bằng chứng", nên nó là chỗ duy nhất mà một
+# tên trong nháy ngược HỨA rằng có một phép thử mang tên đó.
+dong = [l for l in open("SECURITY.md") if re.match(r"\| B\d+ \|", l)]
+ten = set(re.findall(r"`([a-z][a-z0-9_]{12,})`", "".join(dong)))
+ma = subprocess.run(
+    ["grep", "-rhoE", r"fn [a-z][a-z0-9_]*", "--include=*.rs", "crates", "tools", "apps"],
+    capture_output=True, text=True).stdout
+that = {l[3:] for l in ma.split("\n") if l.startswith("fn ")}
+print(" ".join(sorted(t for t in ten if t not in that)))
+PY2
+)
+if [ -n "$thieu_thu" ]; then
+  bao "SECURITY.md trích phép thử KHÔNG TỒN TẠI:$thieu_thu"
+else
+  dat "mọi phép thử SECURITY.md trích dẫn đều tồn tại trong mã nguồn"
+fi
+
 # ── Mọi lệnh `cargo` trong tài liệu phải trỏ tới gói và cờ CÓ THẬT ────────────
 #
 # `docs/AUDIT.md` bảo người soát độc lập chạy một danh sách lệnh để tự đối chiếu

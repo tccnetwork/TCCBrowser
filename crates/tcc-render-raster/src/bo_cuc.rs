@@ -388,7 +388,7 @@ fn rong_bang_nhau(dat: &mut [DaDat], rong_toi_da: f32) {
 
         // Chỉ áp cho dòng TOÀN nút. Một nút cạnh một nhãn thì kéo bằng nhau là
         // vô nghĩa.
-        if dong.len() < 2 || !dong.iter().all(|d| d.o.khung) {
+        if dong.len() < 2 || !dong.iter().all(|d| d.o.co_khung()) {
             continue;
         }
         let rong_nhat = dong.iter().fold(0.0f32, |a, d| a.max(d.o.rong));

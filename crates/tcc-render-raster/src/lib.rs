@@ -252,9 +252,20 @@ pub(crate) struct O {
     cong_tac: bool,
     chu: String,
     co: f32,
-    dam: bool,
-    /// Khung quanh chữ — nút, ô nhập, ảnh.
-    khung: bool,
+    /// Cách vẽ — thay hai `bool` `dam`/`khung` rời nhau.
+    ///
+    /// Chúng luôn đến từ CÙNG một quyết định ở `do_la`, nên giữ hai trường là
+    /// giữ hai nguồn cho một sự thật; và `(dam: true, khung: true)` là một trạng
+    /// thái không nhánh nào dựng ra mà kiểu cũ vẫn cho phép biểu diễn.
+    kieu: KieuO,
+    /// Nút MẤT MÁT — phải vẽ khác hẳn, không chỉ khai khác.
+    ///
+    /// ⚠️ Bất biến B31, và nó đã TÁI PHÁT một lần. Nó sinh ra vì đường WebView
+    /// vẽ `Tone::Danger` y hệt mọi nút khác; rồi bộ dựng ra pixel thay chỗ
+    /// WebView và đọc `Tone` **chỉ** để đặt cờ trợ năng. Người dùng trình đọc
+    /// màn hình nghe được "nút mất mát"; người NHÌN thì không thấy gì. Phép thử
+    /// giữ B31 nằm trong crate bị xoá, nên không ai kêu.
+    mat_mat: bool,
     /// Biên nét THÔ như lượt đo thấy — mép trên và mép dưới, chưa qua `max` nào.
     ///
     /// Đây là **nguồn duy nhất**: `cao` suy ra từ nó, và lượt vẽ suy ra độ dời
@@ -276,11 +287,36 @@ pub(crate) struct O {
     cao: f32,
 }
 
+impl O {
+    /// Ô này có khung quanh chữ không — nút, ô nhập, ảnh.
+    pub(crate) fn co_khung(&self) -> bool {
+        self.kieu == KieuO::Khung
+    }
+}
+
 /// Một ô **đã đặt xong chỗ**, toạ độ tuyệt đối.
 pub(crate) struct DaDat {
     o: O,
     trai: f32,
     tren: f32,
+}
+
+/// Cách vẽ một ô chữ — thay hai `bool` liền nhau.
+///
+/// ⚠️ `do_o(chu, co, dam, khung, rong)` từng nhận `dam: bool, khung: bool` cạnh
+/// nhau. Đổi chỗ hai tham số ấy vẫn biên dịch, vẫn chạy, chỉ vẽ sai — cùng hạng
+/// bẫy mà `Cho` đã được gom lại để tránh. clippy chỉ ra khi `O` có tới bốn
+/// `bool`; cái đáng sửa không phải con số ấy mà là hai tham số này.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+enum KieuO {
+    /// Chữ thường. Mặc định: một ô chưa nói gì thì không đậm và không khung —
+    /// phía an toàn, vì "trông như nút" là thứ phải xin, không phải thứ mặc định.
+    #[default]
+    Thuong,
+    /// Chữ đậm — tiêu đề, cảnh báo.
+    Dam,
+    /// Có khung quanh chữ — nút, ô nhập, ảnh.
+    Khung,
 }
 
 /// Đệm trong khung, mỗi bên.
@@ -432,7 +468,8 @@ impl Renderer for RasterRenderer {
 impl RasterRenderer {
     /// Đo một ô chữ với bề rộng cho trước. **Ngắt dòng thật** — bề rộng trả về
     /// là bề rộng dòng dài nhất, chiều cao là số dòng nhân chiều cao dòng.
-    fn do_o(&mut self, chu: &str, co: f32, dam: bool, khung: bool, rong_toi_da: f32) -> O {
+    fn do_o(&mut self, chu: &str, co: f32, kieu: KieuO, rong_toi_da: f32) -> O {
+        let (dam, khung) = (kieu == KieuO::Dam, kieu == KieuO::Khung);
         let dem = if khung { DEM * 2.0 } else { 0.0 };
         let cho_chu = (rong_toi_da - dem).max(co);
 
@@ -472,8 +509,7 @@ impl RasterRenderer {
             cong_tac: false,
             chu: chu.to_owned(),
             co,
-            dam,
-            khung,
+            kieu,
             rong: rong_o,
             // Ô phải chứa ĐƯỢC NÉT, không chỉ chứa được hộp dòng theo lý
             // thuyết. `max` giữ nguyên hình học ở nơi nét vốn đã vừa.
@@ -481,6 +517,10 @@ impl RasterRenderer {
                 + if khung { DEM } else { 0.0 },
             cao_dong,
             net: (net_tren, net_duoi),
+            // Mặc định KHÔNG mất mát; nhánh nút tự gắn. Quên gắn thì nút nguy
+            // hiểm trông như nút thường — nên mặc định phải là phía an toàn về
+            // TRÔNG, tức là "trông như thường" chỉ xảy ra khi nó thường thật.
+            mat_mat: false,
         }
     }
 
@@ -499,7 +539,12 @@ impl RasterRenderer {
                     action: None,
                     children: Vec::new(),
                 });
-                self.do_o(content, co, dam, false, rong_toi_da)
+                self.do_o(
+                    content,
+                    co,
+                    if dam { KieuO::Dam } else { KieuO::Thuong },
+                    rong_toi_da,
+                )
             }
             NodeKind::Button {
                 label,
@@ -514,8 +559,9 @@ impl RasterRenderer {
                     action: Some(action.as_str().to_owned()),
                     children: Vec::new(),
                 });
-                let mut o = self.do_o(label, CO_CHU, false, true, rong_toi_da);
+                let mut o = self.do_o(label, CO_CHU, KieuO::Khung, rong_toi_da);
                 o.hanh_dong = Some(action.as_str().to_owned());
+                o.mat_mat = *tone == Tone::Danger;
                 o
             }
             NodeKind::Field {
@@ -539,8 +585,7 @@ impl RasterRenderer {
                 let mut o = self.do_o(
                     &format!("{label}: {hien}"),
                     CO_CHU,
-                    false,
-                    true,
+                    KieuO::Khung,
                     rong_toi_da,
                 );
                 o.nhan = Some(label.clone());
@@ -554,7 +599,7 @@ impl RasterRenderer {
                     children: Vec::new(),
                 });
                 let chu = format!("[{}] {label}", if *on { "x" } else { " " });
-                let mut o = self.do_o(&chu, CO_CHU, false, false, rong_toi_da);
+                let mut o = self.do_o(&chu, CO_CHU, KieuO::Thuong, rong_toi_da);
                 o.hanh_dong = Some(action.as_str().to_owned());
                 o.cong_tac = true;
                 o
@@ -570,7 +615,7 @@ impl RasterRenderer {
                     action: None,
                     children: Vec::new(),
                 });
-                self.do_o(&chu, CO_CHU, false, true, rong_toi_da)
+                self.do_o(&chu, CO_CHU, KieuO::Khung, rong_toi_da)
             }
             NodeKind::Group { .. } => unreachable!("nhóm đã được `dat` chặn trước"),
         }
@@ -578,16 +623,27 @@ impl RasterRenderer {
 
     fn ve_o(&mut self, dat: &DaDat) {
         let o = &dat.o;
-        if o.khung {
-            self.khung(
-                dat.trai as usize,
-                dat.tren as usize,
-                (o.rong as usize).min(WIDTH.saturating_sub(dat.trai as usize + 2)),
-                o.cao as usize,
-            );
+        if o.kieu == KieuO::Khung {
+            let rong = (o.rong as usize).min(WIDTH.saturating_sub(dat.trai as usize + 2));
+            self.khung(dat.trai as usize, dat.tren as usize, rong, o.cao as usize);
+            // ⚠️ Nút MẤT MÁT vẽ KHUNG ĐÔI — B31.
+            //
+            // Bộ dựng này chỉ có một kênh: mực xám. Không màu, nên "đỏ" không
+            // dùng được; không đổi chữ, vì chữ là của ứng dụng và sửa nó là sửa
+            // thứ đã ký. Còn lại là HÌNH DẠNG, và khung đôi là dấu hiệu rẻ nhất
+            // mà người nhìn phân biệt được ngay, kể cả trên màn hình đen trắng
+            // hay khi người dùng mù màu.
+            if o.mat_mat && rong > 4 && o.cao > 4.0 {
+                self.khung(
+                    dat.trai as usize + 2,
+                    dat.tren as usize + 2,
+                    rong - 4,
+                    o.cao as usize - 4,
+                );
+            }
         }
 
-        let dem = if o.khung { DEM } else { 0.0 };
+        let dem = if o.kieu == KieuO::Khung { DEM } else { 0.0 };
         // ⚠️ CÙNG hàm tạo hình với lượt đo, và cùng tham số. Viết lại các bước
         // ấy ở đây — dù chép đúng từng dòng — là dựng lại đúng chỗ hai lượt đã
         // trôi khỏi nhau ba vòng CI liền.
@@ -595,7 +651,7 @@ impl RasterRenderer {
             &mut self.fonts,
             &o.chu,
             o.co,
-            o.dam,
+            o.kieu == KieuO::Dam,
             o.cao_dong,
             o.rong - dem * 2.0,
         );
@@ -949,6 +1005,85 @@ mod kiem_thu_43 {
         let tren = (0..bd.height()).find(|y| co_muc(*y))?;
         let duoi = (0..bd.height()).rev().find(|y| co_muc(*y))?;
         Some((tren, duoi))
+    }
+
+    /// **B30 — nhãn điều khiển phải VẼ RA cho người nhìn, không chỉ cho trợ năng.**
+    ///
+    /// Một công tắc hay ô nhập chỉ mang nhãn trong cây trợ năng là một điều
+    /// khiển mà người dùng trình đọc màn hình hiểu còn người nhìn thì đoán.
+    ///
+    /// Phép thử giữ bất biến này nằm trong crate bị xoá 23/08/2026. Bất biến vẫn
+    /// đúng — nhưng suốt từ hôm ấy tới nay **không gì canh nó**.
+    #[test]
+    fn nhan_dieu_khien_duoc_ve_ra_cho_nguoi_nhin() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::toggle("Cho phép mạng", false, "mang").unwrap())
+            .unwrap()
+            .child(Node::field("Mã đơn", "A-1", false).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let ve: Vec<&str> = bd.da_dat.iter().map(|d| d.o.chu.as_str()).collect();
+        for nhan in ["Cho phép mạng", "Mã đơn"] {
+            assert!(
+                ve.iter().any(|c| c.contains(nhan)),
+                "nhãn {nhan:?} không được vẽ ra — người nhìn không thấy nó: {ve:?}"
+            );
+        }
+    }
+
+    /// **B38 — nút mất mát KHÔNG giãn hết bề ngang.**
+    ///
+    /// Một nút chiếm trọn bề ngang là một nút khó bấm trượt, và với hành động
+    /// không hoàn tác thì "khó bấm trượt" là hướng SAI.
+    #[test]
+    fn nut_mat_mat_khong_gian_het_be_ngang() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::button("Xoá hết", "x", Tone::Danger).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+        let (_, _, rong, _) = bd.placed_boxes()[0];
+        #[expect(clippy::cast_precision_loss, reason = "bề rộng khung, hằng số nhỏ")]
+        let du = WIDTH as f32 - LE * 2.0;
+        assert!(
+            rong < du * 0.9,
+            "nút mất mát rộng {rong} trên {du} — gần trọn bề ngang"
+        );
+    }
+
+    /// **B31 — nút MẤT MÁT phải được VẼ khác, không chỉ khai khác.**
+    ///
+    /// # Bất biến này đã TÁI PHÁT, và đó là lý do phép thử đo MỰC
+    ///
+    /// B31 sinh ra vì bộ dựng đầu vẽ `Tone::Danger` y hệt mọi nút khác. Bộ dựng
+    /// ra pixel thay chỗ nó, đọc `Tone` **chỉ** để đặt cờ trợ năng, và vẽ y hệt
+    /// — cùng một lỗi, lần thứ hai. Không ai kêu, vì phép thử giữ B31 nằm trong
+    /// crate bị xoá ngày 23/08/2026 và đi cùng nó.
+    ///
+    /// Nên phép thử này KHÔNG hỏi cây trợ năng. Cây trợ năng đã đúng suốt thời
+    /// gian bất biến bị vỡ — nó khai `destructive: true` trong khi màn hình
+    /// không cho thấy gì. Câu hỏi của B31 là câu hỏi về MỰC, và chỉ mực trả lời
+    /// được.
+    #[test]
+    fn nut_mat_mat_duoc_ve_khac_nut_thuong() {
+        let ve = |tone| {
+            let cay = Node::group(Flow::Column, Gap::Medium)
+                .child(Node::button("Xoá hết", "x", tone).unwrap())
+                .unwrap();
+            let mut bd = RasterRenderer::new();
+            bd.render(&cay).unwrap();
+            (bd.ink(), bd.placed_boxes())
+        };
+        let (muc_thuong, hop_thuong) = ve(Tone::Neutral);
+        let (muc_mat, hop_mat) = ve(Tone::Danger);
+        // Cùng CHỮ, cùng HỘP — nên mọi khác biệt về mực là khác biệt do sắc thái.
+        assert_eq!(hop_thuong, hop_mat, "hai ca phải cùng hình học mới so được");
+        assert!(
+            muc_mat > muc_thuong,
+            "nút mất mát vẽ ra ĐÚNG bằng nút thường ({muc_mat} = {muc_thuong} điểm \
+             mực) — người dùng NHÌN không phân biệt được, dù cây trợ năng có khai"
+        );
     }
 
     /// **Mọi lời khai bố cục được NHẬN đều phải đổi hình học.**

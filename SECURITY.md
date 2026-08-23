@@ -20,8 +20,8 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B4 | Revocation kills **every copy already handed out** | `thu_hoi_giet_ca_ban_sao_dang_cam` |
 | B5 | Hostnames match **exactly** — no suffix matching | `khong_khop_ten_mien_con_va_khong_khop_hau_to` |
 | B6 | Strings shown to the user contain **no spoofing characters** | `ten_ung_dung_co_ky_tu_dao_chieu_thi_tu_choi` |
-| B7 | App-supplied text **cannot escape** the renderer's document | `chu_cua_ung_dung_khong_thoat_ra_duoc_tai_lieu` + the `kiem-khoi-tan-cong` example |
-| B8 | The accessibility tree the renderer publishes **matches** the source tree | `check_accessibility_parity` + `nhan_khac_chu_hien_ra_thi_bao_loi` |
+| B7 | ~~App-supplied text **cannot escape** the renderer's document~~ | **RETIRED 2026-08-23** — there is no document. Text is a node's content and is drawn as glyphs; nothing parses it. Both tests died with the web engine (§3.7) |
+| B8 | The accessibility tree the renderer publishes **matches** the source tree | `check_accessibility_parity`, run against `RasterRenderer` in five screen modules |
 | B9 | The interface **cannot express** a button missing a role or a label | Types: `Alt::Decorative` must be stated out loud |
 | B10 | Apps **cannot set colours** — only declare intent | `Tone` is a closed enum with no colour field |
 | B11 | Skipping signature verification **does not compile** | `grant_verified` accepts only `VerifiedApp` |
@@ -43,16 +43,16 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B27 | A remembered permission is bound to the **scope**, not just the capability name | `noi_rong_pham_vi_thi_phai_hoi_lai` |
 | B28 | A corrupt permission store → **ask again**, never fall back to allow | `tep_hong_hoac_phien_ban_la_thi_hoi_lai` |
 | B29 | Signing key changed → **warn**, and the warning comes BEFORE the permission list | `doi_khoa_ky_thi_canh_bao_hien_ra_truoc_danh_sach_quyen` |
-| B30 | Control labels are **visible to people who look**, not only `aria-label` | `nhan_cong_tac_hien_ra_cho_nguoi_nhin_thay`, `nhan_o_nhap_hien_ra_cho_nguoi_nhin_thay` |
-| B31 | A destructive tone is **drawn differently**, not merely declared | `sac_thai_mat_mat_duoc_ve_khac_di` |
-| B32 | Input fields carry **NO ARIA role** — ARIA overrides native semantics | `moi_nut_deu_mang_vai_tro_ro_rang` |
-| B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_mat_mat_mang_cau_canh_bao` |
-| B34 | Package files are served over a **custom protocol**, paths through `check_path` | `duong_dan_di_ra_ngoai_goi_bi_chan` |
-| B35 | **Images only**, by an extension ALLOWLIST — **no SVG** | `chi_phuc_vu_anh`, `svg_khong_duoc_phuc_vu` |
+| B30 | Control labels are **visible to people who look**, not only to the accessibility tree | `nhan_dieu_khien_duoc_ve_ra_cho_nguoi_nhin` — rewritten 2026-08-23 |
+| B31 | A destructive tone is **drawn differently**, not merely declared | `nut_mat_mat_duoc_ve_khac_nut_thuong` — ⚠️ **this invariant was BROKEN from 2026-08-23 until it was re-tested the same day**, see below |
+| B32 | ~~Input fields carry **NO ARIA role**~~ | **RETIRED 2026-08-23** — ARIA is a markup concept and there is no markup. The intent survives in B8: roles come from `tcc-ui`, and the renderer may not invent or override them |
+| B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_khong_hoan_tac_noi_ra_dieu_do`, in crates/tcc-render-raster/src/accesskit_bridge.rs — the citation was wrong, the evidence was there |
+| B34 | ~~Package files are served over a **custom protocol**~~ | **RETIRED 2026-08-23** — the file server existed to feed a web engine. Nothing serves package bytes to a renderer now; the renderer reads the signed tree directly |
+| B35 | ~~**Images only**, by an extension ALLOWLIST — **no SVG**~~ | **RETIRED 2026-08-23** — same server, same removal. ⚠️ The reason it existed has NOT gone away: SVG is a document format that can carry script. Any future path that hands package bytes to something that parses them must re-derive this rule |
 | B36 | The permission dialog **serves no app file at all** | `open(..., \|_\| None, ...)` |
 | B37 | Decisions **never read the description** stored on disk | `quyet_dinh_khong_doc_phan_mo_ta` |
-| B38 | A destructive button **does not stretch the full width** | `nut_khong_gian_kin_be_ngang` |
-| B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_chu_sang_ngon_ngu_khac_khong_lam_mat_dau_hieu_may` |
+| B38 | A destructive button **does not stretch the full width** | `nut_mat_mat_khong_gian_het_be_ngang` — rewritten 2026-08-23 |
+| B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_ngon_ngu_khong_lam_doi_dau_hieu_may` — rewritten 2026-08-23 |
 | B40 | A manifest field the standard does not define is **rejected** | Conformance: three `truong la` vectors, mutation-tested in both directions |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
@@ -1072,7 +1072,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 344.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 348.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1086,6 +1086,35 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.8 B31 was BROKEN for a day, and how that happened
+
+On 2026-08-23, self-review found that the pixel renderer read `Tone::Danger`
+**only** to set an accessibility flag. A destructive button was drawn with the
+same frame, the same text and the same everything as a neutral one. A screen
+reader announced "destructive"; a person looking at the screen was told nothing.
+
+B31 exists *because this already happened once*: the first renderer drew
+`Tone::Danger` identically, an outside review caught it, and the invariant plus a
+test were added. When that renderer was deleted, **the test went with it** — and
+the invariant was left in this table pointing at a function that no longer
+existed. The property regressed the same day the evidence disappeared, and
+nothing connected the two events.
+
+Three things worth taking from it:
+
+1. **Deleting a renderer deletes evidence, not just code.** §3.7 listed the
+   defences that went. It did not list the *invariants* that lost their proof —
+   thirteen test names in this section pointed at nothing, and B31 was the one
+   where the property had also silently become false.
+2. **The accessibility tree is not a witness for what a sighted user sees.** It
+   was correct throughout — `destructive: true`, the whole time. A test that had
+   asked the tree would have stayed green. The replacement test measures **ink**.
+3. **The fix had to be shape, not colour.** This renderer has one greyscale
+   channel, and the button's text belongs to a signed package and may not be
+   edited. A destructive button is now drawn with a **double frame** — visible on
+   a monochrome screen and to a colour-blind reader, neither of which a red fill
+   would have been.
 
 ## 3bis. The conformance suite
 
@@ -1249,7 +1278,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 344 tests
+cargo test --workspace                              # 348 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

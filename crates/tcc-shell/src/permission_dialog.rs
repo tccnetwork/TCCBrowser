@@ -204,6 +204,39 @@ mod kiem_thu {
     use super::*;
     use tcc_ui::{AccessNode, NodeKind, Renderer as _, Role};
 
+    /// **B39 — dấu hiệu MÁY tách khỏi chữ NGƯỜI.**
+    ///
+    /// Chữ được dịch; mã hành động thì không bao giờ đổi. Trộn hai thứ ấy —
+    /// chẳng hạn phái sinh mã từ nhãn — là để một bản dịch làm hỏng cái nút:
+    /// người dùng tiếng Việt bấm "Cho phép" và khung nhận về một mã nó không
+    /// biết, rồi từ chối im lặng.
+    ///
+    /// Phép thử giữ bất biến này nằm trong crate bị xoá 23/08/2026, và từ hôm ấy
+    /// tới nay không gì canh nó.
+    #[test]
+    fn doi_ngon_ngu_khong_lam_doi_dau_hieu_may() {
+        let m = ke_khai(XIN_VI_KY);
+        let ma = |n: Language| {
+            let cay = build(&m, n).unwrap();
+            let ids: Vec<String> = cay
+                .action_ids()
+                .iter()
+                .map(|a| a.as_str().to_owned())
+                .collect();
+            (ids, crate::do_cay::chu(&cay))
+        };
+        let (ma_en, chu_en) = ma(Language::En);
+        let (ma_vi, chu_vi) = ma(Language::Vi);
+        assert_eq!(ma_en, ma_vi, "đổi ngôn ngữ làm đổi MÃ HÀNH ĐỘNG");
+        assert!(
+            !ma_en.is_empty(),
+            "màn hình không có mã hành động nào để so"
+        );
+        // Và chữ thì PHẢI đổi — nếu không, "đã dịch" chỉ là lời nói, và phép
+        // thử trên xanh vì không có gì để so.
+        assert_ne!(chu_en, chu_vi, "hai ngôn ngữ vẽ ra chữ giống hệt nhau");
+    }
+
     fn ke_khai(quyen_json: &str) -> Manifest {
         let s = format!(
             r#"{{"spec_version":"0.1","id":"com.tcc.hello","name":"Ví TCC",
