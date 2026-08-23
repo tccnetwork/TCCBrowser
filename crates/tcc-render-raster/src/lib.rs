@@ -253,6 +253,12 @@ pub(crate) struct O {
     dam: bool,
     /// Khung quanh chữ — nút, ô nhập, ảnh.
     khung: bool,
+    /// Chiều cao MỘT DÒNG, đo từ phông chứ không đoán.
+    ///
+    /// ⚠️ Lượt vẽ PHẢI dùng đúng con số này, không được tự tính lại. Lượt đo và
+    /// lượt vẽ mà tính hai kiểu thì hình học của cái vẽ ra không còn khớp cái
+    /// `hit_test` tin — người dùng thấy một nút, hệ thống chạy một nút khác.
+    cao_dong: f32,
     rong: f32,
     cao: f32,
 }
@@ -266,6 +272,40 @@ pub(crate) struct DaDat {
 
 /// Đệm trong khung, mỗi bên.
 const DEM: f32 = 8.0;
+
+/// Chiều cao dòng theo cỡ chữ — mức SÀN, không phải con số cuối.
+///
+/// Thoáng hơn chiều cao nét một chút cho dễ đọc. Phông nào cần nhiều hơn thì
+/// [`cao_dong_that`] nới ra.
+const CAO_DONG: f32 = 1.4;
+
+/// Chiều cao một dòng mà PHÔNG thật sự cần.
+///
+/// # Vì sao không nhân cỡ chữ với một hằng số
+///
+/// Vì đã làm thế, và nó sai trên máy khác. cosmic-text đặt nét trong hộp dòng
+/// bằng `centering_offset = (chiều_cao_dòng − (max_ascent + max_descent)) / 2`.
+/// Khi phông cần nhiều hơn `cỡ × 1.4` thì số ấy **âm**, và nét thò ra cả hai
+/// đầu hộp dòng — tức là ra ngoài ô của chính nó, đè lên ô bên dưới.
+///
+/// Đo được ngày 22/08/2026: chữ "nhỏ" trên Linux vẽ ở 21..43 trong khi ô của nó
+/// là 17..38. macOS không thấy gì vì phông ở đó vừa vặn — đúng cái làm nó sống
+/// sót lâu như vậy.
+///
+/// Nên: lấy `max_ascent + max_descent` thật của từng dòng, và chiều cao dòng là
+/// số lớn hơn giữa nó và mức sàn. `centering_offset` khi ấy không bao giờ âm.
+fn cao_dong_that(buffer: &Buffer, co: f32) -> f32 {
+    let mut can = co * CAO_DONG;
+    for dong in &buffer.lines {
+        let Some(bo_cuc) = dong.layout_opt() else {
+            continue;
+        };
+        for l in bo_cuc {
+            can = can.max(l.max_ascent + l.max_descent);
+        }
+    }
+    can
+}
 
 impl Renderer for RasterRenderer {
     type Error = RasterError;
@@ -315,7 +355,7 @@ impl RasterRenderer {
         let dem = if khung { DEM * 2.0 } else { 0.0 };
         let cho_chu = (rong_toi_da - dem).max(co);
 
-        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(co, co * 1.4));
+        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(co, co * CAO_DONG));
         let mut b = buffer.borrow_with(&mut self.fonts);
         b.set_size(Some(cho_chu), None);
         let mut attrs = Attrs::new().family(Family::SansSerif);
@@ -334,6 +374,7 @@ impl RasterRenderer {
             so_dong += 1;
         }
         let so_dong = so_dong.max(1);
+        let cao_dong = cao_dong_that(&buffer, co);
 
         O {
             // Mặc định KHÔNG bấm được. Nhánh nào bấm được thì tự gắn vào — quên
@@ -346,7 +387,8 @@ impl RasterRenderer {
             dam,
             khung,
             rong: rong_chu + dem,
-            cao: co * 1.4 * so_dong as f32 + if khung { DEM } else { 0.0 },
+            cao: cao_dong * so_dong as f32 + if khung { DEM } else { 0.0 },
+            cao_dong,
         }
     }
 
@@ -454,7 +496,9 @@ impl RasterRenderer {
         }
 
         let dem = if o.khung { DEM } else { 0.0 };
-        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(o.co, o.co * 1.4));
+        // ⚠️ `o.cao_dong`, KHÔNG tính lại. Lượt đo đã hỏi phông một lần; tính
+        // lại ở đây là mở đường cho hai con số rời nhau.
+        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(o.co, o.cao_dong));
         let mut b = buffer.borrow_with(&mut self.fonts);
         b.set_size(Some(o.rong - dem * 2.0), None);
         let mut attrs = Attrs::new().family(Family::SansSerif);
@@ -882,12 +926,57 @@ mod kiem_thu_43 {
     /// soi HỘP. Hai hộp không chồng nhau mà nét của hộp trên tràn xuống hộp dưới
     /// thì người dùng vẫn thấy chữ đè lên chữ, và không phép thử nào kêu.
     ///
-    /// ⚠️ Phép thử này **đang đỏ trên Linux** nếu chạy ở đó. Nó được viết ra để
-    /// nợ ấy có tên và có chỗ bám, chứ không phải để im. Lời giải là hỏi phông
-    /// chiều cao dòng thật thay vì nhân 1.4 — làm riêng, vì nó đổi hình học của
-    /// mọi màn hình và phải đo lại cả bộ.
+    /// **Lượt ĐO và lượt VẼ phải dùng CÙNG một chiều cao dòng.**
+    ///
+    /// `do_o` hỏi phông một lần và ghi vào `O.cao_dong`; `ve_o` phải đọc lại con
+    /// số ấy. Tính lại ở lượt vẽ — dù bằng đúng công thức — là mở đường cho hai
+    /// bên trôi khỏi nhau, và khi ấy cái vẽ ra không còn khớp cái `hit_test`
+    /// tin: người dùng thấy một nút, hệ thống chạy một nút khác.
+    ///
+    /// ⚠️ Phép thử này soi mã nguồn, và nó tồn tại vì phép thử "nét không tràn"
+    /// ngay dưới **không kiểm được trên máy này**: phông của macOS vừa mức sàn
+    /// với mọi chuỗi thử được (đo 23/08/2026 — `To`, `nhỏ`, `Ẫỹ`, `Ẳjg`,
+    /// `Ẫjgỹp`, `Ổnhũ`, `ẶỹjgpQ`, không chuỗi nào vượt 21px). Điều kiện chỉ xuất
+    /// hiện với phông của Linux. Nên chỗ nào kiểm được thì kiểm ở đây, và phần
+    /// còn lại do CI trên Linux nói.
     #[test]
-    #[ignore = "đỏ trên Linux — nợ đã ghi tên, xem chú thích"]
+    fn do_va_ve_dung_cung_chieu_cao_dong() {
+        let nguon = include_str!("lib.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        let ve = than
+            .split_once("fn ve_o(")
+            .map(|(_, sau)| sau)
+            .expect("có `ve_o`");
+        assert!(
+            ve.contains("Metrics::new(o.co, o.cao_dong)"),
+            "lượt vẽ không dùng chiều cao dòng đã đo"
+        );
+        // Và lượt vẽ KHÔNG được nhắc tới mức sàn: nhắc tới nghĩa là nó đang tự
+        // tính, và hai bên sẽ trôi khỏi nhau.
+        //
+        // Mức sàn xuất hiện đúng hai chỗ, cả hai đều ở lượt ĐO: một lần làm sàn
+        // trong `cao_dong_that`, một lần cho lượt tạo hình ĐẦU — phải tạo hình
+        // rồi mới đo được, nên nó không tránh được.
+        assert!(
+            !ve.contains("CAO_DONG"),
+            "lượt vẽ đang tự tính chiều cao dòng thay vì đọc lại số đã đo"
+        );
+        assert_eq!(
+            than.matches("CAO_DONG").count(),
+            3,
+            "số chỗ nhắc `CAO_DONG` đã đổi — kiểm lại từng chỗ, đừng sửa con số"
+        );
+    }
+
+    /// **Đã trả ngày 23/08/2026.** `do_o` hỏi `max_ascent + max_descent` của
+    /// phông thay vì nhân 1.4, và `ve_o` dùng LẠI đúng con số ấy thay vì tính
+    /// lại — xem [`cao_dong_that`]. `centering_offset` của cosmic-text khi ấy
+    /// không bao giờ âm, nên nét nằm trong hộp dòng, và hộp dòng nằm trong ô.
+    ///
+    /// Phép thử bỏ `#[ignore]` cùng lần sửa ấy. Nó xanh trên macOS trước và sau
+    /// — chỗ duy nhất chứng minh được là CI trên Linux, vì đó là chỗ có phông
+    /// làm lộ lỗi.
+    #[test]
     fn net_khong_tran_ra_ngoai_o() {
         let cay = Node::group(Flow::Row, Gap::Medium)
             .child(Node::text_with("To", Emphasis::Title).unwrap())
