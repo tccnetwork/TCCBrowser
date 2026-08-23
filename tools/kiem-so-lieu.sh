@@ -106,17 +106,24 @@ import re, subprocess, pathlib
 # tên trong nháy ngược HỨA rằng có một phép thử mang tên đó.
 dong = [l for l in open("SECURITY.md") if re.match(r"\| B\d+ \|", l)]
 ten = set(re.findall(r"`([a-z][a-z0-9_]{12,})`", "".join(dong)))
+# Soi mọi ĐỊNH DANH trong mã nguồn, không riêng `fn`. Một dòng bất biến được
+# phép trích một hàm, một biến hay một bảng làm bằng chứng CẤU TRÚC — B14 trích
+# `bang_hanh_dong`, và đó là một trích dẫn hợp lệ.
+#
+# Cổng này không hứa "cái được trích là một phép thử". Nó hứa điều hẹp hơn và
+# vẫn đủ: **cái được trích còn TỒN TẠI**. Đó đúng là thứ vỡ khi xoá một crate —
+# mười ba dòng trỏ vào hư không, và một trong số đó che một bất biến đã thành sai.
 ma = subprocess.run(
-    ["grep", "-rhoE", r"fn [a-z][a-z0-9_]*", "--include=*.rs", "crates", "tools", "apps"],
+    ["grep", "-rhoE", r"\b[a-z][a-z0-9_]{12,}\b", "--include=*.rs", "crates", "tools", "apps"],
     capture_output=True, text=True).stdout
-that = {l[3:] for l in ma.split("\n") if l.startswith("fn ")}
+that = set(ma.split())
 print(" ".join(sorted(t for t in ten if t not in that)))
 PY2
 )
 if [ -n "$thieu_thu" ]; then
-  bao "SECURITY.md trích phép thử KHÔNG TỒN TẠI:$thieu_thu"
+  bao "SECURITY.md trích thứ KHÔNG TỒN TẠI trong mã nguồn:$thieu_thu"
 else
-  dat "mọi phép thử SECURITY.md trích dẫn đều tồn tại trong mã nguồn"
+  dat "mọi bằng chứng SECURITY.md trích dẫn đều tồn tại trong mã nguồn"
 fi
 
 # ── Mọi lệnh `cargo` trong tài liệu phải trỏ tới gói và cờ CÓ THẬT ────────────

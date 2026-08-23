@@ -26,13 +26,13 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B10 | Apps **cannot set colours** — only declare intent | `Tone` is a closed enum with no colour field |
 | B11 | Skipping signature verification **does not compile** | `grant_verified` accepts only `VerifiedApp` |
 | B12 | Every unclear path ends in **DENY** | `moi_duong_khong_ro_rang_deu_ra_tu_choi` |
-| B13 | **The renderer wires events; the app never does** | `script-src 'none'` + the renderer's init script |
-| B14 | Phantom actions **go nowhere** | Allowlist + `kiem-bam-nut ma` |
+| B13 | **The renderer wires events; the app never does** | Structural: a package ships a `ui.json` tree and no code. The frame hit-tests its own drawing; there is nothing an app could wire an event to. Citation rewritten 2026-08-23 — the old one named a content-security policy and an init script, both of which went with the web engine |
+| B14 | Phantom actions **go nowhere** | Structural: both input paths look the action up in tables built **from the drawn tree** — `hit_test` for the mouse, `bang_hanh_dong` for the accessibility axis. An id in neither table resolves to nothing. See §3.9 for what happens when those tables are rebuilt |
 | B15 | Apps **ship no markup**, only a declarative tree | `entry` is `ui.json`; `tcc-ui` exposes no web concepts |
 | B16 | Decoding from disk **cannot bypass the constructors** | `UiNode` is a separate type; `TryFrom` rebuilds through the checking constructors |
 | B17 | Permission is asked **item by item**, every toggle default OFF | `moi_cong_tac_mac_dinh_tat`, `bam_cho_phep_ma_khong_bat_gi_thi_khong_cap_quyen_nao` |
-| B18 | A phantom toggle **discards the whole message**, it does not filter | `doc_tra_loi` + `kiem-bam-nut ct-ma` |
-| B19 | **The first decision wins** — no overwriting | An `o.is_none()` check in the IPC receiver |
+| B18 | ~~A phantom toggle **discards the whole message**~~ | **RETIRED 2026-08-23** — there is no message. Toggle state is held by the frame and changed only by hit-testing the drawn tree, so there is no channel a phantom toggle could arrive on. The intent survives in B14 |
+| B19 | **The first decision wins** — no overwriting | `quyet_dinh_dau_tien_thang`. ⚠️ Held on the accessibility path only until 2026-08-23; the mouse path had no guard at all — see §3.10 |
 | B20 | Button behaviour is declared in the **signed manifest**, not in `ui.json` | `Manifest::actions` sits inside the signature's scope |
 | B21 | An action **cannot request** a capability that was never asked for | `kiem_hanh_vi` + `hanh_vi_goi_may_chu_chua_xin_quyen_thi_tu_choi` |
 | B22 | **Not one packet leaves the machine** before the grant | `chua_cap_quyen_thi_khong_goi_ra_ngoai_mot_lan_nao` |
@@ -49,7 +49,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_khong_hoan_tac_noi_ra_dieu_do`, in crates/tcc-render-raster/src/accesskit_bridge.rs — the citation was wrong, the evidence was there |
 | B34 | ~~Package files are served over a **custom protocol**~~ | **RETIRED 2026-08-23** — the file server existed to feed a web engine. Nothing serves package bytes to a renderer now; the renderer reads the signed tree directly |
 | B35 | ~~**Images only**, by an extension ALLOWLIST — **no SVG**~~ | **RETIRED 2026-08-23** — same server, same removal. ⚠️ The reason it existed has NOT gone away: SVG is a document format that can carry script. Any future path that hands package bytes to something that parses them must re-derive this rule |
-| B36 | The permission dialog **serves no app file at all** | `open(..., \|_\| None, ...)` |
+| B36 | The permission dialog **serves no app file at all** | Structural, and now trivially so: **nothing** serves package bytes to a renderer. The dialog is a `tcc-ui` tree built by the frame from the manifest |
 | B37 | Decisions **never read the description** stored on disk | `quyet_dinh_khong_doc_phan_mo_ta` |
 | B38 | A destructive button **does not stretch the full width** | `nut_mat_mat_khong_gian_het_be_ngang` — rewritten 2026-08-23 |
 | B39 | **Machine markers are separate from human text** — text translates, markers never change | `doi_ngon_ngu_khong_lam_doi_dau_hieu_may` — rewritten 2026-08-23 |
@@ -1086,6 +1086,30 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.10 B19 was enforced on one input path and not the other
+
+Same audit, same day, one layer down. `ap_ket_qua` is the single place where a
+click becomes an answer, and it is reached from **two** directions: the mouse,
+and the platform accessibility axis.
+
+The F3 fix of 2026-08-21 put the "already answered, ignore this" guard at the
+**accessibility** call site. The mouse call site had none — and the comment
+sitting on the accessibility guard read *"every rule the dialog applies to the
+mouse applies here too"*, which states the relationship backwards. The mouse path
+was the looser one.
+
+`tao` delivers queued events after `ControlFlow::Exit` is set, so a second press
+already in the queue reaches `ap_ket_qua` and overwrote the answer: press
+"Refuse", and a queued press of "Allow" replaces it.
+
+The guard now sits **inside `ap_ket_qua`**, where the two paths meet, rather than
+being copied to the second site. Copying is how a third path arrives later
+without one. It also covers `VeLai`: once a screen has ended, a queued toggle
+cannot repaint it either.
+
+Tested by calling `ap_ket_qua` directly — no event loop, no screen reader — so
+the test exercises the junction rather than one of its two approaches.
 
 ### 3.9 F3 came back, through a door this project opened yesterday
 

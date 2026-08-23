@@ -713,6 +713,20 @@ fn ap_ket_qua(
     da_bam: &mut Option<String>,
     dieu_khien: &mut ControlFlow,
 ) {
+    // ⚠️ QUYẾT ĐỊNH ĐẦU TIÊN THẮNG — bất biến B19.
+    //
+    // Màn hình đã kết thúc thì không gì đổi được nữa: không nút thứ hai, không
+    // công tắc gạt thêm. `tao` còn giao vài sự kiện sau khi ta đặt `Exit`, nên
+    // một cú bấm đang xếp hàng vẫn tới đây.
+    //
+    // Chắn này TỪNG chỉ có ở đường trợ năng (bản vá F3, 21/08/2026), còn đường
+    // CHUỘT thì không — trong khi chú thích ở đó lại viết "mọi luật của hộp
+    // thoại áp cho chuột đều áp cho đây", tức là tin rằng đường chuột chặt hơn.
+    // Nó lỏng hơn. Chuyển chắn vào ĐÂY, chỗ hai đường gặp nhau, thay vì chép nó
+    // sang đường thứ hai — chép là để lần sau có đường thứ ba mà quên.
+    if da_bam.is_some() {
+        return;
+    }
     match k {
         SauCuBam::VeLai => *ve_lai = true,
         SauCuBam::Ket(a) => {
@@ -989,6 +1003,51 @@ mod kiem_thu {
             "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
              khung nhận về hàng chấm thay vì thứ người dùng gõ"
         );
+    }
+
+    /// **B19 — quyết định ĐẦU TIÊN thắng, ở CẢ HAI đường vào.**
+    ///
+    /// `tao` còn giao vài sự kiện sau khi ta đặt `Exit`, nên một cú bấm đang xếp
+    /// hàng vẫn tới nơi. Không chắn thì nó ghi đè câu trả lời người dùng đã đưa.
+    ///
+    /// Chắn này từng CHỈ có ở đường trợ năng (bản vá F3), còn đường chuột thì
+    /// không — trong khi chú thích ở đó viết "mọi luật của hộp thoại áp cho chuột
+    /// đều áp cho đây", tức là tin rằng đường chuột chặt hơn. Nó lỏng hơn.
+    ///
+    /// Phép thử gọi thẳng `ap_ket_qua`, nên nó kiểm chỗ HAI ĐƯỜNG GẶP NHAU chứ
+    /// không kiểm một trong hai.
+    #[test]
+    fn quyet_dinh_dau_tien_thang() {
+        let mut ve_lai = false;
+        let mut da_bam = None;
+        let mut dk = ControlFlow::Wait;
+
+        ap_ket_qua(
+            SauCuBam::Ket("tu-choi".to_owned()),
+            &mut ve_lai,
+            &mut da_bam,
+            &mut dk,
+        );
+        assert_eq!(da_bam.as_deref(), Some("tu-choi"));
+
+        // Cú bấm thứ hai — dù là một nút KHÁC — không được đổi gì.
+        ap_ket_qua(
+            SauCuBam::Ket("cho-phep".to_owned()),
+            &mut ve_lai,
+            &mut da_bam,
+            &mut dk,
+        );
+        assert_eq!(
+            da_bam.as_deref(),
+            Some("tu-choi"),
+            "cú bấm thứ hai ghi đè câu trả lời của người dùng"
+        );
+
+        // Và công tắc gạt thêm sau khi màn hình đã kết thúc cũng không được vẽ
+        // lại: màn hình đã xong thì không gì đổi được nữa.
+        ve_lai = false;
+        ap_ket_qua(SauCuBam::VeLai, &mut ve_lai, &mut da_bam, &mut dk);
+        assert!(!ve_lai, "màn hình đã kết thúc mà vẫn nhận lệnh vẽ lại");
     }
 
     /// **Sang màn mới phải DỌN hàng đợi yêu cầu trợ năng.**
