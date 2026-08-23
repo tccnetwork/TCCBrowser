@@ -880,27 +880,55 @@ below about where GTK comes from.
 |---|---|
 | 9 GTK crates — `gtk`, `gdk*`, `atk*`, `gtk3-macros` (unmaintained) and `glib` (also unsound) | **`tao`**, the windowing library, on **Linux** only. Until 2026-08-23 this row said `wry`'s WebView backend; `wry` is gone and the row did not empty, because `tao` needs GTK to open a window at all. Removing the web engine did not remove GTK — it removed the *reason to believe* GTK left with it, which is why this was re-measured rather than assumed |
 | `proc-macro-error` | Build-time code generation; not in the shipped binary |
-| `ttf-parser` (unmaintained) | `cosmic-text` → `fontdb`. This one is **new** and arrived with the pixel renderer: text shaping needs a font parser, and that parser is now on the path between a signed package and the screen |
+| `ttf-parser` (unmaintained) | `cosmic-text` → `fontdb`. **New**, and it arrived with the pixel renderer: text shaping needs a font parser, and that parser now sits between a signed package and the screen |
 
 `fxhash` and `rand 0.7.3` left the tree with the web engine.
 
-⚠️ `ttf-parser` deserves a second look that this section does not give it. Every
-other warning above is either build-time or Linux-window plumbing; this one
-parses **untrusted-ish input** — font files from the operating system — inside
-the process that draws signed content. The advisory is "unmaintained", not a
-vulnerability, and fonts come from the OS rather than from a package. But an
-independent audit should be told where it sits rather than left to find it in a
-dependency list.
+### `ttf-parser`, looked at properly (2026-08-23)
 
-**None of them reach `tcc-crypto`** — checked by intersecting the warning list
-with that crate's dependency tree, and the intersection is empty. That matters
-because `tcc-crypto` is the trust boundary and the crate an independent audit
-would look at first; it is deliberately kept minimal for exactly this reason
-(rule 3).
+The paragraph that stood here flagged this crate for a second look and then did
+not take one. Taken now — and split into what was **read** and what is
+**recalled**, because a security document that mixes the two teaches its reader
+to trust the wrong half.
 
-What this does **not** say: a clean advisory scan means nobody has *reported* a
-vulnerability, not that there is none. `ml-dsa` 0.1.1 has no advisory against it
-and also no published audit (§3.2). The scan is a floor, not a ceiling.
+**Read from the vendored source, the lockfile, and the local advisory database.**
+Anyone can re-run these and get the same answer.
+
+| Claim | Where it was read |
+|---|---|
+| Authors: Caleb Maclennan, Laurenz Stampfl, Yevhenii Reizner, Khaled Hosny | `authors` in the vendored `Cargo.toml` of 0.25.1 |
+| Repository is `github.com/harfbuzz/ttf-parser` | `repository`, same file |
+| Unmaintained per the author; successor named as `skrifa` | `advisory-db/crates/ttf-parser/RUSTSEC-2026-0192.md`, dated 2026-06-28, citing harfbuzz/ttf-parser#217 |
+| `#![forbid(unsafe_code)]` | `src/lib.rs:36`; grepping all of `src` finds **zero** real `unsafe` |
+| ~23k lines across 66 files | counted in `src` |
+| Reaches us through `cosmic-text` → `fontdb`; we do not depend on it directly | `cargo tree -i ttf-parser` |
+
+**Recalled, NOT verified here.** That Yevhenii Reizner (`RazrFalcon`) is the
+*original* author and also wrote `resvg`; that the repository *moved* to the
+harfbuzz organisation from somewhere else; that Khaled Hosny maintains HarfBuzz.
+The `authors` field records who is named, not who wrote what, nor in what order.
+None of this changes the risk; it is separated so nobody cites it as checked.
+
+**The `unsafe` claim, corrected.** An earlier draft of this section said a
+parsing bug "gives a panic, not memory corruption". That was stated more
+strongly than the evidence. Following the whole chain:
+
+`ttf-parser` (0 `unsafe`, `forbid`) → `core_maths` (0) → **`libm` (57 `unsafe`)**
+
+So: **the parser itself** contains no `unsafe`, and `forbid` cannot be lifted by
+an inner `allow`. Underneath it there is `unsafe`, in a float-math library that
+receives numbers rather than font bytes. That is a meaningfully better position
+than an unsafe-heavy parser — it is not the same as "no unsafe on the path", and
+this section should not have said so.
+
+**What still matters.** Fonts come from the operating system, not from a package.
+"Unmaintained" means the next bug found stays unfixed, and a panic inside the
+draw path takes the window down while a user is reading a transaction they are
+about to sign. Availability, not integrity.
+
+**What we cannot do about it.** Switching to `skrifa` is `cosmic-text`'s
+decision, not ours: we would have to change text engines to change font parsers.
+Worth knowing before an auditor asks why we did not simply swap it.
 
 ### 3.5c Dependency licences, and the MSRV claim
 
