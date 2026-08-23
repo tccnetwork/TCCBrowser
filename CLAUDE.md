@@ -41,7 +41,6 @@ cargo test -p tcc-shell --features accesskit --test hai-bo-dung
 cargo test -p tcc-shell --features window
 cargo test -p tcc-render-raster --features window
 cargo test -p tcc-render-raster --features accesskit-platform
-cargo test -p tcc-render-webview --features window
 cargo test -p tcc-shell --features window
 
 # `clippy` cũng phải chạy THEO TỪNG CỜ, không chỉ một lượt workspace:

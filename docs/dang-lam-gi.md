@@ -188,7 +188,7 @@ component khai báo. Xem `tcc_ui::dang_goi` và B15/B16 trong `v2/SECURITY.md`.
 
 ```sh
 cd v2
-cargo run -p tcc-browser --features cua-so -- <thư-mục-gói>
+cargo run -p tcc-browser --features window -- <thư-mục-gói>
 ```
 
 Mười ví dụ đối kháng (KHÔNG nằm trong `cargo test` — cái cần cửa sổ thì trên
@@ -204,7 +204,7 @@ cho tới khi xử lý nó, đúng như thiết kế đã hứa.
 **Bộ dựng đã chốt: `wry`** — đo thật (wry+tao 71 crate; objc2 FFI tay 18 crate
 nhưng chỉ macOS). Cả hai đều đặt WebKit vào đường vẽ nên FFI tay không mua được
 gì mà phải trả bằng `unsafe` trên đúng thứ sẽ tháo. Nằm sau cờ tính năng
-`cua-so` để `cargo test` không phải kéo 71 crate.
+`window` để `cargo test` không phải kéo cả tầng cửa sổ.
 
 **Bộ kiểm định tuân thủ đã chạy** (`cargo run -p tcc-conformance`, 136 vector, tám nhóm).
 Vector là **dữ liệu JSON**, không phải mã Rust — để bản triển khai bằng ngôn ngữ
@@ -292,7 +292,7 @@ Ví dụ đã dựng sẵn cho đúng hai việc đó: có ô "Gõ thử tiếng
 có chữ có dấu ở khắp nơi. Chạy:
 
 ```sh
-cd v2 && cargo run -p tcc-browser --features cua-so -- examples/hello-tcc
+cd v2 && cargo run -p tcc-browser --features window -- examples/hello-tcc
 ```
 
 **Ghim khoá kiểu tin-lần-đầu đã có.** Khoá ký đổi → hộp thoại cảnh báo, và cảnh

@@ -84,5 +84,48 @@ else
   dat "FORMAT.md mô tả đủ mọi tệp vector, và mọi con số đều đúng"
 fi
 
+
+# ── Mọi lệnh `cargo` trong tài liệu phải trỏ tới gói và cờ CÓ THẬT ────────────
+#
+# `docs/AUDIT.md` bảo người soát độc lập chạy một danh sách lệnh để tự đối chiếu
+# mọi khẳng định. Ngày 23/08/2026 nó vẫn bảo họ chạy
+# `cargo test -p tcc-render-webview --features window` — một crate đã bị xoá.
+# Người soát gõ vào, nhận lỗi, và điều họ học được là tài liệu không đáng tin.
+#
+# Kiểm TĨNH, không chạy: gói có trong workspace không, và cờ có tồn tại cho gói
+# ấy không. Rẻ, và bắt đúng hạng lỗi đã xảy ra.
+lech_lenh=$(python3 - <<'PY2'
+import json, re, subprocess, pathlib
+md = json.loads(subprocess.run(
+    ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+    capture_output=True, text=True).stdout)
+goi = {p["name"]: set(p["features"]) for p in md["packages"]}
+ra = []
+tep = ["README.md", "SECURITY.md", "ARCHITECTURE.md", "CLAUDE.md"]
+tep += [str(x) for x in pathlib.Path("docs").glob("*.md")]
+for f in tep:
+    if not pathlib.Path(f).exists():
+        continue
+    for l in re.findall(r"^(cargo [^\n#]*)", open(f).read(), re.M):
+        m = re.search(r"-p (\S+)", l)
+        c = re.search(r"--features (\S+)", l)
+        if m and m.group(1) not in goi:
+            ra.append(f"{pathlib.Path(f).name}:gói-{m.group(1)}")
+        elif m and c:
+            for co in c.group(1).split(","):
+                if co not in goi[m.group(1)]:
+                    ra.append(f"{pathlib.Path(f).name}:{m.group(1)}-thiếu-cờ-{co}")
+print(" ".join(sorted(set(ra))))
+PY2
+)
+if [ -n "$lech_lenh" ]; then
+  bao "tài liệu bảo chạy lệnh trỏ tới gói/cờ KHÔNG TỒN TẠI:$lech_lenh"
+else
+  # Dấu nháy ngược trong chuỗi kép là THAY THẾ LỆNH, không phải chữ. Bản đầu
+  # viết "mọi lệnh `cargo` …" và vỏ lệnh chạy `cargo` rồi dán trang trợ giúp của
+  # nó vào giữa câu báo ĐẠT.
+  dat "mọi lệnh cargo trong tài liệu đều trỏ tới gói và cờ có thật"
+fi
+
 [ "$loi" = 0 ] && echo "════ ĐẠT ════" || echo "════ HỎNG: $loi ════"
 exit "$loi"

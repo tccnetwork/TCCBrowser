@@ -13,7 +13,7 @@ the rest.
 | 2 | [`../spec/GOVERNANCE.md`](../spec/GOVERNANCE.md) §1 — who wrote this and who has reviewed it. The answer is one party for all of it |
 | 3 | [`../SECURITY.md`](../SECURITY.md) §1 — the 40 invariants, each naming the test that holds it |
 | 4 | [`../spec/0.1/`](../spec/0.1/) — the standard. English is normative |
-| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 18 machine-enforced rules |
+| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 22 machine-enforced rules |
 
 ## The wallet is on another branch
 
@@ -46,11 +46,14 @@ cargo test --workspace                              # 344 tests
 # Feature-gated code is NOT built by --workspace. These are what CI runs, and
 # skipping them locally is how three red builds happened in one week:
 cargo test -p tcc-shell --features window
-cargo test -p tcc-shell --features window
-cargo test -p tcc-shell --features accesskit --test hai-bo-dung
-cargo test -p tcc-render-webview --features window
+cargo test -p tcc-shell --features wallet
 cargo test -p tcc-render-raster --features window
+cargo test -p tcc-render-raster --features accesskit-platform
 cargo clippy --workspace --all-targets -- -D warnings
+# `clippy` too must run per flag: code behind a flag is only linted when that
+# flag is on, and `-D warnings` that never looks is not a gate.
+cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
+cargo clippy -p tcc-shell --features wallet --all-targets -- -D warnings
 cargo fmt --all -- --check
 tools/kiem-luat-phu-thuoc.sh                        # 22 architecture rules
 cargo run -p tcc-conformance                        # 153 conformance vectors, nine groups
@@ -58,7 +61,7 @@ cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py
 python3 conformance/dung-goi-doc-lap.py             # package built in Python, verified by Rust
-cargo audit                                         # 0 vulnerabilities, 15 known warnings
+cargo audit                                         # 0 vulnerabilities, 12 known warnings
 tools/kiem-so-lieu.sh                               # the two numbers above must be real
 ```
 
@@ -69,30 +72,28 @@ repository died. `.gitattributes` fixes it here, and `../spec/0.1/01-package.md`
 records the general form, which is that any transport normalising text destroys
 a package.
 
-These next ones drive a real WebKit view. On macOS they use WKWebView; on Linux,
-install `libwebkit2gtk-4.1-dev` and prefix with `xvfb-run -a`. CI runs both, and
-**both can fail the build**.
+⚠️ **A block of commands used to stand here** — adversarial examples driven
+through a real WebKit view, which then reported what it saw. They went with the
+web engine on 2026-08-23, and nothing replaced them. That matters more than the
+commands did: they were the only check where a **third party** looked at what we
+drew. `../SECURITY.md` §3.7 lists what else went and what is genuinely weaker.
 
-That sentence used to say the Linux run was exempt because WebKitGTK under a
-virtual display does not reliably get a window handle. That was wrong, and the
-wrong version is kept here because it is the more useful lesson: the failure was
-`the underlying handle is not available`, which mentions nothing about GTK and
-reads exactly like a display that never came up. Running the same binary three
-times in one job gave 0/3 — not flaky, failing every time, because the code
-called `build(&window)` where Linux requires `build_gtk`. **A check exempted
-because "the infrastructure is unreliable" is the best hiding place a real bug
-has.**
+The lesson attached to them is kept, because it outlives them. Those runs were
+`continue-on-error` on Linux for months, behind a comment saying WebKitGTK under
+a virtual display does not reliably get a window handle. The comment was wrong.
+The failure was `the underlying handle is not available`, which mentions nothing
+about GTK and reads exactly like a display that never came up. Running the same
+binary three times in one job gave 0/3 — not flaky, failing every time, because
+the code called `build(&window)` where Linux requires `build_gtk`. **A check
+exempted because "the infrastructure is unreliable" is the best hiding place a
+real bug has.**
 
-```bash
-cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong
-cargo run -p tcc-shell --features window --example kiem-khoi-tan-cong chi-csp
-cargo run -p tcc-shell --features window --example kiem-man-hinh-ung-dung -- examples/hello-tcc
-```
-
-There is a **second renderer**, and it deserves a look of its own. It draws to
-pixels with no HTML and no WebView, and it exists so that "the interface layer
-does not depend on a browser" is a claim something can falsify rather than a
-comment in a file:
+The renderer draws to **pixels**, with no markup and no web engine anywhere in
+the process. It used to be the second of two, kept so that "the interface layer
+does not depend on a browser" was a claim something could falsify. On 2026-08-23
+the first one was deleted and **no application changed a line** — which is the
+strongest evidence for that claim, and also why the claim now has nothing
+watching it. Attack it accordingly:
 
 ```bash
 # The signed example package, drawn entirely in Rust. On macOS turn on
@@ -111,77 +112,90 @@ and that is itself a finding.
 
 Ranked by where a real flaw is most likely, not by how much code there is.
 
-**1. Tier 2 — arbitrary web pages.** Newest and largest by far, and it inverts
-the project's central assumption: a web page **carries its own code**, has no
-signature, and passes through no capability gate. It runs in a WebView with no
-IPC handler and no init script, kept in a separate WebView from the address bar
-because sharing one would let a page call `postMessage` and answer a permission
-prompt on the user's behalf. Navigation is re-checked on *every* navigation
-rather than only the first load, new windows and downloads are refused outright,
-and nothing is persisted to disk.
+> **Re-ranked 2026-08-23.** The old list opened with tier 2 — arbitrary web
+> pages — as "newest and largest by far". Tier 2 no longer exists; neither does
+> the web engine under it. A ranked list that sends a reviewer at a surface that
+> was deleted wastes the scarcest thing in an audit, which is the reviewer's
+> attention. What replaced it is smaller and younger, and that is not the same
+> as safer.
 
-Four things there are **not** closed, and `docs/nen-tang.md` lists them:
-JavaScript dialogs have no hook in `wry`; cookies and `localStorage` are shared
-across pages in one profile with no per-origin partitioning; TLS certificate
-warnings have no hook; and on macOS `wry` hardcodes `WKPermissionDecision::Grant`
-for camera and microphone with no override, so the only barrier is that the
-bundle declares no `NS*UsageDescription` — an operating-system gate, enforced by
-architecture rule 20. During a 50-page corpus run, macOS logged a capture-device
-enumeration, so pages do reach into that area.
+**1. The layout engine, and the vocabulary on top of it.** Newest by a wide
+margin: `taffy` arrived 2026-08-22 and the sizing vocabulary the day after. In
+the two days since, self-review found **three** defects in it — a declaration
+accepted and silently ignored (`scroll`), a fraction that resolved on one axis
+and quietly did nothing on the other, and `fill` mapped to the wrong axis so that
+it *shrank* a group nobody asked to shrink. All three are the same shape: **the
+package declares something and the renderer does something else.** Assume more of
+that shape rather than fewer. The tests that now guard it (`moi_loi_khai_...`,
+`fill_chia_khoang_trong_cua_cha`) were written after the fact and prove only what
+was already found.
 
-**2. The second renderer, and the project's only `unsafe`.** The pixel renderer
-now has its own window, its own hit-testing, and an accessibility adapter that
-accepts activation requests from the platform. The single `unsafe` in the
-repository is there: handing an `NSView` pointer to AccessKit. Four bugs of one
-shape were found in it in a single day — a security rule that held on the
-WebView path and not on this one — so assume there are more of that shape rather
-than fewer. The cross-renderer test now compares twelve screens in two
-languages, which is what makes that class visible.
+**2. The renderer, and the project's only `unsafe`.** It has its own window, its
+own hit-testing, and an accessibility adapter that accepts activation requests
+from the platform — meaning a request to press a button arrives from **outside
+the process**. The single `unsafe` in the repository is there: handing an
+`NSView` pointer to AccessKit. Four bugs of one shape were found in this path in
+a single day, including one where a queued accessibility request could overwrite
+the user's answer to a permission dialog (F3).
+
+⚠️ The cross-renderer test that used to compare twelve screens across two
+renderers is **gone** — there is only one renderer to compare. Architecture rule
+1 still forbids `tcc-ui` from depending on a renderer, but the strongest check on
+that boundary was the second implementation, and it no longer exists.
 
 **3. The unauthenticated parse.** `verify_package` must decode the manifest at
-steps 1–2 and only verifies the signature at step 4, because the public key
-lives inside the manifest. There is no way to reorder it. Every byte of
-`manifest.json` reaches `serde_json` and `validate_shape` with nothing
-authenticated. Both fuzzers point here; neither is proof.
+steps 1–2 and only verifies the signature at step 4, because the public key lives
+inside the manifest. There is no way to reorder it. Every byte of `manifest.json`
+reaches `serde_json` and `validate_shape` with nothing authenticated. Both
+fuzzers point here; neither is proof.
 
-**4. `ml-dsa` 0.1.1.** No published independent audit. It is behind a trait so
-it can be swapped, and the signature is hybrid so Ed25519 still stands if it
-fails — but the library parses attacker-controlled bytes.
+**4. `ml-dsa` 0.1.1.** No published independent audit. It is behind a trait so it
+can be swapped, and the signature is hybrid so Ed25519 still stands if it fails —
+but the library parses attacker-controlled bytes.
 
-**5. The interface layer as a whole.** It renders app-supplied text into a
-WebKit document. Three layers stop escape and each is tested alone
-(`SECURITY.md` B7), but this is the largest surface by far.
+**5. Font parsing, which is new and easy to miss.** `ttf-parser` sits between a
+signed package and the screen, and it parses real files from the operating
+system. It is unmaintained (RUSTSEC-2026-0192). It forbids `unsafe` itself, so
+the realistic failure is a panic rather than memory corruption — and a panic in
+the draw path takes the window down while a user is reading a transaction they
+are about to sign. `../SECURITY.md` §3.5b has the whole chain, including what was
+checked and what was only recalled.
 
-**6. Anything the tests assert about *appearance*.** Twice now a rule was
-declared, tested, green, and invisible on screen: `Tone::Danger` drawn
-identically to everything else (B31), and the wallet capability that must look
-different from every other one and did not. The accessibility tree proves a
-blind user can hear it; it proves nothing about what a sighted user sees.
+**6. Anything the tests assert about *appearance*.** Three times now a rule was
+declared, tested, green, and wrong on screen: `Tone::Danger` drawn identically to
+everything else (B31); the wallet capability that had to look different and did
+not; and — 2026-08-23 — text drawn **outside its own box** on Linux while every
+box-geometry test passed, because the tests measured boxes and the bug was in
+ink. The accessibility tree proves a blind user can hear it; it proves nothing
+about what a sighted user sees.
 
-**7. The permission dialog.** It is drawn through WebKit, in a separate process
-from the app, and the single-event-loop architecture means the two never exist
-at once (§3.1b). That guarantee is architectural, not enforced — anyone moving
-to a multi-window loop breaks it silently.
+**7. The permission dialog, and the single event loop.** It is drawn by the same
+renderer as the app, in the same process — the separation that used to exist
+(two engines, two processes) is gone. What holds the two apart now is that `tao`
+allows exactly one event loop per process, so an app screen and a permission
+dialog cannot both exist (§3.1b). That guarantee is **architectural, not
+enforced**: `open_sequence` now swaps screens inside one loop, and anyone adding
+a second window breaks the property silently.
 
-### The one advisory worth a paragraph
+### The advisory paragraph that had to be rewritten
 
-`cargo audit` reports 0 vulnerabilities and 15 warnings; fourteen are
-unmaintained GTK3 bindings and similar. The fifteenth, added 2026-04-09, names
-`rand 0.7.3` as unsound (RUSTSEC-2026-0097). Three facts about it, each
-checkable:
+A paragraph stood here explaining, with three checkable facts, why
+RUSTSEC-2026-0097 against `rand 0.7.3` did not reach the cryptography. Every fact
+was true when written. **`rand` is now absent from `Cargo.lock` entirely**
+(`grep -c '^name = "rand"' Cargo.lock` → 0): it left with the web engine on
+2026-08-23, along with `fxhash`. A careful, correct, checkable paragraph about a
+package that is no longer there.
 
-- It is **not in the built dependency graph**. `cargo tree --invert --package
-  rand` reports no such package; the entry survives in `Cargo.lock` through
-  `phf_generator 0.8`, itself reachable only through the Linux GTK stack.
-- **No TCC crate depends on `rand`.** `grep -rn "rand::" crates/ tools/ apps/`
-  is empty.
-- Key generation uses **`getrandom`** directly — `crates/tcc-crypto/src/hybrid.rs`
-  — not `rand`, so the advisory's condition ("a custom logger using
-  `rand::rng()`") has nothing to attach to here.
+That is worth more to a reviewer than the paragraph was. **Everything in these
+documents has a date, and the ones with the most careful reasoning are the ones
+most likely to survive past their subject** — because they read as settled.
+Re-run the commands rather than trusting the prose; where the two disagree, the
+prose is wrong and that is itself a finding.
 
-If any of that turns out to be wrong, it is a finding, and a good one: the claim
-that the cryptography never touches an unsound RNG is the sort that is easy to
-assert and easy to get wrong.
+`cargo audit` today: **0 vulnerabilities, 12 warnings** across 452 dependencies —
+nine GTK crates (now pulled by `tao`, the windowing library, not by any web
+engine), `proc-macro-error` at build time, and `ttf-parser`. The one worth your
+time is `ttf-parser`; see the ranked list above and `../SECURITY.md` §3.5b.
 
 ## Known weak, already written down
 
@@ -196,10 +210,12 @@ reasoning:
 - No constant-time proof for signing; the measurement is a screen, not a proof.
 - No container format. A package is a directory.
 - No package updates, no WASM.
-- Tier 2 keeps **nothing** on disk — closing the window loses cookies and
-  logins. That is a deliberate choice, not an oversight: `wry` offers only
-  `clear_all_browsing_data`, which erases everything rather than one domain, and
-  there is no profile screen where a user could see what is kept.
+- **There is no web browsing at all any more**, and that removed defences as
+  well as a feature. `../SECURITY.md` §3.7 lists them one by one: markup
+  escaping, the content-security policy, the hostile-manifest check driven
+  through a real engine, the navigation guards, the address bar. Most defended a
+  class of attack that now has no door — but one thing is genuinely weaker, and
+  it is stated there: **nothing outside our own code looks at what we draw.**
 
 ## The two things this project most needs from you
 
