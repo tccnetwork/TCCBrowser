@@ -1062,10 +1062,21 @@ mod kiem_thu_43 {
             };
             #[expect(clippy::cast_precision_loss, reason = "toạ độ ảnh, luôn nhỏ")]
             let (tren, duoi) = (tren as f32, duoi as f32);
+            // Số đo của LƯỢT ĐO đi kèm, không chỉ số của lượt vẽ. Phép thử này
+            // đỏ trên Linux hai lần liền với đúng một bộ số, và cả hai lần tôi
+            // đoán sai vì thông báo chỉ nói kết quả chứ không nói lượt đo đã
+            // thấy gì. Đoán từ một nửa dữ liệu là đoán.
+            let d = &bd.da_dat[i];
             assert!(
                 tren >= *y - 1.0 && duoi <= *y + *h + 1.0,
-                "ô {i}: nét {tren}..{duoi} nằm ngoài ô {y}..{}",
-                *y + *h
+                "ô {i} ({:?}): nét {tren}..{duoi} nằm ngoài ô {y}..{} \
+                 — lượt đo: cao_dong={} lech_ve={} cao={} rong={}",
+                d.o.chu,
+                *y + *h,
+                d.o.cao_dong,
+                d.o.lech_ve,
+                d.o.cao,
+                d.o.rong
             );
         }
     }
