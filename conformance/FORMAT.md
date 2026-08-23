@@ -73,7 +73,7 @@ different trees, one signature valid for both.
 The empty tree hashes to `af1349b9f5f9a1a6…`, which is the published BLAKE3 KAT
 for the empty input. That anchors this group to something outside the project.
 
-## `signature.json` — 15 cases
+## `signature.json` — 9 cases
 
 Checks the hybrid signature in **three** directions. Checking only verification
 is not enough: an implementation that verifies our signatures but produces
@@ -106,7 +106,7 @@ halves, precisely because the layout is part of the standard.
 > "FIPS 204 compliant" while neither can verify the other. See
 > [`spec/0.1/03-signature.md`](../spec/0.1/03-signature.md).
 
-## `acvp-mldsa65.json` — 26 cases
+## `acvp-mldsa65.json` — 25 cases
 
 NIST ACVP vectors for ML-DSA-65 keyGen, plus one sigVer case. This is the only
 group whose authority is entirely external to this project.
@@ -123,7 +123,7 @@ that is the *expanded* form, while this standard keeps secret keys as a 32-byte
 seed. There is no bridge between the two, which is why the signing direction is
 anchored by cross-checking against `dilithium-py` instead.
 
-## `manifest.json` — 31 cases
+## `manifest.json` — 34 cases
 
 The largest attack surface: everything downstream trusts the verdict reached
 here, and this code runs **before the signature is verified**, because the
@@ -142,7 +142,7 @@ and inside a capability scope. All three must be **rejected**; see
 [`spec/0.1/02-manifest.md`](../spec/0.1/02-manifest.md) on why silently ignoring
 a field can only ever widen a permission.
 
-## `ui.json` — 17 cases
+## `ui.json` — 27 cases
 
 ```json
 { "case": "minimal tree", "expect_pass": true,
@@ -172,6 +172,92 @@ Matching is **exact**. No suffix matching, no subdomains, no wildcards. A
 one-character difference here is the app reaching an attacker's server.
 
 ---
+
+
+## `package.json` — 26 cases
+
+Package-layer rules from [`01-package.md`](../spec/0.1/01-package.md): path
+constraints and case collisions. Three arrays — `cases`, `signature_file`,
+`missing_file` — because the last two vary one file at a time against an
+otherwise valid package, and flattening them would lose which file was touched.
+
+⚠️ `duplicate-path` **cannot be expressed here**: a JSON object cannot hold the
+same key twice. A conforming implementation still has to reject it; this file
+cannot be what proves that. Stated in the file's own `description`, and repeated
+here because a reader who only skims section headings would otherwise conclude
+the code is untested.
+
+## `verify.json` — 10 cases
+
+End-to-end verification, and — the part that matters — the **order** the checks
+run in. [`01-package.md`](../spec/0.1/01-package.md) calls that order a security
+property: the size cap comes before parsing, the scheme comparison before the
+cryptography. A package that breaks two rules at once must report the code of the
+**first** check to fail, so these cases pin an ordering, not just a verdict.
+## `layout.json` — 59 cases — **DRAFT, not conformance-bearing**
+
+⚠️ This file belongs to [`spec/0.2`](../spec/0.2/), which is **not released**. No
+implementation satisfies it, this repository's runner does not load it, and the
+two error codes it uses — `bad-layout`, `bad-scroll` — exist in no released
+error-code table. Treat it as a proposal that happens to be machine-readable.
+
+Twenty-five accept/reject cases and thirty-four geometry cases. It is the only
+file in `vectors/` with **two kinds of case**, and that is the part worth
+documenting: every other group answers *accept or reject*, and a layout
+requirement is neither. "These two children are the same size" cannot be written
+as a verdict on a package.
+
+### `cases` — the shape every other file already uses
+
+`case`, `clause`, `expect_pass`, `code` on a rejecting case, and `tree`. Nothing
+new. `clause` names the section of
+[`spec/0.2/05-interface.md`](../spec/0.2/05-interface.md) the case checks — rule
+2 of [`spec/README.md`](../spec/README.md) requires every clause to have at least
+one vector, and `clause` is how that is checked mechanically.
+
+### `geometry` — a second shape, and why it had to exist
+
+Each case has `case`, `clause`, `frame`, `direction`, `tree`, an optional
+`scroll`, and `assert`. A runner lays `tree` out into `frame`, applies `scroll`,
+then checks every entry of `assert`.
+
+| Key | Meaning |
+|---|---|
+| `frame` | `{"width": w, "height": h}` in the implementation's **own units**. These are not app-declared lengths — no package can see or set them — so they do not reopen the hole that "no pixels, no colours" closes |
+| `direction` | Always `"ltr"` in this draft. Right-to-left geometry is unspecified |
+| `path` | Child indices from the root. **The root is `[]`, not `[0]`.** `[1, 0]` is the first child of the second child of the root |
+| `scroll` | Optional list of `{"path": p, "to": "start"｜"end"}`, applied before measuring, so a case can assert what is true at the far end of a scroll container |
+| `assert` | A list of relations, described below |
+
+**Assertions are RELATIONS, never magnitudes.** This is the rule that makes the
+shape work at all: implementations choose their own `gap` and `padding` scale, so
+"this box is 8 units from that one" is not a conformance question — but "these
+two boxes are the same width" is. Four kinds:
+
+| `kind` | Holds when |
+|---|---|
+| `equal` | `a == b` |
+| `at_least` | `a >= b` |
+| `greater` | `a > b` |
+| `contains` | the `inner` node's box lies entirely within the `outer` node's inner box |
+
+The three numeric kinds take `a` and `b`, each either `{"path": p, "of": "x"｜"y"｜"width"｜"height"}` or a literal `{"value": n}`. `contains` takes `outer` and
+`inner`, both paths.
+
+A literal `{"value": n}` is only legitimate where the number comes from the
+**frame**, which the runner supplied — never from the implementation's own
+spacing choices. The root-node case is the archetype: the root's box *is* the
+frame, so asserting it equals `1200 × 800` is asserting the standard, not a unit
+system.
+
+### What this format still cannot express
+
+Several clauses in 05 bind the **renderer**, not the validator: the spacing scale
+must increase, content is never clipped, every part of a scroll container must be
+reachable, focus scrolls into view. No package can violate them, so they carry no
+error code — and the geometry cases are the only thing watching them. A clause
+with nothing watching it is the first kind of defect
+[`spec/README.md`](../spec/README.md)'s audit names.
 
 ## Running them
 
