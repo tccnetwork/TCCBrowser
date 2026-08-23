@@ -1044,7 +1044,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337; hai phép thử mới đưa lại lên 339).
+**56 tests went with it** (393 → 337). Two tests added since bring the count to 339.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the

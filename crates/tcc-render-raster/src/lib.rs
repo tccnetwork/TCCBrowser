@@ -45,7 +45,9 @@ pub mod accesskit_bridge;
 
 mod bo_cuc;
 
-use cosmic_text::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache};
+use cosmic_text::{
+    Attrs, BorrowedWithFontSystem, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache,
+};
 use tcc_ui::{AccessNode, Alt, Emphasis, Node, NodeKind, Renderer, Role, Tone};
 
 /// Bề rộng khung vẽ. Cố định: bộ dựng này để KIỂM ĐỊNH, không để co giãn theo
@@ -253,6 +255,11 @@ pub(crate) struct O {
     dam: bool,
     /// Khung quanh chữ — nút, ô nhập, ảnh.
     khung: bool,
+    /// Dời xuống bao nhiêu khi vẽ, để nét không thò lên trên mép ô.
+    ///
+    /// Nét CÓ THỂ nằm trên đường ascent của phông — dấu phụ tiếng Việt là ca
+    /// thường gặp. Số này là phần thò lên, đo bằng chính bộ rasteriser sẽ vẽ.
+    lech_ve: f32,
     /// Chiều cao MỘT DÒNG, đo từ phông chứ không đoán.
     ///
     /// ⚠️ Lượt vẽ PHẢI dùng đúng con số này, không được tự tính lại. Lượt đo và
@@ -278,6 +285,39 @@ const DEM: f32 = 8.0;
 /// Thoáng hơn chiều cao nét một chút cho dễ đọc. Phông nào cần nhiều hơn thì
 /// [`cao_dong_that`] nới ra.
 const CAO_DONG: f32 = 1.4;
+
+/// Mép trên và mép dưới của NÉT THẬT, theo toạ độ của hộp chữ.
+///
+/// # Vì sao không dùng số liệu phông
+///
+/// Đã thử, và nó **không đủ**. Bản 23/08/2026 lấy `max_ascent + max_descent` của
+/// cosmic-text làm chiều cao dòng; CI trên Linux trả về **đúng bộ số cũ** — nét
+/// 21..43 trong ô 17..38. Nghĩa là nét vẽ ra vượt cả số liệu mà phông tự khai.
+/// Không hiếm: chữ hoa có hai dấu phụ chồng nhau thường vượt đường ascent, và
+/// bảng số liệu của phông không hứa bao được mọi glyph.
+///
+/// Nên đo bằng chính thứ sẽ vẽ. `draw` ở đây không ghi một điểm ảnh nào — nó chỉ
+/// gom biên. Ảnh glyph nằm lại trong `SwashCache`, nên lượt vẽ thật sau đó không
+/// phải rasteriser lại: đo hai lần, dựng ảnh một lần.
+fn do_net(b: &mut BorrowedWithFontSystem<'_, Buffer>, cache: &mut SwashCache) -> (f32, f32) {
+    let (mut tren, mut duoi) = (f32::MAX, f32::MIN);
+    b.draw(cache, Color::rgb(0, 0, 0), |_, gy, _, cao_o, mau| {
+        // Điểm ảnh TRONG SUỐT không phải nét. Không lọc thì viền mềm quanh glyph
+        // nới biên ra thêm vài pixel trống, và ô phình ra không vì gì cả.
+        if mau.a() == 0 {
+            return;
+        }
+        #[expect(clippy::cast_precision_loss, reason = "toạ độ glyph, luôn nhỏ")]
+        let (y, h) = (gy as f32, cao_o as f32);
+        tren = tren.min(y);
+        duoi = duoi.max(y + h);
+    });
+    if tren > duoi {
+        (0.0, 0.0)
+    } else {
+        (tren, duoi)
+    }
+}
 
 /// Chiều cao một dòng mà PHÔNG thật sự cần.
 ///
@@ -356,25 +396,45 @@ impl RasterRenderer {
         let cho_chu = (rong_toi_da - dem).max(co);
 
         let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(co, co * CAO_DONG));
-        let mut b = buffer.borrow_with(&mut self.fonts);
-        b.set_size(Some(cho_chu), None);
         let mut attrs = Attrs::new().family(Family::SansSerif);
         if dam {
             attrs = attrs.weight(cosmic_text::Weight::BOLD);
         }
-        // `Shaping::Advanced` — bắt buộc cho tiếng Việt. `Basic` bỏ qua việc
-        // xếp dấu phụ, và với tiếng Việt thì đó không phải "nhanh hơn", đó là SAI.
-        b.set_text(chu, &attrs, Shaping::Advanced, None);
-        b.shape_until_scroll(false);
 
-        let mut rong_chu: f32 = 0.0;
-        let mut so_dong = 0usize;
-        for run in b.layout_runs() {
-            rong_chu = rong_chu.max(run.line_w);
-            so_dong += 1;
-        }
-        let so_dong = so_dong.max(1);
+        // ⚠️ BA lượt, đúng thứ tự này — tôi đã làm sai một lần và CI trên Linux
+        // bác bỏ.
+        //
+        // Chiều cao dòng chỉ đọc được SAU khi tạo hình; và nét chỉ đo đúng SAU
+        // khi đã tạo hình lại bằng chính chiều cao ấy, vì `centering_offset` của
+        // cosmic-text phụ thuộc nó. Đo nét ở lượt tạo hình đầu là đo một cách
+        // xếp glyph mà lượt vẽ sẽ không dùng.
+        let (rong_chu, so_dong) = {
+            let mut b = buffer.borrow_with(&mut self.fonts);
+            b.set_size(Some(cho_chu), None);
+            // `Shaping::Advanced` — bắt buộc cho tiếng Việt. `Basic` bỏ qua việc
+            // xếp dấu phụ, và với tiếng Việt thì đó không phải "nhanh hơn", đó
+            // là SAI.
+            b.set_text(chu, &attrs, Shaping::Advanced, None);
+            b.shape_until_scroll(false);
+            let mut rong: f32 = 0.0;
+            let mut dong = 0usize;
+            for run in b.layout_runs() {
+                rong = rong.max(run.line_w);
+                dong += 1;
+            }
+            (rong, dong.max(1))
+        };
         let cao_dong = cao_dong_that(&buffer, co);
+        let (net_tren, net_duoi) = {
+            let mut b = buffer.borrow_with(&mut self.fonts);
+            b.set_metrics(Metrics::new(co, cao_dong));
+            // Và cùng BỀ RỘNG với lượt vẽ: `ve_o` tạo hình ở bề rộng tự nhiên
+            // của chữ (`o.rong` trừ đệm), không phải ở bề rộng tối đa được phép.
+            // Đo ở một bề rộng khác là đo một cách ngắt dòng khác.
+            b.set_size(Some(rong_chu), None);
+            b.shape_until_scroll(false);
+            do_net(&mut b, &mut self.cache)
+        };
 
         O {
             // Mặc định KHÔNG bấm được. Nhánh nào bấm được thì tự gắn vào — quên
@@ -387,8 +447,12 @@ impl RasterRenderer {
             dam,
             khung,
             rong: rong_chu + dem,
-            cao: cao_dong * so_dong as f32 + if khung { DEM } else { 0.0 },
+            // Ô phải chứa ĐƯỢC NÉT, không chỉ chứa được hộp dòng theo lý
+            // thuyết. `max` giữ nguyên hình học ở nơi nét vốn đã vừa.
+            cao: (cao_dong * so_dong as f32).max(net_duoi - net_tren.min(0.0))
+                + if khung { DEM } else { 0.0 },
             cao_dong,
+            lech_ve: (-net_tren).max(0.0),
         }
     }
 
@@ -510,7 +574,9 @@ impl RasterRenderer {
 
         let (pixel, rong_anh, cao_anh) = (&mut self.pixel, WIDTH, self.height);
         let nen_x = (dat.trai + dem) as i32;
-        let nen_y = (dat.tren + dem * 0.5) as i32;
+        // ⚠️ Cộng `o.lech_ve`. Lượt đo đã biết nét thò lên bao nhiêu; không dời
+        // thì nét vẽ lên trên mép ô, đè vào ô phía trên.
+        let nen_y = (dat.tren + dem * 0.5 + o.lech_ve) as i32;
         b.draw(
             &mut self.cache,
             Color::rgb(0, 0, 0),
