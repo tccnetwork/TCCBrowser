@@ -1087,6 +1087,43 @@ The closest replacement is a screen reader — a real third party — and no scr
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
 
+### 3.9 F3 came back, through a door this project opened yesterday
+
+Found 2026-08-23 by asking of each invariant "does the code still *do* this?"
+rather than "does a test with that name exist?".
+
+**The bug.** Three facts, each harmless alone:
+
+1. Accessibility node ids are assigned by a counter starting at **0 on every
+   tree build** (`to_accesskit_with_actions`). Screen 2's node 5 is not screen
+   1's node 5.
+2. The queue of pending `AXPress` requests has a push site and a drain site and
+   **no clear site**.
+3. The F3 guard — `da_bam.is_none()`, which stops a queued request from
+   overwriting an answer the user just gave — goes false→true again **at exactly
+   the moment the screen changes**, because `ket_man()` has just taken `da_bam`.
+
+Together: a request queued while screen 1 was up, not drained before the swap,
+is drained after it and looked up in the **new** table. It runs an action nobody
+pressed, on a screen the user has not read yet. In the wallet import flow, screen
+2 is the PIN prompt.
+
+**Where it came from.** `open_sequence` — written the day before, to let several
+screens share one event loop, because `tao` allows only one per process. Before
+that, every screen was its own loop and its own queue, and the bug had no way to
+exist. A fix for one problem opened the door for another, and the guard that
+would have caught it had been written for the single-screen world.
+
+**The fix** is one `clear()`, placed **before** the action table is rebuilt.
+Ordering is the whole fix: between rebuilding the table and clearing the queue,
+a stale id is still a valid lookup. Both halves are mutation-tested — remove the
+clear, and the test fails; move it after the rebuild, and it fails differently.
+
+Not fixed by making ids globally unique, though that would also work: it would
+make a stale request match nothing, which is the safe outcome. It is not done
+because AccessKit's adapters diff trees by id, and changing id allocation to
+chase this bug would trade a known failure for an unmeasured one.
+
 ### 3.8 B31 was BROKEN for a day, and how that happened
 
 On 2026-08-23, self-review found that the pixel renderer read `Tone::Danger`

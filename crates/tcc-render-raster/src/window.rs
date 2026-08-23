@@ -515,6 +515,26 @@ fn chay_chuoi(
             *dieu_khien = ControlFlow::Exit;
             return;
         }
+        // ⚠️ DỌN hàng đợi trợ năng khi sang màn mới. F3, lần thứ hai — và lần
+        // này chính `open_sequence` mở ra đường.
+        //
+        // Mã nút đánh lại từ 0 MỖI LẦN dựng cây, nên nút số 5 của màn 2 không
+        // phải nút số 5 của màn 1. Hàng đợi thì không tự dọn. Và chắn F3
+        // (`da_bam.is_none()`) vừa hết tác dụng đúng lúc này, vì `ket_man` vừa
+        // lấy `da_bam` ra.
+        //
+        // Ba thứ ấy ghép lại: một `AXPress` xếp ở màn 1 mà chưa kịp rút sẽ được
+        // rút ở màn 2 và tra vào BẢNG MỚI — chạy một hành động không ai bấm,
+        // trên một màn hình người dùng còn chưa đọc. Ở luồng nhập ví, màn 2 là
+        // màn hỏi mã PIN.
+        //
+        // Dọn ở ĐÂY chứ không ở `bao_tro_nang`: hàm ấy còn chạy khi vẽ lại cùng
+        // một màn (gạt công tắc), mà ở đó hình dạng cây không đổi nên mã nút vẫn
+        // đúng và một yêu cầu đang chờ vẫn hợp lệ.
+        #[cfg(feature = "accesskit-platform")]
+        if let Ok(mut h) = hang_tro_nang.lock() {
+            h.clear();
+        }
         #[cfg(feature = "accesskit-platform")]
         bao_tro_nang(
             &p.bo_dung,
@@ -968,6 +988,44 @@ mod kiem_thu {
             !than.contains('•'),
             "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
              khung nhận về hàng chấm thay vì thứ người dùng gõ"
+        );
+    }
+
+    /// **Sang màn mới phải DỌN hàng đợi yêu cầu trợ năng.**
+    ///
+    /// # Ba mảnh, mỗi mảnh vô hại, ghép lại thì không
+    ///
+    /// 1. Mã nút trợ năng đánh lại **từ 0 mỗi lần dựng cây**
+    ///    (`to_accesskit_with_actions`), nên nút số 5 của màn 2 không phải nút
+    ///    số 5 của màn 1.
+    /// 2. Hàng đợi `AXPress` không tự dọn — nó chỉ có chỗ đẩy vào và chỗ rút ra.
+    /// 3. Chắn F3 (`da_bam.is_none()`) hết tác dụng **đúng lúc đổi màn**, vì
+    ///    `ket_man` vừa lấy `da_bam` ra.
+    ///
+    /// Ghép lại: một yêu cầu xếp ở màn 1 mà chưa kịp rút sẽ được rút ở màn 2 và
+    /// tra vào BẢNG MỚI — chạy một hành động không ai bấm, trên một màn hình
+    /// người dùng còn chưa đọc. Ở luồng nhập ví, màn 2 là màn hỏi mã PIN.
+    ///
+    /// Soi mã nguồn, vì phép thử thật cần một vòng lặp sự kiện và một trình đọc
+    /// màn hình. Chốt hai điều: có chỗ dọn, và nó đứng TRƯỚC chỗ dựng lại bảng.
+    #[test]
+    fn sang_man_moi_thi_don_hang_doi_tro_nang() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        let sau_doi = than
+            .split_once("if let Err(e) = p.doi(")
+            .map(|(_, sau)| sau)
+            .expect("có nhánh sang màn mới");
+        let don = sau_doi
+            .find("h.clear()")
+            .expect("nhánh sang màn mới KHÔNG dọn hàng đợi trợ năng");
+        let dung_bang = sau_doi
+            .find("bao_tro_nang(")
+            .expect("nhánh sang màn mới không dựng lại bảng hành động");
+        assert!(
+            don < dung_bang,
+            "dọn hàng đợi SAU khi dựng lại bảng — giữa hai chỗ ấy một yêu cầu cũ \
+             vẫn tra được vào bảng mới"
         );
     }
 
