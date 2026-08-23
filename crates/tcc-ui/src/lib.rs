@@ -147,6 +147,21 @@ pub enum UiError {
     )]
     VerticalFraction(&'static str),
 
+    /// `fill` đặt trong một cha không có khoảng trống nào để chia.
+    ///
+    /// `fill` là "một phần khoảng TRỐNG trên trục chính của CHA". Cha kiểu cột
+    /// có trục chính là DỌC, mà bề dọc suy từ nội dung — không có con số nào để
+    /// lấy phần trống của.
+    ///
+    /// Bản đầu không chặn, và tệ hơn một lời khai chết: `fill` khi ấy làm nhóm
+    /// **co lại theo nội dung** (đo 23/08/2026 — con nhảy từ x=618 về x=12), tức
+    /// là làm một việc người viết không hề xin.
+    #[error(
+        "`fill` cần khoảng trống trên trục chính của cha, mà cha kiểu cột có \
+         trục chính là dọc và bề dọc suy từ nội dung"
+    )]
+    FillWithoutRoom,
+
     /// Vùng cuộn khai ra được nhưng chưa bộ dựng nào cắt được nội dung.
     ///
     /// Từ chối chứ không lặng lẽ vẽ đủ: một vùng cuộn không cuộn là một lời hứa
@@ -193,7 +208,9 @@ impl UiError {
             // xuất hiện ở đây trước khi 0.2 phát hành vì lời khai bố cục đã
             // dựng được: mã lỗi phải có TRƯỚC lời khai đầu tiên bị từ chối, chứ
             // không phải sau.
-            Self::BadExtent { .. } | Self::VerticalFraction { .. } => "bad-layout",
+            Self::BadExtent { .. } | Self::VerticalFraction { .. } | Self::FillWithoutRoom => {
+                "bad-layout"
+            }
             // `bad-scroll` — mã của 0.2, xem `spec/0.2/06-error-codes.md`.
             Self::ScrollNotSupported => "bad-scroll",
             Self::SecretFieldFromApp => "secret-field-from-app",
@@ -791,6 +808,24 @@ impl Node {
         let dem_moi = self.count + con.count;
         if dem_moi > MAX_NODES {
             return Err(UiError::TooManyNodes(dem_moi));
+        }
+        // `fill` chỉ có nghĩa khi CHA có khoảng trống trên trục chính của nó —
+        // và ở đây chỉ trục NGANG mới có bề xác định. Cha kiểu cột thì trục
+        // chính là dọc, dọc thì suy từ nội dung, và suy từ nội dung thì không
+        // có khoảng trống nào để chia. Xem [`UiError::FillWithoutRoom`].
+        if flow_cua(&self.kind) == Some(Flow::Column)
+            && matches!(
+                con.kind,
+                NodeKind::Group {
+                    size: Sizing {
+                        main: Some(Extent::Fill),
+                        ..
+                    },
+                    ..
+                }
+            )
+        {
+            return Err(UiError::FillWithoutRoom);
         }
         self.depth = self.depth.max(sau_moi);
         self.count = dem_moi;

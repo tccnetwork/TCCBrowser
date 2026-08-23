@@ -951,6 +951,162 @@ mod kiem_thu_43 {
         Some((tren, duoi))
     }
 
+    /// **Mọi lời khai bố cục được NHẬN đều phải đổi hình học.**
+    ///
+    /// Một lời khai được nhận rồi không làm gì là thứ tệ nhất trong nhóm này:
+    /// người viết ứng dụng thấy màn hình dựng lên bình thường và tin rằng lời
+    /// khai đã có tác dụng. Trên máy họ nó "chạy"; trên máy khác thì không.
+    ///
+    /// ⚠️ Mỗi ca phải cho lời khai một CƠ HỘI thể hiện — xem hai phép thử ngay
+    /// dưới, `wrap` và `fill` cần cây riêng.
+    #[test]
+    fn moi_loi_khai_duoc_nhan_deu_doi_hinh_hoc() {
+        use tcc_ui::{AlignCross, AlignMain, Extent, Sizing};
+        let d = Sizing::default();
+        // Hàng có hai chữ CAO THẤP KHÁC NHAU: căn theo trục phụ mới có chỗ hiện.
+        let hang = |am, ac, size, min, max, pad| {
+            let g = Node::group(Flow::Row, Gap::Small)
+                .child(Node::text_with("Cao", Emphasis::Title).unwrap())
+                .unwrap()
+                .child(Node::text("thấp").unwrap())
+                .unwrap()
+                .with_layout(size, min, max, am, ac, pad)
+                .unwrap();
+            let mut bd = RasterRenderer::new();
+            bd.render(&Node::group(Flow::Column, Gap::Medium).child(g).unwrap())
+                .unwrap();
+            bd.placed_boxes()
+        };
+        let nen = hang(AlignMain::Start, AlignCross::Start, d, d, d, Gap::None);
+        let nua = Sizing {
+            main: Some(Extent::Half),
+            cross: None,
+        };
+        let tu = Sizing {
+            main: Some(Extent::Quarter),
+            cross: None,
+        };
+        let ca = [
+            (
+                "align_main=End",
+                hang(AlignMain::End, AlignCross::Start, d, d, d, Gap::None),
+            ),
+            (
+                "align_main=Center",
+                hang(AlignMain::Center, AlignCross::Start, d, d, d, Gap::None),
+            ),
+            (
+                "align_cross=End",
+                hang(AlignMain::Start, AlignCross::End, d, d, d, Gap::None),
+            ),
+            (
+                "align_cross=Stretch",
+                hang(AlignMain::Start, AlignCross::Stretch, d, d, d, Gap::None),
+            ),
+            (
+                "padding=Large",
+                hang(AlignMain::Start, AlignCross::Start, d, d, d, Gap::Large),
+            ),
+            (
+                "size.main=Half",
+                hang(AlignMain::End, AlignCross::Start, nua, d, d, Gap::None),
+            ),
+            (
+                "min.main=Half",
+                hang(AlignMain::End, AlignCross::Start, d, nua, d, Gap::None),
+            ),
+            (
+                "max.main=Quarter",
+                hang(AlignMain::End, AlignCross::Start, d, d, tu, Gap::None),
+            ),
+        ];
+        for (ten, h) in ca {
+            assert_ne!(h, nen, "lời khai `{ten}` không đổi gì — nó đang chết");
+        }
+    }
+
+    /// **`wrap` chỉ có nghĩa khi nội dung TRÀN.**
+    ///
+    /// Bản thăm dò đầu báo `wrap` là "chết" vì cây thử chỉ có hai chữ ngắn, vừa
+    /// một dòng. Cùng hạng lỗi với "dụng cụ đo hỏng lặng lẽ vẫn trả về một kết
+    /// quả": phép đo không cho tính năng cơ hội thì báo chết cho một tính năng
+    /// đang sống, và ta đi sửa thứ không hỏng.
+    #[test]
+    fn wrap_can_noi_dung_tran_moi_do_duoc() {
+        let tran = |w| {
+            let mut g = Node::group(Flow::Row, Gap::Small);
+            for i in 0..12 {
+                g = g
+                    .child(Node::text(format!("phần-tử-số-{i}")).unwrap())
+                    .unwrap();
+            }
+            let mut bd = RasterRenderer::new();
+            bd.render(
+                &Node::group(Flow::Column, Gap::Medium)
+                    .child(g.with_wrap(w))
+                    .unwrap(),
+            )
+            .unwrap();
+            bd.placed_boxes()
+        };
+        assert_ne!(tran(None), tran(Some(false)), "`wrap` không đổi gì");
+    }
+
+    /// **`fill` phải CHIA ĐƯỢC khoảng trống, không chỉ "khác đi".**
+    ///
+    /// ⚠️ Khẳng định "có khai thì khác không khai" là KHÔNG đủ: `fill` đổi luôn
+    /// bề mặc định của nhóm, nên câu ấy vẫn xanh khi `flex_grow` bị bỏ hẳn —
+    /// kiểm đột biến chỉ ra đúng điều đó, và phép thử phải siết lại.
+    #[test]
+    fn fill_chia_khoang_trong_cua_cha() {
+        use tcc_ui::{AlignCross, AlignMain, Extent, Sizing};
+        let d = Sizing::default();
+        let day = |be| {
+            let trong = Node::group(Flow::Row, Gap::None)
+                .child(Node::text("A").unwrap())
+                .unwrap()
+                .with_layout(
+                    Sizing {
+                        main: be,
+                        cross: None,
+                    },
+                    d,
+                    d,
+                    AlignMain::End,
+                    AlignCross::Start,
+                    Gap::None,
+                )
+                .unwrap();
+            let mut bd = RasterRenderer::new();
+            bd.render(
+                &Node::group(Flow::Row, Gap::None)
+                    .child(trong)
+                    .unwrap()
+                    .child(Node::text("B").unwrap())
+                    .unwrap(),
+            )
+            .unwrap();
+            bd.placed_boxes()
+        };
+        let khong = day(None);
+        let co = day(Some(Extent::Fill));
+        // Không khai: nhóm chiếm trọn bề cha, nên anh em bị đẩy XUỐNG DÒNG.
+        assert!(
+            (khong[0].1 - khong[1].1).abs() > 1.0,
+            "chưa dựng được ca so sánh: {khong:?}"
+        );
+        // Có `fill`: nhóm nới ĐÚNG phần trống, anh em ở lại cùng dòng…
+        assert!(
+            (co[0].1 - co[1].1).abs() < 1.0,
+            "`fill` không nhường chỗ cho anh em: {co:?}"
+        );
+        // …và nhóm thật sự NỚI RA chứ không co về nội dung.
+        assert!(
+            co[0].0 > 300.0,
+            "`fill` co về nội dung thay vì nới ra: {co:?}"
+        );
+    }
+
     /// **Hàng ngang căn GIỮA theo chiều dọc, không dính mép trên.**
     ///
     /// Một nhãn nhỏ cạnh một tiêu đề lớn mà dính mép trên thì trông như bị treo

@@ -55,7 +55,7 @@ struct Cay {
 /// không ràng buộc. Dùng chung một mặc định thì một `min` không khai trục phụ
 /// hoá thành "tối thiểu bằng trọn bề cha" — và mọi thứ nở ra không ai hiểu vì
 /// sao.
-fn be_khai(flow: Flow, size: Sizing, phu_vang: Dimension) -> Size<Dimension> {
+fn be_khai(flow: Flow, cha: Option<Flow>, size: Sizing, phu_vang: Dimension) -> Size<Dimension> {
     let doi = |be: Option<Extent>, mac_dinh: Dimension| match be {
         None => mac_dinh,
         // `content` và `none` để `taffy` tự đo. `fill` cũng vậy: nó chia khoảng
@@ -78,8 +78,28 @@ fn be_khai(flow: Flow, size: Sizing, phu_vang: Dimension) -> Size<Dimension> {
         Flow::Row => (&mut ra.width, &mut ra.height),
         Flow::Column => (&mut ra.height, &mut ra.width),
     };
-    if let Some(m) = size.main {
-        *chinh = doi(Some(m), auto());
+    match size.main {
+        // ⚠️ `fill` KHÔNG phải một bề, và nó KHÔNG nói về trục chính của nút này.
+        //
+        // Nó là "một phần khoảng TRỐNG trên trục chính của CHA" — tức
+        // `flex-grow`. Bản đầu gắn nó vào trục chính của chính nút ấy và để
+        // `auto`, nên trong một cha kiểu CỘT nó làm nhóm **co lại theo nội
+        // dung**: đo được 23/08/2026, con nhảy từ x=618 về x=12. Đó là làm một
+        // việc người viết không hề xin, tệ hơn cả không làm gì.
+        //
+        // Đúng: chỉ để `auto` trên trục chính CỦA CHA, để `flex_grow` có chỗ
+        // nới; trục kia giữ nguyên mặc định.
+        Some(Extent::Fill) => {
+            let cha_ngang = matches!(cha, Some(Flow::Row));
+            if cha_ngang {
+                ra.width = auto();
+            } else {
+                ra.height = auto();
+            }
+            return ra;
+        }
+        Some(m) => *chinh = doi(Some(m), auto()),
+        None => {}
     }
     if size.cross.is_some() {
         *phu = doi(size.cross, phu_vang);
@@ -108,6 +128,9 @@ impl Cay {
         rong_toi_da: f32,
         do_la: &mut dyn FnMut(&Node, f32, &mut Vec<AccessNode>) -> O,
         access: &mut Vec<AccessNode>,
+        // Hướng xếp của CHA. `None` ở gốc — gốc không có cha, và `fill` ở đó
+        // không có khoảng trống nào để chia.
+        cha: Option<Flow>,
     ) -> Option<NodeId> {
         let NodeKind::Group {
             flow,
@@ -143,7 +166,7 @@ impl Cay {
         let mut con_access = Vec::new();
         let mut con = Vec::new();
         for c in n.children() {
-            if let Some(id) = self.dung(c, rong_toi_da, do_la, &mut con_access) {
+            if let Some(id) = self.dung(c, rong_toi_da, do_la, &mut con_access, Some(*flow)) {
                 con.push(id);
             }
         }
@@ -224,9 +247,9 @@ impl Cay {
             // Vắng lời khai thì nhóm chiếm trọn bề ngang cha — luật §8.1,
             // mặc định để tương thích 0.1, và 0.2 THAY THẾ nó ngay khi ứng dụng
             // khai `size.main`.
-            size: be_khai(*flow, *size, percent(1.0)),
-            min_size: be_khai(*flow, *min, auto()),
-            max_size: be_khai(*flow, *max, auto()),
+            size: be_khai(*flow, cha, *size, percent(1.0)),
+            min_size: be_khai(*flow, cha, *min, auto()),
+            max_size: be_khai(*flow, cha, *max, auto()),
             // `fill` là "một phần bằng nhau của khoảng TRỐNG", tức `flex-grow`,
             // không phải một bề. Nó nằm ở đây chứ không nằm trong `size`.
             flex_grow: if size.main == Some(Extent::Fill) {
@@ -257,7 +280,7 @@ pub(crate) fn xep(
         cay: TaffyTree::new(),
         la: Vec::new(),
     };
-    let goc = cay.dung(n, rong_toi_da, do_la, access)?;
+    let goc = cay.dung(n, rong_toi_da, do_la, access, None)?;
     cay.cay
         .compute_layout(
             goc,

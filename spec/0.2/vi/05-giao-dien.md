@@ -550,6 +550,16 @@ CHA suy từ nội dung — cần một lượt đi khắp cây; luật này t�
 TRỤC DỌC — quyết được từ chính nút ấy, và đúng bằng tập §3 sẽ từ chối trong một
 khung cuộn được.
 
+**`fill` trong cha kiểu cột là `bad-layout`.** §4.1 định nghĩa `fill` là một phần
+khoảng trống **trên trục chính của CHA**. Trục chính của cột là dọc, mà dọc thì
+suy từ nội dung (§8.2 ở trên), nên không có khoảng trống nào để chia.
+
+Ca này trước khi bị bắt còn tệ hơn một lời khai chết. Bộ dựng tham chiếu gắn
+`fill` vào trục chính của CHÍNH NÚT ấy thay vì của cha, nên trong một cha kiểu
+cột nó lặng lẽ thay bề mặc định trọn-bề-ngang bằng co-theo-nội-dung: đo ngày
+23/08/2026, con căn mép cuối nhảy từ x=618 về x=12. Đó không phải "lời khai không
+có tác dụng" — đó là bộ dựng làm một việc người viết không hề xin.
+
 **`scroll: true` là `bad-scroll`.** Không phải vì lời khai ấy bất khả về nguyên
 tắc — §9 định nghĩa nó đầy đủ — mà vì **chưa bộ dựng nào trong kho này cắt được
 nội dung theo nhóm**. Đo cùng ngày: một nhóm `scroll: true` với bốn con cao hơn

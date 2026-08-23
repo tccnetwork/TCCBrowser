@@ -568,6 +568,18 @@ This is §3's rule arriving through a different door, and it is narrower than §
 pass; this rejects a fraction on the *vertical axis*, which is decidable from the
 node alone and is exactly the set §3 would reject in a scrolling frame.
 
+**`fill` inside a column parent is `bad-layout`.** §4.1 defines `fill` as a share
+of the parent's free space **on the parent's main axis**. A column's main axis is
+vertical, and vertical is content-derived here (§8.2 above), so there is no free
+space to take a share of.
+
+This one was worse than a dead declaration before it was caught. The reference
+renderer mapped `fill` onto the *node's own* main axis instead of the parent's,
+so inside a column parent it silently replaced the group's default full width
+with shrink-to-content: measured 2026-08-23, an end-aligned child jumped from
+x=618 to x=12. That is not "the declaration had no effect" — it is the renderer
+doing something the author never asked for.
+
 **`scroll: true` is `bad-scroll`.** Not because the declaration is impossible in
 principle — §9 defines it fully — but because **no renderer in this repository
 clips content to a group**. Measured the same day: a group with `scroll: true`
