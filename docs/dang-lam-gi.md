@@ -32,11 +32,17 @@ nay phép thử ta viết đọc lại cây ta cũng tự dựng.
 
 ### Bẫy đã dẫm hôm nay
 
-- **Một phép thử xanh trên macOS, đỏ trên Linux, và hai chẩn đoán đầu của tôi
-  đều sai.** Cái giải được là **in HỘP vào thông báo lỗi** rồi để CI nói —
-  không phải đoán thêm vòng nữa. Hộp hai nền giống hệt nhau; sai là **nét chữ
-  vẽ tràn ra ngoài ô của chính nó**, vì chiều cao ô tính bằng `cỡ × 1.4`, một
-  con số đoán. Nợ ấy nay có tên: `net_khong_tran_ra_ngoai_o`.
+- **Một phép thử xanh trên macOS, đỏ trên Linux — và tôi đoán sai BA lần.**
+  Đã xanh cả ba nền từ 23/08. Đáng ghi lại là cách tìm ra, không phải bản sửa:
+  lần nào cũng chỉ tiến được khi **đưa thêm số đo vào thông báo lỗi** — đầu tiên
+  là hộp, rồi `cao_dong`/`cao`, rồi biên nét thô. Đoán từ một nửa dữ liệu là
+  đoán, và tôi đã đoán ba lần trước khi chịu đi lấy nửa còn lại.
+
+  Nguyên nhân thật: bộ tính bố cục làm tròn `o.rong` **xuống**, nên lượt vẽ tạo
+  hình ở bề rộng hẹp hơn lượt đo, chuỗi ngắt thành hai dòng, nét cao gấp đôi số
+  đã đo. Hai bản sửa đầu — đoán rằng lỗi ở chiều cao dòng — không sai về mã,
+  chúng chỉ chữa nhầm chỗ. Bản đúng: làm tròn LÊN, và gộp hai lượt tạo hình
+  thành **một hàm duy nhất** để chúng không lệch được nữa.
 - **`clippy` chưa bao giờ được chạy theo từng cờ**, chỉ một lượt workspace. Mã
   sau một cờ chỉ được soi khi cờ ấy bật. `CLAUDE.md` đã vá.
 - **`grep "webview"` không bắt hết.** Hai bước CI còn sống vì tên chúng là
@@ -51,7 +57,6 @@ nay phép thử ta viết đọc lại cây ta cũng tự dựng.
 | Nợ | Ở đâu |
 |---|---|
 | `chay_chuoi` dài 169 dòng — cần gói phiên vào một struct | `tcc-render-raster/src/window.rs` |
-| Nét chữ tràn ra ngoài ô trên Linux — hỏi phông chiều cao thật | `net_khong_tran_ra_ngoai_o`, `#[ignore]` |
 | Chưa trình đọc màn hình nào chạy thật | SECURITY.md §3.1d |
 | `ttf-parser` phân tích phông trong tiến trình vẽ nội dung đã ký | SECURITY.md §3.5b |
 
