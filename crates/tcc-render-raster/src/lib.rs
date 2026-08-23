@@ -255,11 +255,17 @@ pub(crate) struct O {
     dam: bool,
     /// Khung quanh chữ — nút, ô nhập, ảnh.
     khung: bool,
-    /// Dời xuống bao nhiêu khi vẽ, để nét không thò lên trên mép ô.
+    /// Biên nét THÔ như lượt đo thấy — mép trên và mép dưới, chưa qua `max` nào.
+    ///
+    /// Đây là **nguồn duy nhất**: `cao` suy ra từ nó, và lượt vẽ suy ra độ dời
+    /// từ nó (`(-net.0).max(0.0)`). Giữ số thô thay vì giữ kết quả đã kẹp, vì
+    /// một kết quả đã kẹp không phân biệt được "đo ra số nhỏ" với "không đo được
+    /// gì" — hai nguyên nhân khác hẳn nhau, và tôi đã mất hai vòng CI ở đúng chỗ
+    /// mù ấy.
     ///
     /// Nét CÓ THỂ nằm trên đường ascent của phông — dấu phụ tiếng Việt là ca
-    /// thường gặp. Số này là phần thò lên, đo bằng chính bộ rasteriser sẽ vẽ.
-    lech_ve: f32,
+    /// thường gặp — nên `net.0` âm được.
+    net: (f32, f32),
     /// Chiều cao MỘT DÒNG, đo từ phông chứ không đoán.
     ///
     /// ⚠️ Lượt vẽ PHẢI dùng đúng con số này, không được tự tính lại. Lượt đo và
@@ -452,7 +458,7 @@ impl RasterRenderer {
             cao: (cao_dong * so_dong as f32).max(net_duoi - net_tren.min(0.0))
                 + if khung { DEM } else { 0.0 },
             cao_dong,
-            lech_ve: (-net_tren).max(0.0),
+            net: (net_tren, net_duoi),
         }
     }
 
@@ -574,9 +580,9 @@ impl RasterRenderer {
 
         let (pixel, rong_anh, cao_anh) = (&mut self.pixel, WIDTH, self.height);
         let nen_x = (dat.trai + dem) as i32;
-        // ⚠️ Cộng `o.lech_ve`. Lượt đo đã biết nét thò lên bao nhiêu; không dời
+        // ⚠️ Dời xuống bằng phần nét thò LÊN TRÊN mà lượt đo đã thấy. Không dời
         // thì nét vẽ lên trên mép ô, đè vào ô phía trên.
-        let nen_y = (dat.tren + dem * 0.5 + o.lech_ve) as i32;
+        let nen_y = (dat.tren + dem * 0.5 + (-o.net.0).max(0.0)) as i32;
         b.draw(
             &mut self.cache,
             Color::rgb(0, 0, 0),
@@ -1070,11 +1076,11 @@ mod kiem_thu_43 {
             assert!(
                 tren >= *y - 1.0 && duoi <= *y + *h + 1.0,
                 "ô {i} ({:?}): nét {tren}..{duoi} nằm ngoài ô {y}..{} \
-                 — lượt đo: cao_dong={} lech_ve={} cao={} rong={}",
+                 — lượt đo: net={:?} cao_dong={} cao={} rong={}",
                 d.o.chu,
                 *y + *h,
+                d.o.net,
                 d.o.cao_dong,
-                d.o.lech_ve,
                 d.o.cao,
                 d.o.rong
             );
