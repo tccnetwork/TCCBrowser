@@ -325,164 +325,233 @@ pub fn field_if_submitted<'a>(
 // trộn vào nhóm 12 hàm màn-hình-đơn phía trên, vì chúng khác hạng: nhóm trên mở
 // MỘT màn hình rồi trả lời; nhóm này điều khiển cả một phiên.
 
-/// Hỏi quyền **từng mục một**, trên bộ dựng ra pixel.
+/// **Mở gói và chạy nó — TRỌN ĐƯỜNG, trong MỘT chuỗi màn hình.**
 ///
-/// ⚠️ Tiêu đề là chuỗi CỦA TRÌNH DUYỆT, không phải `m.name`. Một gói đặt tên
-/// `"TCC — quyền đã cấp"` mà được mượn tiêu đề thì có một cửa sổ **của trình
-/// duyệt** trông y hệt màn hình quản lý quyền — và đây mới là cửa sổ người dùng
-/// bấm "Cho phép". `SECURITY.md` §3.1c.
+/// # Vì sao phải là một hàm, không phải hai lời gọi
 ///
-/// Hỏng ở bất kỳ bước nào thì **từ chối tất cả**: không dựng được hộp thoại
-/// nghĩa là không hỏi được, và không hỏi được thì câu trả lời là không.
-#[cfg(feature = "window")]
-fn hoi_quyen_tung_muc_raster(
-    m: &Manifest,
-    ngon_ngu: Language,
-    nguoi_ky: &crate::permission_store::SignerStatus,
-) -> (Option<String>, Vec<String>) {
-    let Ok(cay) = permission_dialog::build_with_signer(m, ngon_ngu, nguoi_ky) else {
-        eprintln!("[khung] không dựng được hộp thoại hỏi quyền — từ chối tất cả");
-        return (None, Vec::new());
-    };
-    match tcc_render_raster::window::open_screen(
-        &cay,
-        crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu),
-        &crate::text::raster_text(ngon_ngu),
-    ) {
-        Ok(k) => (k.action, k.toggles_on.into_iter().collect()),
-        Err(e) => {
-            eprintln!("[khung] không mở được hộp thoại: {e} — từ chối tất cả");
-            (None, Vec::new())
-        }
-    }
-}
-
-/// Kiểm chữ ký, hỏi quyền còn thiếu, rồi cấp — trên bộ dựng ra pixel.
+/// Trước 24/08/2026 đường này là `open_package_raster` (mở hộp thoại hỏi quyền)
+/// rồi `run_app_raster` (mở màn ứng dụng). Mỗi lời gọi vào vòng lặp sự kiện một
+/// lần — và trên macOS `run_return` **không vào lại được** sau khi đã thoát: lần
+/// thứ hai trả về ngay, không giao một sự kiện nào.
+///
+/// Triệu chứng đi qua ba dạng, mỗi dạng ồn ào hơn dạng trước:
+///
+/// 1. Dựng hai `EventLoop` → `tao` **abort**, thông báo không nói gì về nguyên
+///    nhân.
+/// 2. Dùng chung một `EventLoop` nhưng gọi `run_return` hai lần → màn hai **loé
+///    rồi tắt**, bên gọi nhận `Ok` và tưởng người dùng đã đóng cửa sổ. Im lặng,
+///    nên tệ hơn abort.
+/// 3. Nay lần vào thứ hai là LỖI có câu chữ — và hàm này là đường không cần vào
+///    lần thứ hai.
+///
+/// Hỏi quyền và chạy ứng dụng là hai MÀN HÌNH, không phải hai phiên.
 ///
 /// # Errors
-/// Chữ ký hỏng, gói hỏng, hoặc cấp quyền thất bại.
+/// Chữ ký hỏng, gói hỏng, cấp quyền thất bại, hoặc không mở được cửa sổ.
 #[cfg(feature = "window")]
-pub fn open_package_raster(
+pub fn open_and_run_raster(
     duong_dan: &std::path::Path,
     ngon_ngu: Language,
     kho_quyen: Option<&std::path::Path>,
-) -> Result<tcc_runtime::LoadedApp, Box<dyn std::error::Error>> {
-    use crate::permission_store::{PermissionStore, SignerStatus};
+    mang: &dyn tcc_runtime::Network,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::permission_store::PermissionStore;
+    use tcc_render_raster::window::{Next, Screen};
 
-    // 1. Kiểm chữ ký. Chưa hiện gì lên màn hình.
     let (app, noi_dung) = tcc_runtime::verify_from_dir(duong_dan, &tcc_crypto::HybridEd25519MlDsa)?;
     let m = app.manifest().clone();
-
     let mut nho = kho_quyen.map(PermissionStore::open);
+    let (nguoi_ky, con_phai_hoi) = con_thieu_gi(&m, nho.as_ref());
 
-    // Hỏi TRƯỚC khi `nho` ghi đè khoá mới lên — sau đó không còn gì để so.
-    let nguoi_ky = nho
-        .as_ref()
-        .map_or(SignerStatus::LanDau, |n| n.signer_status(&m));
+    let tieu_de_app = app_window_title(&m);
+
+    // Cấp quyền từ MỘT câu trả lời. Gọi đúng một lần, dù đi đường nào.
+    let mut cho = Some((app, noi_dung));
+    let m_cap = m.clone();
+    let mut cap = move |nho: &mut Option<PermissionStore>,
+                        hanh_dong: Option<&str>,
+                        bat: &[String]|
+          -> Result<tcc_runtime::LoadedApp, Box<dyn std::error::Error>> {
+        let (a, c) = cho.take().ok_or("đã cấp quyền một lần rồi")?;
+        let a = tcc_runtime::grant_verified(a, c, |xin| {
+            let qd = nho
+                .as_ref()
+                .and_then(|n| n.lookup(&m_cap, xin))
+                .unwrap_or_else(|| permission_dialog::decide(hanh_dong, bat, &xin.name));
+            if let Some(n) = nho.as_mut() {
+                n.remember(&m_cap, xin, qd);
+            }
+            qd
+        })?;
+        if let Some(n) = nho.as_ref()
+            && let Err(e) = n.save()
+        {
+            // Ghi hỏng KHÔNG làm hỏng phiên đang chạy — chỉ là lần sau hỏi lại.
+            eprintln!("[khung] không ghi được kho quyền: {e} — lần sau sẽ hỏi lại");
+        }
+        // Ba dòng này là cách người dùng ở dòng lệnh biết gói nào vừa được nạp
+        // và quyền nào đã được cấp. Chúng ở ĐÂY chứ không ở `main` vì `main`
+        // không còn cầm `LoadedApp` — nó chỉ gọi một hàm và chờ.
+        let man = a.manifest();
+        println!("✓ Đã nạp \"{}\" ({})", man.name, man.id.as_str());
+        println!(
+            "  điểm vào : {} ({} byte)",
+            man.entry,
+            a.entry_content().len()
+        );
+        println!(
+            "  quyền mạng: {}",
+            if a.capabilities().network().is_some() {
+                "ĐƯỢC CẤP"
+            } else {
+                "không"
+            }
+        );
+        Ok(a)
+    };
+
+    // Đã trả lời hết thì KHÔNG mở hộp thoại: bắt người dùng đọc lại thứ họ đã
+    // quyết định là đường dẫn tới bấm bừa.
+    let (man_dau, da_cap) = if con_phai_hoi.is_empty() {
+        let a = cap(&mut nho, None, &[])?;
+        let cay = tcc_ui::wire::decode(a.entry_content())?;
+        (
+            Screen {
+                tree: cay,
+                title: tieu_de_app.clone(),
+                text: crate::text::raster_text(ngon_ngu),
+            },
+            Some(a),
+        )
+    } else {
+        (man_hoi_quyen(&m, con_phai_hoi, &nguoi_ky, ngon_ngu)?, None)
+    };
+
+    let mut app_dang_chay = da_cap;
+    let mut goc_app: Option<tcc_ui::Node> = None;
+    let mut loi: Option<String> = None;
+
+    tcc_render_raster::window::open_sequence(man_dau, |k| {
+        let Some(hanh_dong) = k.action.as_deref() else {
+            return Next::Done;
+        };
+
+        // ── Màn 1 → 2: hộp thoại vừa trả lời, cấp quyền rồi hiện ứng dụng ──
+        if app_dang_chay.is_none() {
+            let bat: Vec<String> = k.toggles_on.iter().cloned().collect();
+            let a = match cap(&mut nho, Some(hanh_dong), &bat) {
+                Ok(a) => a,
+                Err(e) => {
+                    loi = Some(e.to_string());
+                    return Next::Done;
+                }
+            };
+            let Ok(cay) = tcc_ui::wire::decode(a.entry_content()) else {
+                loi = Some("điểm vào không đọc được thành cây hợp lệ".to_owned());
+                return Next::Done;
+            };
+            goc_app = Some(cay.clone());
+            app_dang_chay = Some(a);
+            return Next::Show(Box::new(Screen {
+                tree: cay,
+                title: tieu_de_app.clone(),
+                text: crate::text::raster_text(ngon_ngu),
+            }));
+        }
+
+        // ── Trong ứng dụng: mỗi cú bấm đi qua đúng cổng quyền năng ──
+        let (Some(a), Some(goc)) = (app_dang_chay.as_ref(), goc_app.as_ref()) else {
+            return Next::Done;
+        };
+        bam_trong_ung_dung(a, goc, hanh_dong, ngon_ngu, mang, &tieu_de_app)
+    })?;
+
+    loi.map_or(Ok(()), |e| Err(e.into()))
+}
+
+/// Màn hỏi quyền, chỉ liệt kê những quyền CÒN THIẾU câu trả lời.
+///
+/// Hiện lại cả những quyền đã đồng ý từ trước là bắt người dùng đọc lại thứ họ
+/// đã quyết định — và đọc lại quá nhiều lần thì thành bấm bừa.
+#[cfg(feature = "window")]
+fn man_hoi_quyen(
+    m: &Manifest,
+    con_phai_hoi: Vec<tcc_spec::CapabilityRequest>,
+    nguoi_ky: &crate::permission_store::SignerStatus,
+    ngon_ngu: Language,
+) -> Result<tcc_render_raster::window::Screen, Box<dyn std::error::Error>> {
+    let mut chi_con_thieu = m.clone();
+    chi_con_thieu.capabilities = con_phai_hoi;
+    let cay = permission_dialog::build_with_signer(&chi_con_thieu, ngon_ngu, nguoi_ky)?;
+    // Tiêu đề của TRÌNH DUYỆT, không mang mã ứng dụng — `SECURITY.md` §3.1c.
+    let tieu_de =
+        crate::text::label(crate::text::TextKey::HoiQuyenTieuDeCuaSo, ngon_ngu).to_owned();
+    Ok(tcc_render_raster::window::Screen {
+        tree: cay,
+        title: tieu_de,
+        text: crate::text::raster_text(ngon_ngu),
+    })
+}
+
+/// Người ký có đổi khoá không, và quyền nào CHƯA có câu trả lời.
+///
+/// Hỏi trạng thái người ký TRƯỚC khi kho ghi đè khoá mới lên — sau đó không còn
+/// gì để so.
+#[cfg(feature = "window")]
+fn con_thieu_gi(
+    m: &Manifest,
+    nho: Option<&crate::permission_store::PermissionStore>,
+) -> (
+    crate::permission_store::SignerStatus,
+    Vec<tcc_spec::CapabilityRequest>,
+) {
+    use crate::permission_store::SignerStatus;
+    let nguoi_ky = nho.map_or(SignerStatus::LanDau, |n| n.signer_status(m));
     if let SignerStatus::DoiKhoa { van_tay_cu } = &nguoi_ky {
         eprintln!(
             "[khung] ⚠️ \"{}\" trước đây ký bằng khoá khác ({van_tay_cu})",
             m.name
         );
     }
-
-    // 2. Quyền nào ĐÃ CÓ CÂU TRẢ LỜI thì không hỏi lại. `lookup` trả `None` với
-    //    mọi trường hợp không rõ ràng — chưa từng hỏi, khoá đổi, phạm vi nới —
-    //    nên "còn thiếu" luôn nghiêng về phía hỏi thêm.
-    let con_phai_hoi: Vec<_> = m
+    // `lookup` trả `None` với mọi trường hợp không rõ ràng, nên
+    // "còn thiếu" luôn nghiêng về phía hỏi thêm.
+    let con_phai_hoi = m
         .capabilities
         .iter()
-        .filter(|c| nho.as_ref().and_then(|n| n.lookup(&m, c)).is_none())
+        .filter(|c| nho.and_then(|n| n.lookup(m, c)).is_none())
         .cloned()
         .collect();
-
-    let (hanh_dong, dang_bat) = if con_phai_hoi.is_empty() {
-        (None, Vec::new())
-    } else {
-        // Chỉ liệt kê quyền CÒN THIẾU. Bắt đọc lại thứ đã quyết định là đường
-        // dẫn tới bấm bừa.
-        let mut chi_con_thieu = m.clone();
-        chi_con_thieu.capabilities = con_phai_hoi;
-        hoi_quyen_tung_muc_raster(&chi_con_thieu, ngon_ngu, &nguoi_ky)
-    };
-
-    // 3. Cấp quyền — TỪNG MỤC MỘT.
-    let app = tcc_runtime::grant_verified(app, noi_dung, |xin| {
-        let qd = nho
-            .as_ref()
-            .and_then(|n| n.lookup(&m, xin))
-            .unwrap_or_else(|| {
-                permission_dialog::decide(hanh_dong.as_deref(), &dang_bat, &xin.name)
-            });
-        if let Some(n) = nho.as_mut() {
-            n.remember(&m, xin, qd);
-        }
-        qd
-    })?;
-
-    if let Some(n) = nho.as_ref()
-        && let Err(e) = n.save()
-    {
-        // Ghi hỏng KHÔNG được làm hỏng phiên đang chạy — chỉ là lần sau hỏi lại.
-        eprintln!("[khung] không ghi được kho quyền: {e} — lần sau sẽ hỏi lại");
-    }
-    Ok(app)
+    (nguoi_ky, con_phai_hoi)
 }
 
-/// Chạy ứng dụng: vẽ màn hình, mỗi cú bấm chạy hành vi đã khai — qua đúng cổng
-/// quyền năng.
+/// Một cú bấm TRONG ứng dụng: chạy hành vi, rồi vẽ lại kèm câu trả lời.
 ///
-/// Cổng quyền năng nằm ở `tcc-runtime`, không ở đây: hàm này chỉ chuyển mã hành
-/// động xuống `LoadedApp::perform`, và `perform` kiểm trước khi chạm mạng.
-///
-/// # Errors
-/// Điểm vào không đọc được thành cây hợp lệ, hoặc không mở được cửa sổ.
+/// Cổng quyền năng nằm ở `tcc-runtime`: hàm này chỉ chuyển mã hành động xuống
+/// `perform`, và `perform` kiểm trước khi chạm mạng.
 #[cfg(feature = "window")]
-pub fn run_app_raster(
-    app: &tcc_runtime::LoadedApp,
+fn bam_trong_ung_dung(
+    a: &tcc_runtime::LoadedApp,
+    goc: &tcc_ui::Node,
+    hanh_dong: &str,
     ngon_ngu: Language,
     mang: &dyn tcc_runtime::Network,
-) -> Result<(), Box<dyn std::error::Error>> {
+    tieu_de: &str,
+) -> tcc_render_raster::window::Next {
     use tcc_render_raster::window::{Next, Screen};
-
-    let cay = tcc_ui::wire::decode(app.entry_content())?;
-    let tieu_de = app_window_title(app.manifest());
-    let goc = cay.clone();
-
-    tcc_render_raster::window::open_sequence(
-        Screen {
-            tree: cay,
-            title: tieu_de.clone(),
-            text: crate::text::raster_text(ngon_ngu),
-        },
-        move |k| {
-            let Some(hanh_dong) = k.action.as_deref() else {
-                return Next::Done;
-            };
-            // Báo LÊN MÀN HÌNH, không chỉ ra terminal. Người dùng không đọc
-            // terminal, và một nút bấm mà màn hình không đổi gì là một nút họ
-            // sẽ bấm lại.
-            let cau = match app.perform(hanh_dong, mang) {
-                Ok(du_lieu) => crate::text::action_done(hanh_dong, du_lieu.len(), ngon_ngu),
-                // Bị quyền năng từ chối KHÔNG phải lỗi của trình duyệt — đó là
-                // hệ thống làm đúng việc. Nói ra, rồi chạy tiếp.
-                Err(_) => crate::text::action_refused(hanh_dong, ngon_ngu),
-            };
-            // Câu trả lời của KHUNG vẽ DƯỚI cây của ứng dụng, trong cùng một
-            // cửa sổ — y như `GiuVaBao` của đường kia. Ứng dụng vẫn tự viết
-            // được một dòng chữ trông giống; cái nó không làm được là đổi tiêu
-            // đề cửa sổ, và đó mới là chỗ người dùng phân biệt.
-            let Ok(cay_moi) = bao_duoi_cay(&goc, &cau) else {
-                return Next::Done;
-            };
-            Next::Show(Box::new(Screen {
-                tree: cay_moi,
-                title: tieu_de.clone(),
-                text: crate::text::raster_text(ngon_ngu),
-            }))
-        },
-    )?;
-    Ok(())
+    let cau = match a.perform(hanh_dong, mang) {
+        Ok(du_lieu) => crate::text::action_done(hanh_dong, du_lieu.len(), ngon_ngu),
+        // Bị quyền năng từ chối KHÔNG phải lỗi của trình duyệt — đó là hệ thống
+        // làm đúng việc. Nói ra, rồi chạy tiếp.
+        Err(_) => crate::text::action_refused(hanh_dong, ngon_ngu),
+    };
+    let Ok(cay_moi) = bao_duoi_cay(goc, &cau) else {
+        return Next::Done;
+    };
+    Next::Show(Box::new(Screen {
+        tree: cay_moi,
+        title: tieu_de.to_owned(),
+        text: crate::text::raster_text(ngon_ngu),
+    }))
 }
 
 /// Cây của ứng dụng, kèm một dòng của KHUNG ở dưới.

@@ -35,6 +35,7 @@ tools/kiem-luat-phu-thuoc.sh   # 22 luật, chạy trước biên dịch trong C
 cargo test --workspace
 cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
+tools/kiem-khoi-ung-dung.sh    # CHÍNH nhị phân sản phẩm, đi hết đường
 
 # Và MỌI tổ hợp cờ CI có chạy — `cargo test --workspace` KHÔNG dựng chúng:
 cargo test -p tcc-shell --features accesskit --test hai-bo-dung

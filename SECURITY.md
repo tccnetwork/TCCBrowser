@@ -1117,14 +1117,41 @@ giving the failure a chance to happen: a probe that never let `wrap` wrap, a
 is worth naming: **a check that cannot distinguish "it worked" from "it did not
 get that far" is not a check.**
 
-**The fix** is one process-wide event loop, created on first use and reused —
-which is what `run_return` exists for. Placed inside `chay_chuoi` rather than
-asking every caller to chain its screens into one `open_sequence`: a caller that
-forgets is an abort, and "do not forget" is not a mechanism.
+**The first fix was wrong, and its failure was quieter than the bug.** Sharing
+one `EventLoop` across two `run_return` calls stops the abort — and on macOS the
+second call **returns immediately without delivering a single event**. Measured:
+loop one ran its full two seconds, loop two exited in 113 ms with no branch of
+ours reached. The app screen appeared and vanished, and the caller got `Ok`,
+which reads as "the user closed the window". A silent wrong answer in place of a
+loud crash.
 
-Nested calls — `chay_chuoi` from inside another one's closure — are now a plain
-error message instead of a `RefCell` panic, because a programming mistake should
-say what it was.
+**The real fix**: the permission dialog and the app screen are two **screens**,
+not two sessions, so they go through one `open_sequence` — which is what that
+function exists for. `open_and_run_raster` replaces the `open_package_raster` +
+`run_app_raster` pair, and both halves of that pair are **deleted**: leaving them
+in place invites the next person to call them in the order that broke.
+
+A second entry into the loop is now a plain error with a sentence, and nested
+calls likewise — a programming mistake should say what it was.
+
+**And there is now a check that would have caught it.**
+`tools/kiem-khoi-ung-dung.sh` runs the product binary through both screens with
+no human present, using two hooks: `TCC_TU_DONG_DONG` (close after N seconds) and
+`TCC_TU_DONG_BAM` (press a named action — only one that **exists on the current
+screen**). Auto-close alone can never get past the first screen, because closing
+a window is not an answer; something has to answer.
+
+The script does not ask "is the process alive" — that is the question whose
+answer fooled me. It asks three: exit code zero, no panic in the output, and a
+line that is only printed **after the second screen is reached**. The third is
+the one that matters; the first two still pass if the program stops at screen
+one. Mutation-tested by restoring the two-call sequence: all three fail.
+
+⚠️ `TCC_TU_DONG_BAM` can answer a permission dialog. It presses only actions
+present on the screen, and the smoke script deliberately presses **deny** — a
+smoke test that grants permissions teaches that granting is the default — but
+anyone who sets this variable is giving themselves the power to answer for the
+user.
 
 ### 3.13 B16 held for disk and leaked at the keyboard (B43, new)
 

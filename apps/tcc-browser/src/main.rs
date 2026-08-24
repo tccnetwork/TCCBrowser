@@ -112,42 +112,22 @@ fn mo_goi_that(duong_dan: &std::path::Path, ngon_ngu: Language) -> ExitCode {
     } else {
         Some(duong_dan.join(".tcc-quyen.json"))
     };
-    let app =
-        match tcc_shell::window_raster::open_package_raster(duong_dan, ngon_ngu, kho.as_deref()) {
-            Ok(a) => a,
-            Err(e) => {
-                eprintln!("✗ {e}");
-                return ExitCode::FAILURE;
-            }
-        };
-
-    let m = app.manifest();
-    println!("✓ Đã nạp \"{}\" ({})", m.name, m.id.as_str());
-    println!(
-        "  điểm vào : {} ({} byte)",
-        m.entry,
-        app.entry_content().len()
-    );
-    println!(
-        "  quyền mạng: {}",
-        if app.capabilities().network().is_some() {
-            "ĐƯỢC CẤP"
-        } else {
-            "không"
-        }
-    );
-
-    // ⚠️ MÀN HÌNH ỨNG DỤNG — thiếu đúng lời gọi này cho tới 17/08/2026.
+    // ⚠️ MỘT lời gọi, không phải hai.
     //
-    // `open_package` chỉ kiểm chữ ký và hỏi quyền. Trước đây `main` dừng ngay
-    // sau đó, nên trình duyệt nạp gói, hỏi quyền, in ba dòng rồi THOÁT: lần đầu
-    // chạy thì thấy hộp thoại quyền và tưởng là xong, lần sau có kho quyền rồi
-    // thì cửa sổ không hiện ra nữa và không ai hiểu vì sao.
+    // Trước 24/08/2026 chỗ này gọi `open_package_raster` (hỏi quyền) rồi
+    // `run_app_raster` (hiện màn ứng dụng). Mỗi lời gọi vào vòng lặp sự kiện một
+    // lần, và trên macOS `run_return` KHÔNG vào lại được sau khi đã thoát — nên
+    // đường chính của sản phẩm abort, rồi (sau bản vá đầu) im lặng loé màn hai
+    // rồi tắt.
     //
-    // `run_app` chứ không `show_app`: người dùng bấm được nút, và mỗi cú bấm đi
-    // qua đúng cổng quyền năng ở `tcc-runtime`.
+    // Hỏi quyền và chạy ứng dụng là hai MÀN HÌNH, không phải hai phiên.
     let mang = mang_that();
-    if let Err(e) = tcc_shell::window_raster::run_app_raster(&app, ngon_ngu, mang.as_ref()) {
+    if let Err(e) = tcc_shell::window_raster::open_and_run_raster(
+        duong_dan,
+        ngon_ngu,
+        kho.as_deref(),
+        mang.as_ref(),
+    ) {
         eprintln!("✗ {e}");
         return ExitCode::FAILURE;
     }

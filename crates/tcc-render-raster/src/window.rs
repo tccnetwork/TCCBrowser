@@ -354,6 +354,20 @@ thread_local! {
     /// dựng — nên dùng lại là cách `tao` muốn được dùng.
     static VONG: std::cell::RefCell<Option<tao::event_loop::EventLoop<()>>> =
         const { std::cell::RefCell::new(None) };
+    /// Vòng lặp đã chạy XONG một lần chưa.
+    ///
+    /// ⚠️ `run_return` trên macOS **không vào lại được** sau `ControlFlow::Exit`:
+    /// lần gọi thứ hai trả về NGAY, không giao một sự kiện nào, không chạy bao
+    /// đóng lấy một lần. Đo được 24/08/2026: vòng một chờ đủ 2.01s, vòng hai
+    /// thoát sau 113ms mà không nhánh thoát nào chạy.
+    ///
+    /// Trả về rỗng ở đó là **im lặng làm sai** — màn hình loé lên rồi tắt, bên
+    /// gọi nhận `Ok(vec![])` và tưởng người dùng đã đóng cửa sổ. Tệ hơn cả lần
+    /// abort trước đó, vì abort ít ra còn nói.
+    ///
+    /// Nên: lần thứ hai là LỖI. Muốn nhiều màn hình thì xâu chúng vào MỘT
+    /// `open_sequence` — đó là lý do hàm ấy tồn tại.
+    static DA_CHAY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn chay_chuoi(
@@ -371,8 +385,16 @@ fn chay_chuoi(
                         vòng lặp sự kiện mỗi tiến trình"
                 .to_owned());
         };
+        if DA_CHAY.with(std::cell::Cell::get) {
+            return Err("vòng lặp sự kiện đã chạy xong một lần — `run_return` \
+                        không vào lại được. Nhiều màn hình thì xâu vào MỘT \
+                        `open_sequence`."
+                .to_owned());
+        }
         let vong = muon.get_or_insert_with(|| EventLoopBuilder::new().build());
-        chay_trong_vong(vong, p, tiep)
+        let ket = chay_trong_vong(vong, p, tiep);
+        DA_CHAY.with(|c| c.set(true));
+        ket
     })
 }
 
@@ -387,6 +409,42 @@ fn chay_trong_vong(
     mut tiep: impl FnMut(&ScreenOutcome) -> Next,
 ) -> Result<Vec<ScreenOutcome>, String> {
     let mut ket_qua: Vec<ScreenOutcome> = Vec::new();
+    // ⚠️ MÓC KIỂM KHÓI, và nó phải nằm ở TẦNG NÀY.
+    //
+    // `TCC_TU_DONG_DONG=<giây>` cho cửa sổ tự đóng như thể người dùng đóng nó:
+    // không hành động nào, không công tắc nào — vì tự đóng KHÔNG phải một câu
+    // trả lời, y hệt đóng cửa sổ.
+    //
+    // Nó tồn tại vì ngày 24/08/2026 đường chính của sản phẩm ABORT trong khi 351
+    // phép thử đều xanh: không phép thử nào chạy chính cái nhị phân ấy đi hết
+    // hai màn hình. Móc này là thứ làm việc đó chạy được mà không cần người ngồi
+    // bấm.
+    //
+    // Đặt ở tầng vòng lặp chứ không ở từng bên gọi: bên gọi nào quên nối là một
+    // màn hình treo mãi trong CI, và CI treo thì người ta tắt phép kiểm ấy đi.
+    let tu_dong_dong = std::env::var("TCC_TU_DONG_DONG")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(Duration::from_secs);
+    // ⚠️ `TCC_TU_DONG_BAM=<mã hành động>` — TỰ BẤM một nút khi hết giờ.
+    //
+    // Tự ĐÓNG một mình không bao giờ đi quá màn đầu: đóng cửa sổ KHÔNG phải một
+    // câu trả lời, nên chuỗi dừng ngay. Muốn kiểm khói đi hết đường thì phải trả
+    // lời được một màn hình.
+    //
+    // ⚠️ Móc này TRẢ LỜI ĐƯỢC HỘP THOẠI HỎI QUYỀN. Nó chỉ bấm mã có THẬT trên
+    // màn hình đang hiện — không bịa ra hành động nào — nhưng ai đặt biến này
+    // là tự cấp cho mình quyền trả lời hộ người dùng. Nó tồn tại vì đường chính
+    // của sản phẩm từng abort trong khi 351 phép thử đều xanh, và không phép thử
+    // nào chạy được chính cái nhị phân ấy đi hết hai màn hình.
+    let tu_dong_bam = std::env::var("TCC_TU_DONG_BAM")
+        .ok()
+        .filter(|s| !s.is_empty());
+    // Đồng hồ đặt lại ở MỖI màn hình, không đếm một lần cho cả chuỗi: một móc
+    // kiểm khói đếm chung sẽ đóng màn thứ hai ngay khi nó vừa hiện, và khi ấy
+    // "đã đi hết đường" là một câu không ai kiểm được.
+    let mut bat_dau = Instant::now();
+
     let window = dung_cua_so(vong, &p.man.title, p.bo_dung.height())?;
 
     // ⚠️ `Context`/`Surface` phải sống lâu bằng cửa sổ. Thả sớm là mất bề mặt,
@@ -451,6 +509,24 @@ fn chay_trong_vong(
                 event: WindowEvent::CloseRequested,
                 ..
             } => *dieu_khien = ControlFlow::Exit,
+
+            // Hết giờ kiểm khói.
+            Event::MainEventsCleared if tu_dong_dong.is_some_and(|h| bat_dau.elapsed() >= h) => {
+                // Có mã để bấm VÀ mã ấy có thật trên màn hình này thì bấm; nếu
+                // không thì thoát y như người dùng đóng cửa sổ.
+                let co_that = tu_dong_bam
+                    .as_deref()
+                    .filter(|ma| p.man.tree.action_ids().iter().any(|a| a.as_str() == *ma));
+                match co_that {
+                    Some(ma) => ap_ket_qua(
+                        SauCuBam::Ket(ma.to_owned()),
+                        &mut p.ve_lai,
+                        &mut p.da_bam,
+                        dieu_khien,
+                    ),
+                    None => *dieu_khien = ControlFlow::Exit,
+                }
+            }
 
             // Trạng thái được-chọn phải nói cho cầu trợ năng biết, vì trên
             // AT-SPI (Linux) adapter KHÔNG có thẻ cửa sổ nên nó không tự thấy.
@@ -613,6 +689,7 @@ fn chay_trong_vong(
         // một hàm đổi hành vi theo ngữ cảnh gọi là một hàm sẽ bị gọi nhầm ngữ
         // cảnh.
         *dieu_khien = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(50));
+        bat_dau = Instant::now();
         window.request_redraw();
     });
 

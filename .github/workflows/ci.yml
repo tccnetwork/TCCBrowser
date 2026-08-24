@@ -164,6 +164,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
 
+      # ⚠️ Chạy CHÍNH cái nhị phân sản phẩm, đi hết đường. Ngày 24/08/2026 nó
+      # abort đúng lúc chuyển màn trong khi mọi phép thử đều xanh — không phép
+      # thử nào chạy nó qua hai màn hình.
+      - name: The product binary, all the way through
+        run: tools/kiem-khoi-ung-dung.sh
+
       - name: Three-way capability gate
         run: cargo run -p tcc-shell --example kiem-hanh-vi examples/hello-tcc
       - name: Permission store on disk
