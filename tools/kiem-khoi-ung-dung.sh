@@ -98,4 +98,40 @@ else
   echo "❌ luồng ví chỉ ${giay}s — dừng ở màn đầu, không sang màn báo lỗi"; loi=1
 fi
 
+# ── Luồng NHẬP VÍ: ba màn, và tín hiệu là một CÂU, không phải thời gian ─────
+#
+# chọn ví → hỏi PIN → (PIN rỗng) → mở khoá thất bại.
+#
+# ⚠️ Câu này TỪNG viết: *"'sai PIN' chỉ in ra khi đã tới màn ba"*. SAI. Kiểm đột
+# biến chỉ ra: bỏ hẳn màn báo lỗi đi thì luồng vẫn trả về đúng lỗi ấy, vì lỗi
+# được đặt TRƯỚC khi màn hình được dựng. Kịch bản vẫn ĐẠT.
+#
+# Nên nói đúng thứ nó chứng minh: **PIN rỗng bị TỪ CHỐI**, và luồng chạy được
+# qua hai lần bấm mà không hoảng loạn. Nó KHÔNG chứng minh màn báo lỗi hiện ra.
+#
+# Tín hiệu duy nhất phân biệt được là thời gian (đo 24/08: 8.7s có màn lỗi, 6.7s
+# không) — và một ngưỡng thời gian hiệu chỉnh trên một máy là thứ sẽ chập chờn
+# trên máy khác, rồi bị tắt đi. Chỗ hở này để nguyên và nói ra, hơn là lấp bằng
+# một phép đo dễ lung lay.
+#
+# Địa chỉ lấy TỪ chính tệp dữ liệu, không chép cứng: chép cứng thì đổi tệp mẫu là
+# kịch bản lặng lẽ bấm một mã không tồn tại, và "không có mã ấy" thì cửa sổ đóng
+# — tức là ĐẠT vì lý do sai.
+TEP_VI=crates/tcc-chain/data/vi-web-mau.json
+DC=$(python3 -c "import json;print(list(json.load(open('$TEP_VI'))['wallets'])[0])")
+ra=$(TCC_TU_DONG_BAM="nhap-$DC,mo-khoa-vi" TCC_TU_DONG_DONG="$GIAY" \
+  ./target/debug/tcc-browser vi nhap "$TEP_VI" 2>&1)
+ma=$?
+if printf '%s' "$ra" | grep -qE "panicked|abort"; then
+  echo "❌ luồng nhập ví hoảng loạn"; printf '%s' "$ra" | grep -E "panicked|abort" | head -2; loi=1
+elif [ "$ma" = 0 ]; then
+  # Mã 0 nghĩa là ví đã được nhập với PIN RỖNG. Đó là hỏng nặng nhất có thể ở
+  # đường này.
+  echo "❌ nhập ví THÀNH CÔNG với PIN rỗng"; loi=1
+elif printf '%s' "$ra" | grep -q "sai PIN"; then
+  echo "✅ luồng nhập ví: chọn ví → hỏi PIN → PIN rỗng bị từ chối"
+else
+  echo "❌ luồng nhập ví không từ chối PIN rỗng đúng cách:"; printf '%s' "$ra" | head -3; loi=1
+fi
+
 exit "$loi"
