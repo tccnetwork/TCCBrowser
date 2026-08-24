@@ -334,28 +334,60 @@ impl Phien {
 //
 // Nói cách khác: chỗ nào cắt làm mã rõ hơn thì đã cắt; chỗ còn lại cắt chỉ để
 // một con số qua ngưỡng. Ngưỡng là công cụ, không phải mục tiêu.
+thread_local! {
+    /// Vòng lặp sự kiện của CẢ TIẾN TRÌNH, dựng một lần và dùng lại.
+    ///
+    /// # Vì sao phải là một, và vì sao phải nằm ở đây
+    ///
+    /// `tao` chỉ cho dựng **một** vòng lặp mỗi tiến trình. Dựng lần thứ hai thì
+    /// nó không báo lỗi — nó **abort**, với một thông báo không nói gì về nguyên
+    /// nhân (`app_state.rs:387: The panic info must exist here`).
+    ///
+    /// Ngày 24/08/2026 ứng dụng thật sập đúng vì thế: `open_package_raster` mở
+    /// hộp thoại hỏi quyền (vòng thứ nhất), rồi `run_app_raster` mở màn ứng dụng
+    /// (vòng thứ hai). Đường WebView cũ dùng chung một vòng; bản cổng sang bộ
+    /// dựng ra pixel tách thành hai mà không ai nhận ra.
+    ///
+    /// Chắn ở CHỖ NÀY chứ không bắt mọi bên gọi tự xâu chuỗi màn hình vào một
+    /// `open_sequence`: bên gọi nào quên là một lần abort, và "đừng quên" không
+    /// phải một cơ chế. `run_return` sinh ra đúng để vào lại được một vòng đã
+    /// dựng — nên dùng lại là cách `tao` muốn được dùng.
+    static VONG: std::cell::RefCell<Option<tao::event_loop::EventLoop<()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+fn chay_chuoi(
+    dau: Screen,
+    tiep: impl FnMut(&ScreenOutcome) -> Next,
+) -> Result<Vec<ScreenOutcome>, String> {
+    let p = Phien::moi(dau)?;
+    VONG.with(|o| {
+        // ⚠️ `try_borrow_mut`, không phải `borrow_mut`. Gọi `chay_chuoi` từ
+        // BÊN TRONG bao đóng của một `chay_chuoi` khác là một lỗi lập trình —
+        // và một lỗi lập trình phải ra một câu nói được nguyên nhân, không phải
+        // một lần hoảng loạn của `RefCell`.
+        let Ok(mut muon) = o.try_borrow_mut() else {
+            return Err("đã có một chuỗi màn hình đang chạy — `tao` chỉ cho một \
+                        vòng lặp sự kiện mỗi tiến trình"
+                .to_owned());
+        };
+        let vong = muon.get_or_insert_with(|| EventLoopBuilder::new().build());
+        chay_trong_vong(vong, p, tiep)
+    })
+}
+
+/// Phần thân, tách ra vì nó chạy BÊN TRONG chỗ mượn vòng lặp.
 #[expect(
     clippy::too_many_lines,
     reason = "máy trạng thái nối cửa sổ + bề mặt + trợ năng; xem chú thích trên"
 )]
-fn chay_chuoi(
-    dau: Screen,
+fn chay_trong_vong(
+    vong: &mut tao::event_loop::EventLoop<()>,
+    mut p: Phien,
     mut tiep: impl FnMut(&ScreenOutcome) -> Next,
 ) -> Result<Vec<ScreenOutcome>, String> {
-    // `chu` chỉ tới tay trợ năng. Giữ tham số cho MỌI cờ chứ không đổi chữ ký
-    // theo cờ: một hàm đổi hình dạng theo cờ là một hàm bên gọi phải nhớ hai
-    // dạng, và sẽ có một dạng bị quên.
-    let mut p = Phien::moi(dau)?;
     let mut ket_qua: Vec<ScreenOutcome> = Vec::new();
-    // Trạng thái công tắc do KHUNG giữ, không do cây giữ.
-    //
-    // Bộ dựng WebView để trình duyệt giữ hộ trong tài liệu rồi hỏi lại lúc bấm
-    // xác nhận. Ở đây không có ai giữ hộ. Bắt đầu bằng tập RỖNG chứ không đọc
-    // trạng thái ban đầu của cây: mặc định của một câu hỏi chưa trả lời là
-    // "không", và một hộp thoại quyền mở ra với sẵn vài mục bật là một hộp thoại
-    // đã tự trả lời hộ người dùng.
-    let mut vong = EventLoopBuilder::new().build();
-    let window = dung_cua_so(&vong, &p.man.title, p.bo_dung.height())?;
+    let window = dung_cua_so(vong, &p.man.title, p.bo_dung.height())?;
 
     // ⚠️ `Context`/`Surface` phải sống lâu bằng cửa sổ. Thả sớm là mất bề mặt,
     // và triệu chứng là một cửa sổ trắng trơn — trông y như bộ dựng vẽ hỏng.
@@ -1053,6 +1085,47 @@ mod kiem_thu {
             !than.contains('•'),
             "cửa sổ đang tự che chữ — việc ấy thuộc về lúc vẽ, và làm ở đây thì \
              khung nhận về hàng chấm thay vì thứ người dùng gõ"
+        );
+    }
+
+    /// **Vòng lặp sự kiện dựng MỘT lần cho cả tiến trình.**
+    ///
+    /// # Cái này đã làm ứng dụng thật SẬP
+    ///
+    /// `tao` chỉ cho dựng một vòng lặp mỗi tiến trình, và dựng lần thứ hai thì
+    /// nó **abort** — không phải trả lỗi. Thông báo (`app_state.rs:387: The
+    /// panic info must exist here`) không nói gì về nguyên nhân.
+    ///
+    /// Ngày 24/08/2026 `tcc-browser examples/hello-tcc` sập đúng vì thế:
+    /// `open_package_raster` mở hộp thoại hỏi quyền (vòng thứ nhất), rồi
+    /// `run_app_raster` mở màn ứng dụng (vòng thứ hai). Đường chính của sản phẩm
+    /// không chạy được, và **lần "kiểm khói" hôm trước báo là chạy** — nó chạy
+    /// 12 giây, thấy tiến trình còn sống rồi kết luận, trong khi lúc ấy tiến
+    /// trình mới đứng ở hộp thoại và chưa tới vòng thứ hai.
+    ///
+    /// Phép thử soi mã nguồn, vì thật sự dựng hai vòng trong một lượt `cargo
+    /// test` là abort cả lượt chạy — không có `should_panic` nào bắt được một
+    /// lần abort.
+    #[test]
+    fn vong_lap_su_kien_dung_mot_lan_cho_ca_tien_trinh() {
+        let nguon = include_str!("window.rs");
+        let than = nguon.split("#[cfg(test)]").next().unwrap_or(nguon);
+        assert_eq!(
+            than.matches("EventLoopBuilder::new()").count(),
+            1,
+            "có nhiều hơn một chỗ dựng vòng lặp sự kiện — chỗ thứ hai sẽ ABORT, \
+             không phải trả lỗi"
+        );
+        assert!(
+            than.contains("get_or_insert_with"),
+            "vòng lặp không được dùng lại — mỗi lần gọi lại dựng một vòng mới"
+        );
+        // Và phải có chắn cho ca gọi LỒNG NHAU: `chay_chuoi` từ trong bao đóng
+        // của một `chay_chuoi` khác là lỗi lập trình, phải ra một câu nói được
+        // nguyên nhân chứ không phải một lần hoảng loạn của `RefCell`.
+        assert!(
+            than.contains("try_borrow_mut"),
+            "không có chắn cho ca gọi lồng nhau"
         );
     }
 

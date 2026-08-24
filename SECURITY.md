@@ -57,6 +57,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B41 | Every action **announced** to the accessibility axis is also **clickable**, and vice versa | `hanh_dong_doc_len_duoc_thi_cung_bam_duoc` — added 2026-08-23, see §3.11 |
 | B42 | A **text field** is reachable from the accessibility axis, and `Focus` **never** activates a button | `o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc`, `tieu_diem_khong_kich_hoat_nut` — added 2026-08-23, see §3.12 |
 | B43 | Text the **frame** holds passes the same display-string checks as text from disk | `chu_do_khung_giu_khong_lach_duoc_phep_kiem`, `phim_go_khong_hop_le_bi_tu_choi_ngay` — added 2026-08-23, see §3.13 |
+| B44 | The process creates **exactly one** event loop, whatever screens it shows | `vong_lap_su_kien_dung_mot_lan_cho_ca_tien_trinh` — added 2026-08-24, see §3.14 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1089,6 +1090,41 @@ built. A bug shared between the drawing and the reading is invisible to both.
 The closest replacement is a screen reader — a real third party — and no screen
 reader has run against this renderer yet (§3.1d). Until one has, that gap stands
 open and is not covered by a test.
+
+### 3.14 The product's main path did not run, and my smoke test said it did
+
+Found 2026-08-24 because the user asked to see a window.
+
+`tcc-browser examples/hello-tcc` **aborted**. `tao` allows one event loop per
+process; asking for a second does not return an error, it aborts, with a message
+that names nothing relevant (`app_state.rs:387: The panic info must exist here`).
+The path was: `open_package_raster` opens the permission dialog — loop one — and
+then `run_app_raster` opens the app screen — loop two.
+
+The web-engine path had shared one loop. Porting to the pixel renderer split it
+into two calls, and **the constraint was written down in this repository two days
+earlier**, by me, in the doc comment of the very function that now violated it.
+
+**The worse half.** On 2026-08-23 I ran this exact command as a smoke test,
+watched the process stay alive for twelve seconds, and reported it as evidence
+that the app worked. It was alive because it was sitting on the permission
+dialog — loop one — and had not yet reached loop two. I killed it before it could
+crash and called that a pass.
+
+That is the third time in two days that a measurement reported success by not
+giving the failure a chance to happen: a probe that never let `wrap` wrap, a
+`grep` that silently skipped a file it decided was binary, and this. The pattern
+is worth naming: **a check that cannot distinguish "it worked" from "it did not
+get that far" is not a check.**
+
+**The fix** is one process-wide event loop, created on first use and reused —
+which is what `run_return` exists for. Placed inside `chay_chuoi` rather than
+asking every caller to chain its screens into one `open_sequence`: a caller that
+forgets is an abort, and "do not forget" is not a mechanism.
+
+Nested calls — `chay_chuoi` from inside another one's closure — are now a plain
+error message instead of a `RefCell` panic, because a programming mistake should
+say what it was.
 
 ### 3.13 B16 held for disk and leaked at the keyboard (B43, new)
 

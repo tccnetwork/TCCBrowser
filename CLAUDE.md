@@ -82,6 +82,13 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   của đường tốn nhiều hơn.
 - **`$?` sau một pipeline là mã thoát của lệnh CUỐI**, không phải của lệnh bạn
   đang đo. Đo mã thoát thì đừng pipe.
+- **Một phép kiểm không phân biệt được "chạy được" với "chưa chạy tới" thì
+  không phải một phép kiểm.** Ba lần trong hai ngày: một phép thăm dò không cho
+  `wrap` cơ hội xuống dòng rồi báo tính năng ấy "chết"; một `grep` tự quyết định
+  tệp là nhị phân rồi im lặng trả về rỗng; và một lần "kiểm khói" ứng dụng —
+  chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
+  thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
+  xảy ra thật, phép đo này có đổi kết quả không?**
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
   đỏ không phải bằng chứng. Điều này áp cho cả 22 luật kiến trúc.
 
