@@ -71,4 +71,31 @@ for lenh in "quyen" "hop-thoai"; do
   fi
 done
 
+# ── Luồng VÍ: đường chưa ai chạy bao giờ ────────────────────────────────────
+#
+# `wallet_flow` cổng sang `open_sequence` ngày 23/08 và tới 24/08 vẫn chưa lần
+# nào chạy với cửa sổ thật. Ở đây nó đi HAI màn: gõ cụm từ → bấm "tiếp tục" với
+# ô rỗng → màn báo lỗi. Rồi hết danh sách bấm nên cửa sổ đóng.
+#
+# ⚠️ Tín hiệu "đã sang màn hai" ở đây là THỜI GIAN, không phải một dòng chữ:
+# luồng này không in gì cho tới lúc kết thúc. Mỗi màn chờ $GIAY giây, nên hai màn
+# phải mất hơn $GIAY giây. Dừng ở màn một thì nhanh hơn hẳn — và một phép kiểm
+# chỉ xem mã thoát sẽ ĐẠT ở cả hai, vì huỷ ở màn nào cũng ra mã 1.
+t0=$(python3 -c 'import time;print(time.time())')
+ra=$(TCC_TU_DONG_BAM=cum-tu-tiep TCC_TU_DONG_DONG="$GIAY" \
+  ./target/debug/tcc-browser vi cum-tu 2>&1)
+ma=$?
+giay=$(python3 -c "import time;print(f'{time.time()-$t0:.1f}')")
+if printf '%s' "$ra" | grep -qE "panicked|abort"; then
+  echo "❌ luồng ví hoảng loạn"; printf '%s' "$ra" | grep -E "panicked|abort" | head -2; loi=1
+elif [ "$ma" != 1 ]; then
+  # Đóng cửa sổ mà không nhập gì là HUỶ, và huỷ là mã 1. Mã 0 ở đây nghĩa là
+  # một ví đã được khôi phục mà không ai gõ cụm từ nào.
+  echo "❌ luồng ví thoát $ma, đáng lẽ 1 (huỷ)"; printf '%s' "$ra" | head -3; loi=1
+elif python3 -c "import sys; sys.exit(0 if $giay > $GIAY * 1.4 else 1)"; then
+  echo "✅ luồng ví đi qua hai màn (${giay}s) rồi huỷ"
+else
+  echo "❌ luồng ví chỉ ${giay}s — dừng ở màn đầu, không sang màn báo lỗi"; loi=1
+fi
+
 exit "$loi"

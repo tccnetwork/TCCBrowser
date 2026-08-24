@@ -437,9 +437,21 @@ fn chay_trong_vong(
     // là tự cấp cho mình quyền trả lời hộ người dùng. Nó tồn tại vì đường chính
     // của sản phẩm từng abort trong khi 351 phép thử đều xanh, và không phép thử
     // nào chạy được chính cái nhị phân ấy đi hết hai màn hình.
-    let tu_dong_bam = std::env::var("TCC_TU_DONG_BAM")
-        .ok()
-        .filter(|s| !s.is_empty());
+    // DANH SÁCH có thứ tự, không phải một mã lặp lại mãi.
+    //
+    // ⚠️ Bản đầu nhận MỘT mã và bấm nó ở mọi màn hình. Thử với luồng cụm từ
+    // khôi phục thì nó TREO: bấm "tiếp tục" với ô rỗng → màn báo lỗi hiện ra,
+    // màn ấy cũng có nút "tiếp tục" → bấm tiếp → mãi mãi. Một móc kiểm khói treo
+    // được là một móc sẽ làm CI treo, và CI treo thì người ta tắt phép kiểm ấy
+    // đi — đúng điều kịch bản của chính nó tự cảnh báo.
+    //
+    // Danh sách thì có đáy: hết mã là đóng cửa sổ.
+    let mut tu_dong_bam: std::collections::VecDeque<String> = std::env::var("TCC_TU_DONG_BAM")
+        .unwrap_or_default()
+        .split(',')
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim().to_owned())
+        .collect();
     // Đồng hồ đặt lại ở MỖI màn hình, không đếm một lần cho cả chuỗi: một móc
     // kiểm khói đếm chung sẽ đóng màn thứ hai ngay khi nó vừa hiện, và khi ấy
     // "đã đi hết đường" là một câu không ai kiểm được.
@@ -515,15 +527,20 @@ fn chay_trong_vong(
                 // Có mã để bấm VÀ mã ấy có thật trên màn hình này thì bấm; nếu
                 // không thì thoát y như người dùng đóng cửa sổ.
                 let co_that = tu_dong_bam
-                    .as_deref()
-                    .filter(|ma| p.man.tree.action_ids().iter().any(|a| a.as_str() == *ma));
+                    .front()
+                    .filter(|ma| {
+                        p.man
+                            .tree
+                            .action_ids()
+                            .iter()
+                            .any(|a| a.as_str() == ma.as_str())
+                    })
+                    .cloned();
                 match co_that {
-                    Some(ma) => ap_ket_qua(
-                        SauCuBam::Ket(ma.to_owned()),
-                        &mut p.ve_lai,
-                        &mut p.da_bam,
-                        dieu_khien,
-                    ),
+                    Some(ma) => {
+                        tu_dong_bam.pop_front();
+                        ap_ket_qua(SauCuBam::Ket(ma), &mut p.ve_lai, &mut p.da_bam, dieu_khien);
+                    }
                     None => *dieu_khien = ControlFlow::Exit,
                 }
             }
