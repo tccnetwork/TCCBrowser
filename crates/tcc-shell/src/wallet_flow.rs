@@ -92,9 +92,12 @@ pub fn import_from_file(
         // hơn một `unwrap` sẽ nổ nếu chỗ chắn kia đổi.
         let hanh_dong = t.action.as_deref().unwrap_or_default();
 
+        let pin_go = t.fields.get(&nhan_pin).cloned().unwrap_or_default();
+        let buoc = import_step(hanh_dong, dia_chi_dang_chon.as_deref(), &pin_go);
+
         // ── Màn 1 → 2: đã chọn ví, hỏi PIN ──
-        if let Some(dia_chi) = import_screen::address_to_import(hanh_dong) {
-            dia_chi_dang_chon = Some(dia_chi.to_owned());
+        if let ImportStep::HoiPin(dia_chi) = &buoc {
+            dia_chi_dang_chon = Some(dia_chi.clone());
             let Ok(cay) = import_screen::build_pin(dia_chi, ngon_ngu) else {
                 return Next::Done;
             };
@@ -106,16 +109,11 @@ pub fn import_from_file(
         }
 
         // ── Màn 2 → 3: mở khoá rồi cất ──
-        if hanh_dong == import_screen::ACTION_UNLOCK {
-            let Some(dia_chi) = dia_chi_dang_chon.clone() else {
-                return Next::Done;
-            };
-            let pin = t.fields.get(&nhan_pin).cloned().unwrap_or_default();
-
+        if let ImportStep::MoKhoa { dia_chi, pin } = buoc {
             let Some(vi) = ds.iter().find(|v| v.address == dia_chi) else {
                 return Next::Done;
             };
-            let da_nhap = match vi.unlock(pin.trim()) {
+            let da_nhap = match vi.unlock(&pin) {
                 Ok(x) => x,
                 Err(e) => {
                     let cau = label(import_screen::error_text(&e), ngon_ngu).to_owned();
@@ -207,6 +205,57 @@ impl From<String> for WalletFlowError {
     reason = "kiểm thử: hỏng thì phải nổ ngay"
 )]
 mod kiem_thu {
+
+    /// **Luồng NHẬP VÍ: mọi nhánh điều phối, không cần cửa sổ.**
+    ///
+    /// Ca đáng nhất là *bấm mở khoá khi CHƯA chọn ví nào*. Trong bao đóng cũ nó
+    /// trả `Next::Done` — nhìn từ ngoài y hệt "người dùng bấm huỷ", nên một
+    /// nhánh sai ở đó im lặng hoàn toàn. Đúng hình dạng lỗi 17/08/2026, tái diễn
+    /// ở lần cổng sang `open_sequence`.
+    #[test]
+    fn moi_nhanh_cua_luong_nhap_vi() {
+        const DIA_CHI: &str = "0xabc";
+        let chon = import_screen::choose_id(DIA_CHI);
+
+        // Chọn một ví → hỏi PIN cho ĐÚNG ví ấy.
+        assert_eq!(
+            import_step(&chon, None, ""),
+            ImportStep::HoiPin(DIA_CHI.to_owned())
+        );
+
+        // Mở khoá khi đã chọn → mang theo đúng địa chỉ và mã PIN.
+        assert_eq!(
+            import_step(import_screen::ACTION_UNLOCK, Some(DIA_CHI), "1234"),
+            ImportStep::MoKhoa {
+                dia_chi: DIA_CHI.to_owned(),
+                pin: "1234".to_owned()
+            }
+        );
+
+        // ⚠️ Mở khoá khi CHƯA chọn ví → DỪNG, không đoán lấy ví đầu tiên.
+        assert_eq!(
+            import_step(import_screen::ACTION_UNLOCK, None, "1234"),
+            ImportStep::Dung,
+            "bấm mở khoá khi chưa chọn ví lại mở một ví nào đó"
+        );
+
+        // Khoảng trắng quanh mã PIN bị CẮT — bộ gõ của hệ điều hành thêm được,
+        // và "PIN có dấu cách ở cuối thì sai" là một hành vi, không phải chi tiết.
+        assert_eq!(
+            import_step(import_screen::ACTION_UNLOCK, Some(DIA_CHI), "  1234\n"),
+            ImportStep::MoKhoa {
+                dia_chi: DIA_CHI.to_owned(),
+                pin: "1234".to_owned()
+            }
+        );
+
+        // Mã lạ → dừng, không rơi vào nhánh nào khác.
+        assert_eq!(
+            import_step("ma-bia-ra", Some(DIA_CHI), "1234"),
+            ImportStep::Dung
+        );
+    }
+
     use super::*;
 
     /// Tệp hỏng thì báo lỗi **trước khi mở cửa sổ nào**.
@@ -251,6 +300,46 @@ mod kiem_thu {
             );
         }
     }
+}
+
+/// Bước tiếp theo của luồng NHẬP VÍ — **hàm THUẦN, kiểm được không cần cửa sổ**.
+///
+/// # Vì sao tách, lần thứ hai
+///
+/// `phrase_step` ngay dưới đã tách vì đúng lý do này, sau lỗi 17/08/2026. Rồi
+/// ngày 23/08 luồng nhập ví được cổng sang `open_sequence`, và **quyết định mới
+/// lại nằm trong một bao đóng chạy giữa vòng lặp sự kiện** — không cách nào
+/// kiểm, và một nhánh sai ở đó trông y hệt "người dùng bấm huỷ". Bài học cũ,
+/// mất lần nữa ở lần viết lại.
+///
+/// Cắt khoảng trắng của mã PIN nằm TRONG đây chứ không ở chỗ gọi: nó là một
+/// quyết định — bộ gõ của hệ điều hành thêm được khoảng trắng, và "PIN có dấu
+/// cách ở cuối thì sai" là một hành vi phải kiểm được, không phải một chi tiết.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ImportStep {
+    /// Đã chọn ví — hỏi mã PIN cho địa chỉ này.
+    HoiPin(String),
+    /// Mở khoá ví đang chọn bằng mã PIN đã cắt khoảng trắng.
+    MoKhoa { dia_chi: String, pin: String },
+    /// Không nhận ra, hoặc bấm mở khoá khi CHƯA chọn ví nào — dừng.
+    Dung,
+}
+
+/// Quyết định bước tiếp theo của luồng nhập ví.
+#[must_use]
+pub fn import_step(hanh_dong: &str, dang_chon: Option<&str>, pin: &str) -> ImportStep {
+    if let Some(dia_chi) = import_screen::address_to_import(hanh_dong) {
+        return ImportStep::HoiPin(dia_chi.to_owned());
+    }
+    if hanh_dong == import_screen::ACTION_UNLOCK {
+        // Chưa chọn ví mà bấm mở khoá: DỪNG, không đoán lấy ví đầu tiên. Đoán ở
+        // đây là mở nhầm ví của người dùng.
+        return dang_chon.map_or(ImportStep::Dung, |dia_chi| ImportStep::MoKhoa {
+            dia_chi: dia_chi.to_owned(),
+            pin: pin.trim().to_owned(),
+        });
+    }
+    ImportStep::Dung
 }
 
 /// Bước tiếp theo của luồng cụm từ — **hàm THUẦN, kiểm được không cần cửa sổ**.
