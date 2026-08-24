@@ -250,11 +250,15 @@ fn run_loop(m: &Manifest, ngon_ngu: Language) -> Result<(), Box<dyn std::error::
         .and_then(|s| s.parse().ok())
         .map(Duration::from_secs);
 
-    // `tu_dong_dong` chưa có đường tương ứng ở bộ dựng ra pixel: cửa sổ raster
-    // đóng khi người dùng bấm hoặc đóng, không có hẹn giờ. Nhận biến rồi lặng
-    // lẽ bỏ qua thì tệ hơn — nói ra.
-    if tu_dong_dong.is_some() {
-        eprintln!("[khung] TCC_TU_DONG_DONG chưa có tác dụng trên bộ dựng ra pixel");
+    // ⚠️ Câu ở đây từng nói `TCC_TU_DONG_DONG` "chưa có tác dụng trên bộ dựng
+    // ra pixel". Nó ĐÃ có tác dụng từ 24/08/2026, và câu ấy vẫn in ra — một
+    // chương trình nói sai về chính nó, đúng thứ khó phát hiện nhất vì nó nghe
+    // như một lời cảnh báo cẩn thận.
+    if let Some(h) = tu_dong_dong {
+        eprintln!(
+            "[khung] kiểm khói: mỗi màn hình tự đóng sau {}s",
+            h.as_secs()
+        );
     }
     tcc_shell::window_raster::open_permission_dialog_raster(m, ngon_ngu).map(|_| ())
 }

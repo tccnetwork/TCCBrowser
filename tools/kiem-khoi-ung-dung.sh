@@ -53,4 +53,22 @@ if [ "$loi" = 0 ]; then
 else
   echo "── đầu ra đầy đủ ──"; cat "$LOG"
 fi
+
+# ── Hai lệnh cửa sổ CÒN LẠI ─────────────────────────────────────────────────
+#
+# Chúng mở cửa sổ riêng, và cho tới 24/08/2026 chưa lần nào có ai chạy chúng —
+# cùng hạng với đường chính. Kiểm nhẹ hơn: chạy được, không hoảng loạn, thoát 0.
+# Nhẹ hơn vì chúng chỉ có MỘT màn hình, nên không có "màn thứ hai" để hỏi tới.
+for lenh in "quyen" "hop-thoai"; do
+  ra=$(TCC_TU_DONG_DONG="$GIAY" ./target/debug/tcc-browser "$lenh" examples/hello-tcc 2>&1)
+  ma=$?
+  if [ "$ma" != 0 ]; then
+    echo "❌ lệnh '$lenh' thoát $ma"; echo "$ra" | head -5; loi=1
+  elif printf '%s' "$ra" | grep -qE "panicked|abort"; then
+    echo "❌ lệnh '$lenh' hoảng loạn"; printf '%s' "$ra" | grep -E "panicked|abort" | head -2; loi=1
+  else
+    echo "✅ lệnh '$lenh' chạy và tự đóng"
+  fi
+done
+
 exit "$loi"
