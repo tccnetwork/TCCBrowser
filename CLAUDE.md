@@ -84,6 +84,13 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
   thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
   xảy ra thật, phép đo này có đổi kết quả không?**
+- **Khi kiểm đột biến bằng tay, phân biệt LỖI BIÊN DỊCH với PHÉP THỬ ĐỎ.**
+  25/08/2026 tôi đếm dòng `test result: FAILED` và báo một đột biến là "sống"
+  — trong khi nó chỉ không biên dịch được, tức là phép đo vô hiệu chứ không
+  phải phép thử yếu. Sửa xong lại đếm `^error` và báo "không biên dịch được"
+  cho một lượt mà `error: test failed` chính là **phép thử đỏ**. Đếm
+  `^error\[E` và `could not compile` cho lỗi biên dịch, `test result: FAILED`
+  cho phép thử đỏ; hai con số, không phải một.
 - **`cargo-mutants`: `TIMEOUT` KHÔNG phải "sống sót".** 25/08/2026 lượt đo lại
   trả về 61 dòng `TIMEOUT`, 0 dòng `MISSED` — trông y hệt một bộ thử vô dụng.
   Đọc tới ĐUÔI mới thấy `No space left on device`: mỗi việc song song là một

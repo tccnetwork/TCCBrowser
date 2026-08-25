@@ -276,6 +276,32 @@ impl Phien {
     ) {
         let l = vi_tri.to_logical::<f64>(window.scale_factor());
         self.tt.chuot = (l.x, l.y);
+
+        // Vẽ lại CHỈ khi đích dưới chuột ĐỔI. Rê chuột sinh hàng chục sự kiện
+        // một giây; xếp lại bố cục ở mỗi cái là cửa sổ giật trong khi không có
+        // gì trên màn hình thay đổi.
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "toạ độ màn hình, luôn nằm gọn trong f32"
+        )]
+        let x = l.x as f32;
+        let y = cong_cuon(l.y, self.tt.cuon);
+        let moi = self.bo_dung.hit_test_field(x, y).map_or_else(
+            || {
+                self.bo_dung
+                    .hit_test(x, y)
+                    .map(|h| crate::FocusTarget::Action {
+                        id: h.action.to_owned(),
+                        toggle: h.toggle,
+                    })
+            },
+            |nhan| Some(crate::FocusTarget::Field(nhan.to_owned())),
+        );
+        if moi != self.tt.duoi_chuot {
+            self.tt.duoi_chuot = moi;
+            self.ve_lai = true;
+            window.request_redraw();
+        }
     }
 
     /// Kết quả của màn hình vừa xong, và **lấy hẳn ra**.
@@ -520,6 +546,24 @@ fn chay_trong_vong(
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
+            }
+            // `Escape` đi CHUNG NHÁNH với đóng cửa sổ, không phải một nhánh
+            // giống nó. Cùng nhánh thì hai đường không thể trôi khác nhau, và
+            // điều phải giữ là: cả hai thoát mà **không đặt `da_bam`** — huỷ
+            // KHÔNG phải một câu trả lời. Người dùng bàn phím vào được hộp
+            // thoại mà không có đường ra là một hộp thoại ép trả lời.
+            | Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            tao::event::KeyEvent {
+                                physical_key: tao::keyboard::KeyCode::Escape,
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
             } => *dieu_khien = ControlFlow::Exit,
 
             // Hết giờ kiểm khói.
@@ -570,6 +614,33 @@ fn chay_trong_vong(
             } => p.nhan_chu(&chu),
 
             Event::WindowEvent {
+                event: WindowEvent::ModifiersChanged(m),
+                ..
+            } => {
+                p.tt.shift = m.shift_key();
+            }
+
+            // ── Kéo đổi cỡ cửa sổ: xếp lại bố cục theo chiều rộng mới ──
+            //
+            // Đặt chiều rộng rồi ĐÁNH DẤU vẽ lại, chứ không vẽ ngay tại đây:
+            // lượt kéo sinh ra hàng chục sự kiện một giây, và xếp lại bố cục ở
+            // mỗi sự kiện là kéo cửa sổ thành giật.
+            Event::WindowEvent {
+                event: WindowEvent::Resized(co),
+                ..
+            } => {
+                let l = co.to_logical::<f64>(window.scale_factor());
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    reason = "kích thước cửa sổ, luôn dương và nhỏ"
+                )]
+                p.bo_dung.set_width(l.width as usize);
+                p.ve_lai = true;
+                window.request_redraw();
+            }
+
+            Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
                         event:
@@ -583,6 +654,51 @@ fn chay_trong_vong(
                 ..
             } => {
                 p.xoa_lui();
+            }
+
+            // ── Tab: đi tới đích kế tiếp ──
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            tao::event::KeyEvent {
+                                physical_key: tao::keyboard::KeyCode::Tab,
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
+                let thu_tu = p.bo_dung.focus_order();
+                let moi = tieu_diem_ke(&thu_tu, p.tt.tieu_diem.as_ref(), p.tt.shift);
+                p.tt.dat_tieu_diem(moi);
+                p.ve_lai = true;
+                window.request_redraw();
+            }
+
+            // ── Enter / Space: kích hoạt đích đang chọn ──
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            tao::event::KeyEvent {
+                                physical_key:
+                                    tao::keyboard::KeyCode::Enter
+                                    | tao::keyboard::KeyCode::NumpadEnter
+                                    | tao::keyboard::KeyCode::Space,
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
+                if let Some(h) = phim_kich_hoat(p.tt.tieu_diem.as_ref()) {
+                    let k = sau_cu_bam(Some(h), &mut p.bat);
+                    ap_ket_qua(k, &mut p.ve_lai, &mut p.da_bam, dieu_khien);
+                    window.request_redraw();
+                }
             }
 
             Event::WindowEvent {
@@ -632,7 +748,14 @@ fn chay_trong_vong(
                     ap_ket_qua(k, &mut p.ve_lai, &mut p.da_bam, dieu_khien);
                 }
                 if core::mem::take(&mut p.ve_lai) {
-                    ve_lai_man_hinh(&mut p.bo_dung, &p.man.tree, &p.bat, &p.tt.noi_dung_o);
+                    ve_lai_man_hinh(
+                        &mut p.bo_dung,
+                        &p.man.tree,
+                        &p.bat,
+                        &p.tt.noi_dung_o,
+                        p.tt.tieu_diem.as_ref(),
+                        p.tt.duoi_chuot.as_ref(),
+                    );
                     // Gạt một công tắc mà không báo lại thì VoiceOver vẫn đọc
                     // trạng thái CŨ — người dùng nghe "tắt" trong khi màn hình
                     // hiện "bật". Ở màn hỏi quyền, đó là nghe một đằng cấp một
@@ -779,7 +902,7 @@ fn rut_yeu_cau_tro_nang(
         // di chuyển tiêu điểm không phải một câu trả lời.
         let a = match (dich, la_tieu_diem) {
             (crate::accesskit_bridge::Dich::O(nhan), _) => {
-                tt.o_dang_chon = Some(nhan);
+                tt.dat_tieu_diem(Some(crate::FocusTarget::Field(nhan)));
                 cuoi = Some(SauCuBam::VeLai);
                 continue;
             }
@@ -827,7 +950,33 @@ struct TrangThai {
     noi_dung_o: std::collections::BTreeMap<String, String>,
     /// Ô đang được chọn. `None` = gõ phím KHÔNG đi đâu cả — thà không nhận còn
     /// hơn nhận vào một ô người dùng không nhìn.
+    ///
+    /// ⚠️ Trường này **suy ra** từ `tieu_diem`, không được đặt riêng. Xem
+    /// [`TrangThai::dat_tieu_diem`].
     o_dang_chon: Option<String>,
+    /// Đích bàn phím đang chọn. Nguồn sự thật DUY NHẤT cho cả viền vẽ ra và cho
+    /// chỗ chữ gõ vào đi tới.
+    tieu_diem: Option<crate::FocusTarget>,
+    /// `Shift` đang giữ — để `Shift+Tab` đi ngược.
+    shift: bool,
+    /// Đích chuột đang rê qua. Tách hẳn khỏi `tieu_diem`: rê chuột KHÔNG được
+    /// đổi chỗ bàn phím đang đứng.
+    duoi_chuot: Option<crate::FocusTarget>,
+}
+
+impl TrangThai {
+    /// Đặt tiêu điểm, và **đồng thời** đặt ô đang chọn.
+    ///
+    /// Một hàm chứ không hai lệnh gán rời: hai trường ấy lệch nhau nghĩa là
+    /// viền vẽ quanh một ô trong khi chữ gõ vào lại chạy sang ô khác — người
+    /// dùng nhìn thấy một đằng, máy làm một nẻo.
+    fn dat_tieu_diem(&mut self, dich: Option<crate::FocusTarget>) {
+        self.o_dang_chon = match dich.as_ref() {
+            Some(crate::FocusTarget::Field(nhan)) => Some(nhan.clone()),
+            _ => None,
+        };
+        self.tieu_diem = dich;
+    }
 }
 
 /// Dựng lại cây từ trạng thái khung đang giữ, rồi vẽ.
@@ -843,12 +992,58 @@ fn ve_lai_man_hinh(
     tree: &Node,
     bat: &BTreeSet<String>,
     noi_dung_o: &std::collections::BTreeMap<String, String>,
+    tieu_diem: Option<&crate::FocusTarget>,
+    duoi_chuot: Option<&crate::FocusTarget>,
 ) {
+    // Đặt TRƯỚC khi vẽ: viền tiêu điểm sinh ra trong chính lượt vẽ ấy.
+    bo_dung.set_focus(tieu_diem.cloned());
+    bo_dung.set_hover(duoi_chuot.cloned());
     if let Ok(cay_moi) = tree
         .with_toggles(bat)
         .and_then(|c| c.with_fields(noi_dung_o))
     {
         let _ = bo_dung.render(&cay_moi);
+    }
+}
+
+/// Đích kế tiếp khi bấm `Tab`. **Hàm thuần** — kiểm thử được không cần cửa sổ.
+///
+/// Chưa chọn gì thì `Tab` vào đích ĐẦU, `Shift+Tab` vào đích CUỐI. Vòng lại ở
+/// hai đầu: danh sách hữu hạn mà đi tới cuối rồi kẹt là bàn phím vào được một
+/// chỗ không ra được.
+///
+/// Đích cũ không còn trong danh sách (màn hình vừa đổi) thì coi như chưa chọn —
+/// thà quay về đầu còn hơn chọn bừa một ô khác chỉ vì nó cùng thứ tự.
+fn tieu_diem_ke(
+    thu_tu: &[crate::FocusTarget],
+    dang: Option<&crate::FocusTarget>,
+    lui: bool,
+) -> Option<crate::FocusTarget> {
+    if thu_tu.is_empty() {
+        return None;
+    }
+    let vi_tri = dang.and_then(|d| thu_tu.iter().position(|x| x == d));
+    let moi = match (vi_tri, lui) {
+        (None, false) => 0,
+        (None, true) => thu_tu.len() - 1,
+        (Some(i), false) => (i + 1) % thu_tu.len(),
+        (Some(i), true) => (i + thu_tu.len() - 1) % thu_tu.len(),
+    };
+    thu_tu.get(moi).cloned()
+}
+
+/// Phím `Enter`/`Space` trên đích đang chọn thành cái gì. **Hàm thuần.**
+///
+/// ⚠️ Ô nhập thì **không** thành gì cả. `Enter` trong một ô nhập mà kích hoạt
+/// nút gần nhất là cách người dùng gửi đi một biểu mẫu họ chưa điền xong — và
+/// trên hộp thoại quyền, "nút gần nhất" có thể là *Cho phép*.
+fn phim_kich_hoat(dang: Option<&crate::FocusTarget>) -> Option<crate::Hit<'_>> {
+    match dang {
+        Some(crate::FocusTarget::Action { id, toggle }) => Some(crate::Hit {
+            action: id.as_str(),
+            toggle: *toggle,
+        }),
+        _ => None,
     }
 }
 
@@ -871,9 +1066,20 @@ fn xu_ly_cu_bam(
     let x = tt.chuot.0 as f32;
     let y = cong_cuon(tt.chuot.1, tt.cuon);
     if let Some(nhan) = bo_dung.hit_test_field(x, y) {
-        tt.o_dang_chon = Some(nhan.to_owned());
+        tt.dat_tieu_diem(Some(crate::FocusTarget::Field(nhan.to_owned())));
+        *ve_lai = true;
+    } else if let Some(h) = bo_dung.hit_test(x, y) {
+        // Bấm chuột cũng ĐẶT tiêu điểm: chuột và bàn phím phải nhìn thấy cùng
+        // một giao diện. Không thế thì Tab sau một cú bấm sẽ nhảy về đầu.
+        let dich = crate::FocusTarget::Action {
+            id: h.action.to_owned(),
+            toggle: h.toggle,
+        };
+        let k = sau_cu_bam(Some(h), bat);
+        tt.dat_tieu_diem(Some(dich));
+        ap_ket_qua(k, ve_lai, da_bam, dieu_khien);
     } else {
-        let k = sau_cu_bam(bo_dung.hit_test(x, y), bat);
+        let k = sau_cu_bam(None, bat);
         ap_ket_qua(k, ve_lai, da_bam, dieu_khien);
     }
 }
@@ -951,6 +1157,12 @@ fn dung_cua_so(
     let w = WindowBuilder::new()
         .with_title(tieu_de)
         .with_inner_size(LogicalSize::new(WIDTH as f64, cao_cua_so))
+        // Kéo đổi cỡ được, trong khoảng bộ dựng xếp lại được. Chặn ở đây chứ
+        // không chỉ kẹp trong bộ dựng: kẹp thầm thì người dùng kéo hẹp lại mà
+        // chữ không hẹp theo, và họ tưởng cửa sổ hỏng.
+        .with_resizable(true)
+        .with_min_inner_size(LogicalSize::new(crate::MIN_WIDTH as f64, 160.0_f64))
+        .with_max_inner_size(LogicalSize::new(crate::MAX_WIDTH as f64, 4096.0_f64))
         // ⚠️ DỰNG ẨN, hiện SAU khi đã nối trợ năng.
         //
         // `SubclassingAdapter::new` đòi được gọi trước khi khung nhìn được hiện
@@ -1092,6 +1304,37 @@ fn cay_accesskit(bd: &RasterRenderer, chu: &ScreenText) -> Option<accesskit::Tre
 /// `0RGB`, đơn vị vật lý. Nên vừa nhân ba kênh vừa chia tỷ lệ — chia bằng lấy
 /// mẫu gần nhất, vì đây là để NHÌN THẤY được, không phải để so ảnh; phép so ảnh
 /// chạy trên `image()` ở đơn vị logic, không chạy trên đệm này.
+/// Vẽ thanh chỉ báo cuộn ở mép phải, **chỉ khi** còn nội dung ngoài khung.
+///
+/// Cuộn được mà không có dấu hiệu nào thì người dùng không biết là còn nữa —
+/// nội dung dưới đáy coi như không tồn tại. Vẽ lên MẶT TRÌNH BÀY chứ không vào
+/// ảnh bố cục: ảnh là toàn bộ nội dung, còn thanh này nói về phần đang nhìn.
+fn ve_thanh_cuon(ra: &mut [u32], rong: u32, cao: u32, cao_anh_man: f64, cuon: f64) {
+    if cao_anh_man <= f64::from(cao) || cao < 8 || rong < 6 {
+        return;
+    }
+    let ty = f64::from(cao) / cao_anh_man;
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "kích thước cửa sổ, luôn dương và nhỏ"
+    )]
+    let dai = ((f64::from(cao) * ty) as u32).max(16).min(cao);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "kích thước cửa sổ, luôn dương và nhỏ"
+    )]
+    let dinh = ((cuon * ty) as u32).min(cao.saturating_sub(dai));
+    for y in dinh..(dinh + dai).min(cao) {
+        for x in rong.saturating_sub(5)..rong.saturating_sub(1) {
+            if let Some(o) = ra.get_mut((y * rong + x) as usize) {
+                *o = 0x0090_9090;
+            }
+        }
+    }
+}
+
 fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64, cuon: f64) {
     let anh = bd.image();
     let cao_anh = bd.height();
@@ -1108,8 +1351,14 @@ fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64, 
             );
             // Ngoài ảnh thì trắng: cửa sổ kéo to hơn ảnh là chuyện thường, và
             // để nguyên bộ nhớ chưa ghi thì ra một mảng nhiễu.
-            let xam = if lx < WIDTH && ly < cao_anh {
-                u32::from(anh[ly * WIDTH + lx])
+            // ⚠️ `bd.width()`, KHÔNG phải hằng `WIDTH`.
+            //
+            // Chiều rộng thành thuộc tính ngày 25/08/2026, và chỗ này còn dùng
+            // hằng thì mỗi hàng bị đọc lệch đi một đoạn — ảnh xiên dần xuống
+            // dưới. Lỗi do chính lượt sửa "cho cửa sổ đổi cỡ được" sinh ra.
+            let rong_anh = bd.width();
+            let xam = if lx < rong_anh && ly < cao_anh {
+                u32::from(anh[ly * rong_anh + lx])
             } else {
                 255
             };
@@ -1118,6 +1367,8 @@ fn to_mau(bd: &RasterRenderer, ra: &mut [u32], rong: u32, cao: u32, ty_le: f64, 
             }
         }
     }
+    #[expect(clippy::cast_precision_loss, reason = "chiều cao ảnh, luôn nhỏ")]
+    ve_thanh_cuon(ra, rong, cao, cao_anh as f64 * ty_le, cuon * ty_le);
 }
 
 #[cfg(test)]
@@ -1489,5 +1740,193 @@ mod kiem_thu {
         bat.insert("micro".to_owned());
         assert_eq!(sau_cu_bam(None, &mut bat), SauCuBam::Khong);
         assert_eq!(bat.len(), 1);
+    }
+
+    fn dich(id: &str, toggle: bool) -> crate::FocusTarget {
+        crate::FocusTarget::Action {
+            id: id.to_owned(),
+            toggle,
+        }
+    }
+
+    /// **`Tab` đi vòng, không kẹt ở hai đầu.**
+    ///
+    /// Đi tới cuối rồi dừng nghĩa là bàn phím vào được một chỗ mà không ra được
+    /// — người dùng phải với lấy chuột, tức là bàn phím chưa dùng được.
+    #[test]
+    fn tab_di_vong_hai_dau() {
+        let tt = vec![dich("a", false), crate::FocusTarget::Field("Ô".to_owned())];
+        assert_eq!(tieu_diem_ke(&tt, None, false), Some(tt[0].clone()));
+        assert_eq!(tieu_diem_ke(&tt, Some(&tt[0]), false), Some(tt[1].clone()));
+        assert_eq!(
+            tieu_diem_ke(&tt, Some(&tt[1]), false),
+            Some(tt[0].clone()),
+            "tới cuối mà không vòng về đầu"
+        );
+        // Ngược lại: chưa chọn gì thì Shift+Tab vào đích CUỐI.
+        assert_eq!(tieu_diem_ke(&tt, None, true), Some(tt[1].clone()));
+        assert_eq!(
+            tieu_diem_ke(&tt, Some(&tt[0]), true),
+            Some(tt[1].clone()),
+            "ở đầu mà Shift+Tab không vòng về cuối"
+        );
+    }
+
+    /// **Màn hình không có gì chạm được thì `Tab` không chọn bừa.**
+    #[test]
+    fn tab_tren_man_trong_khong_chon_gi() {
+        assert_eq!(tieu_diem_ke(&[], None, false), None);
+    }
+
+    /// **Đích cũ biến mất thì quay về đầu, KHÔNG giữ theo thứ tự.**
+    ///
+    /// Giữ theo thứ tự nghĩa là màn hình đổi xong, tiêu điểm rơi vào một nút
+    /// khác hẳn chỉ vì nó đứng cùng chỗ — và `Enter` tiếp theo chạy một việc
+    /// người dùng không định chạy.
+    #[test]
+    fn dich_bien_mat_thi_ve_dau() {
+        let cu = dich("da-xoa", false);
+        let tt = vec![dich("a", false), dich("b", false)];
+        assert_eq!(tieu_diem_ke(&tt, Some(&cu), false), Some(tt[0].clone()));
+    }
+
+    /// **`Enter` trong Ô NHẬP không kích hoạt gì.**
+    ///
+    /// Trên hộp thoại quyền, "nút gần nhất" có thể là *Cho phép*. Một phím
+    /// Enter lạc chỗ ở đó là một câu trả lời người dùng chưa hề đưa ra.
+    #[test]
+    fn enter_trong_o_nhap_khong_kich_hoat_gi() {
+        assert!(phim_kich_hoat(Some(&crate::FocusTarget::Field("PIN".to_owned()))).is_none());
+        assert!(phim_kich_hoat(None).is_none());
+    }
+
+    /// **`Enter` trên công tắc gạt công tắc, KHÔNG đóng màn hình.**
+    ///
+    /// Cùng luật đã có cho chuột (`gat_cong_tac_khong_dong_hop_thoai`). Bàn
+    /// phím mà đóng màn hình khi gạt thì người dùng bàn phím vừa trả lời hộ
+    /// mình những mục chưa đọc — đúng cái luật kia sinh ra để chặn.
+    #[test]
+    fn enter_tren_cong_tac_khong_dong_man() {
+        let mut bat = BTreeSet::new();
+        let ct = dich("mang", true);
+        let h = phim_kich_hoat(Some(&ct)).expect("công tắc kích hoạt được");
+        assert_eq!(sau_cu_bam(Some(h), &mut bat), SauCuBam::VeLai);
+        assert!(bat.contains("mang"));
+    }
+
+    /// **Tiêu điểm và ô-đang-chọn KHÔNG được lệch nhau.**
+    ///
+    /// Lệch nghĩa là viền vẽ quanh một ô còn chữ gõ vào chạy sang ô khác.
+    #[test]
+    fn tieu_diem_va_o_dang_chon_luon_khop() {
+        let mut tt = TrangThai::default();
+        tt.dat_tieu_diem(Some(crate::FocusTarget::Field("Ghi chú".to_owned())));
+        assert_eq!(tt.o_dang_chon.as_deref(), Some("Ghi chú"));
+
+        tt.dat_tieu_diem(Some(dich("nut", false)));
+        assert!(
+            tt.o_dang_chon.is_none(),
+            "tiêu điểm sang NÚT mà chữ gõ vào vẫn chạy về ô nhập cũ"
+        );
+
+        tt.dat_tieu_diem(None);
+        assert!(tt.o_dang_chon.is_none());
+    }
+
+    /// **`Escape` phải HUỶ, và huỷ không phải một câu trả lời.**
+    ///
+    /// Kiểm ở tầng NGUỒN vì nhánh này nằm trong vòng lặp sự kiện — mở được cửa
+    /// sổ trong `#[test]` thì `cargo test` trên macOS đã không chạy nổi. Điều
+    /// phải giữ là hai phím đi CHUNG một nhánh: cùng nhánh thì không ai sửa
+    /// được một bên mà quên bên kia, và `Escape` không bao giờ trôi thành một
+    /// câu trả lời "cho phép".
+    #[test]
+    fn escape_di_chung_nhanh_voi_dong_cua_so() {
+        let than = include_str!("window.rs");
+        let Some(sau) = than.split("WindowEvent::CloseRequested").nth(1) else {
+            panic!("không tìm thấy nhánh đóng cửa sổ")
+        };
+        // Cắt tới hết nhánh: `=> *dieu_khien = ControlFlow::Exit,`
+        let het = sau
+            .find("ControlFlow::Exit,")
+            .expect("nhánh đóng cửa sổ phải thoát");
+        let nhanh = &sau[..het];
+        assert!(
+            nhanh.contains("KeyCode::Escape"),
+            "Escape KHÔNG đi chung nhánh với đóng cửa sổ — hai đường huỷ có thể trôi khác nhau"
+        );
+        // Bỏ chú thích trước khi soi: chính chú thích ở đó GIẢI THÍCH vì sao
+        // không được đụng `da_bam`, và một phép thử bắt được lời giải thích của
+        // chính mình là một phép thử đọc sai thứ nó đang đọc.
+        let chi_ma: String = nhanh
+            .lines()
+            .filter(|d| !d.trim_start().starts_with("//"))
+            .collect();
+        assert!(
+            !chi_ma.contains("da_bam"),
+            "nhánh huỷ có đụng tới `da_bam` — huỷ đang trở thành một câu trả lời"
+        );
+    }
+
+    /// **Đưa ảnh lên màn hình phải dùng chiều rộng THẬT của ảnh.**
+    ///
+    /// Lỗi này do chính lượt "cho cửa sổ đổi cỡ được" sinh ra: chiều rộng thành
+    /// thuộc tính, mà chỗ đưa lên màn hình còn dùng hằng cũ. Mỗi hàng đọc lệch
+    /// một đoạn nên ảnh xiên dần — và không phép thử nào lúc ấy nhìn tới đây.
+    #[test]
+    fn dua_len_man_hinh_dung_chieu_rong_that() {
+        let mut bd = RasterRenderer::new();
+        bd.set_width(400);
+        // Một ô có khung: có mực ở cột trái, gần mép trái của ảnh.
+        bd.render(&Node::button("X", "x", tcc_ui::Tone::Neutral).unwrap())
+            .unwrap();
+        assert_eq!(bd.width(), 400);
+
+        let (rong, cao) = (400_u32, bd.height() as u32);
+        let mut ra = vec![0xFFFF_FFFF_u32; (rong * cao) as usize];
+        to_mau(&bd, &mut ra, rong, cao, 1.0, 0.0);
+
+        // Đối chiếu từng điểm với ảnh gốc. Lệch chiều rộng là lệch NGAY hàng
+        // thứ hai, nên so cả ảnh mới bắt được.
+        let anh = bd.image();
+        for y in 0..cao as usize {
+            for x in 0..rong as usize {
+                let xam = u32::from(anh[y * 400 + x]);
+                assert_eq!(
+                    ra[y * 400 + x] & 0xFF,
+                    xam,
+                    "điểm ({x},{y}) lệch — chiều rộng dùng sai"
+                );
+            }
+        }
+    }
+
+    /// **Thanh cuộn chỉ hiện khi CÒN nội dung ngoài khung.**
+    ///
+    /// Hiện lúc nào cũng thấy thì nó thành trang trí; không hiện bao giờ thì
+    /// phần dưới đáy coi như không tồn tại với người dùng.
+    #[test]
+    fn thanh_cuon_chi_hien_khi_con_noi_dung() {
+        let dem = |ra: &[u32]| ra.iter().filter(|p| **p == 0x0090_9090).count();
+
+        let (rong, cao) = (200_u32, 100_u32);
+        let mut vua_khit = vec![0xFFFF_FFFF_u32; (rong * cao) as usize];
+        ve_thanh_cuon(&mut vua_khit, rong, cao, 100.0, 0.0);
+        assert_eq!(dem(&vua_khit), 0, "nội dung vừa khít mà vẫn vẽ thanh cuộn");
+
+        let mut dai = vec![0xFFFF_FFFF_u32; (rong * cao) as usize];
+        ve_thanh_cuon(&mut dai, rong, cao, 400.0, 0.0);
+        assert!(dem(&dai) > 0, "nội dung dài gấp bốn mà không có thanh cuộn");
+
+        // Cuộn xuống thì thanh phải ĐI XUỐNG, không đứng im.
+        let mut duoi = vec![0xFFFF_FFFF_u32; (rong * cao) as usize];
+        ve_thanh_cuon(&mut duoi, rong, cao, 400.0, 300.0);
+        let dinh = |ra: &[u32]| {
+            (0..cao).find(|y| (0..rong).any(|x| ra[(y * rong + x) as usize] == 0x0090_9090))
+        };
+        assert!(
+            dinh(&duoi) > dinh(&dai),
+            "cuộn xuống đáy mà thanh vẫn ở nguyên chỗ cũ"
+        );
     }
 }

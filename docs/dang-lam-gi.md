@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**373 phép thử · 154 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**380 phép thử · 154 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -222,6 +222,35 @@ không", nên khoá công khai thừa byte vẫn cắt đủ 1984 byte đầu v�
 thuần `dung_do_dai` canh cả ba đường — khoá bí mật, khoá công khai, chữ ký — và
 có vector `publisher key is one byte too long` đứng cạnh ca 200-byte đã có: hai
 ca là hai đầu của cùng một bất biến, mà trước đó chỉ đầu NGẮN được thử.
+
+**Cửa sổ trước 25/08/2026 KHÔNG dùng được bằng bàn phím.** Khung xử lý đúng
+hai thứ: chữ, và `Backspace`. Không `Tab`, không `Enter`, không viền tiêu điểm.
+Mọi nút và mọi ô chỉ với tới được **bằng chuột**.
+
+Đó là lỗi trợ năng, nhưng nó cũng là lỗi an ninh — và vế thứ hai mới là lý do
+nó nằm trong SECURITY.md: người không dùng được chuột thì **không trả lời được
+hộp thoại quyền**, mà một hộp thoại không trả lời được là một hộp thoại sẽ được
+người khác trả lời hộ.
+
+Hai luật của đường bàn phím mới, cùng lý lẽ với luật đã có cho chuột:
+
+- **`Enter` trong ô nhập không kích hoạt gì.** Trên hộp thoại quyền, "nút gần
+  nhất" có thể là *Cho phép*.
+- **`Enter` trên công tắc gạt công tắc và Ở LẠI màn hình**, y như bấm chuột.
+
+Viền tiêu điểm kẻ **bên ngoài** ô, chừa khe hở, vì nút mất mát đã dùng **khung
+đôi phía trong** (B31) — vẽ chồng vào trong là gộp hai tín hiệu khác nhau
+("nguy hiểm" và "đang chọn") thành một hình. Bộ dựng chỉ có một kênh mực, nên
+tín hiệu phải là hình dạng, không bao giờ là màu.
+
+Chuột nay cũng đặt tiêu điểm: trước đó bấm chuột rồi `Tab` là nhảy về đầu —
+hai lối vào nhìn thấy hai giao diện khác nhau.
+
+**Và cửa sổ không kéo đổi cỡ được.** Chiều rộng bố cục là hằng biên dịch, nên
+kéo rộng ra thì chữ vẫn xuống dòng ở cột cũ, phần thừa là dải trắng. Nay là
+thuộc tính của bộ dựng, kẹp trong khoảng dùng được, và `Resized` xếp lại bố
+cục. Kẹp không phải để đẹp: kéo cửa sổ gần khép lại là thao tác bình thường, nó
+không được thành một ảnh rộng 0.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

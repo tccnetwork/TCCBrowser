@@ -61,6 +61,11 @@ pub const WIDTH: usize = 640;
 /// là giấu mất phần giao diện mà người dùng đáng ra phải thấy.
 pub const MAX_HEIGHT: usize = 4096;
 
+/// Hẹp hơn số này thì chữ không còn đọc được, chỉ còn một cột ký tự.
+pub const MIN_WIDTH: usize = 320;
+/// Rộng hơn số này thì mắt không lần lại được đầu dòng sau.
+pub const MAX_WIDTH: usize = 2048;
+
 /// Cỡ chữ nền. Cùng con số đã đo ở đâm thử 0.1.
 const CO_CHU: f32 = 15.0;
 const LE: f32 = 12.0;
@@ -88,6 +93,35 @@ pub struct RasterRenderer {
     da_dat: Vec<DaDat>,
     /// Cây trợ năng ghi lại TRONG LÚC VẼ — xem ghi chú đầu tệp.
     published: Option<AccessNode>,
+    /// Đích bàn phím đang được chọn, nếu có. Bộ dựng chỉ VẼ nó ra; ai đang được
+    /// chọn là việc của khung cửa sổ.
+    tieu_diem: Option<FocusTarget>,
+    /// Đích chuột đang rê qua. Khác `tieu_diem`: cái kia là bàn phím.
+    duoi_chuot: Option<FocusTarget>,
+    /// Chiều rộng ảnh đang dùng.
+    ///
+    /// Là THUỘC TÍNH chứ không phải hằng, từ 25/08/2026. Trước đó bố cục cố
+    /// định 640 điểm ảnh: kéo rộng cửa sổ ra thì chữ vẫn xuống dòng ở đúng chỗ
+    /// cũ và phần thừa là một dải trắng. Một cửa sổ không co giãn được thì
+    /// không phải một ứng dụng.
+    rong: usize,
+}
+
+/// Một đích mà bàn phím dừng lại được.
+///
+/// Thứ tự `Tab` là thứ tự ĐÃ ĐẶT — cùng thứ tự mắt đọc và cùng thứ tự trục trợ
+/// năng công bố. Ba thứ ấy lệch nhau là lúc người dùng bàn phím và người dùng
+/// chuột nhìn thấy hai giao diện khác nhau.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FocusTarget {
+    /// Ô nhập, tra theo NHÃN — ô nhập không mang mã hành động.
+    Field(String),
+    /// Nút hoặc công tắc, tra theo mã hành động.
+    Action {
+        id: String,
+        /// `true` = công tắc: đổi câu trả lời rồi ở lại màn hình.
+        toggle: bool,
+    },
 }
 
 impl Default for RasterRenderer {
@@ -106,6 +140,9 @@ impl RasterRenderer {
             height: 0,
             da_dat: Vec::new(),
             published: None,
+            tieu_diem: None,
+            duoi_chuot: None,
+            rong: WIDTH,
         }
     }
 
@@ -143,10 +180,54 @@ impl RasterRenderer {
     /// Tách khỏi [`Self::hit_test`] vì hai câu hỏi khác nhau: một cái hỏi "chạy
     /// việc gì", cái này hỏi "gõ vào đâu". Gộp lại là chỗ một cú bấm vào ô nhập
     /// lỡ chạy mất một hành động.
+    /// Chiều rộng ảnh hiện tại.
+    #[must_use]
+    pub const fn width(&self) -> usize {
+        self.rong
+    }
+
+    /// Đổi chiều rộng. Lần `render` sau sẽ xếp lại theo số mới.
+    ///
+    /// Kẹp trong khoảng dùng được: hẹp quá thì một chữ cũng không lọt và bố cục
+    /// thành một cột ký tự; rộng quá thì một dòng dài tới mức mắt không lần lại
+    /// được đầu dòng sau.
+    pub const fn set_width(&mut self, rong: usize) {
+        self.rong = if rong < MIN_WIDTH {
+            MIN_WIDTH
+        } else if rong > MAX_WIDTH {
+            MAX_WIDTH
+        } else {
+            rong
+        };
+    }
+
+    /// Thứ tự `Tab`, theo đúng thứ tự đã đặt.
+    ///
+    /// Lấy từ `da_dat` chứ không đi lại cây: chỗ người dùng thấy là chỗ bộ dựng
+    /// ĐÃ ĐẶT. Cùng lý lẽ với `hanh_dong` ghi thẳng trên ô — xem chú thích ở đó.
+    #[must_use]
+    pub fn focus_order(&self) -> Vec<FocusTarget> {
+        self.da_dat.iter().filter_map(Self::dich_cua).collect()
+    }
+
+    /// Đặt đích đang được chọn, để lượt vẽ sau kẻ viền quanh nó.
+    pub fn set_focus(&mut self, dich: Option<FocusTarget>) {
+        self.tieu_diem = dich;
+    }
+
+    /// Đặt đích chuột đang rê qua.
+    ///
+    /// Tách khỏi tiêu điểm bàn phím: hai thứ có thể ở hai chỗ khác nhau cùng
+    /// lúc, và gộp chúng thì rê chuột qua một nút sẽ ĐỔI chỗ bàn phím đang
+    /// đứng — `Enter` sau đó chạy một việc khác việc người dùng đang nhắm.
+    pub fn set_hover(&mut self, dich: Option<FocusTarget>) {
+        self.duoi_chuot = dich;
+    }
+
     #[must_use]
     pub fn hit_test_field(&self, x: f32, y: f32) -> Option<&str> {
         #[expect(clippy::cast_precision_loss, reason = "kích thước ảnh, luôn nhỏ")]
-        if x < 0.0 || y < 0.0 || x >= WIDTH as f32 || y >= self.height as f32 {
+        if x < 0.0 || y < 0.0 || x >= self.rong as f32 || y >= self.height as f32 {
             return None;
         }
         self.da_dat
@@ -188,7 +269,7 @@ impl RasterRenderer {
         // biến một lỗi bố cục thành một nút chết thay vì một nút vô hình bấm
         // được. Đó là phòng thủ theo tầng, không phải một phép kiểm.
         #[expect(clippy::cast_precision_loss, reason = "kích thước ảnh, luôn nhỏ")]
-        if x < 0.0 || y < 0.0 || x >= WIDTH as f32 || y >= self.height as f32 {
+        if x < 0.0 || y < 0.0 || x >= self.rong as f32 || y >= self.height as f32 {
             return None;
         }
         self.da_dat
@@ -430,7 +511,7 @@ impl Renderer for RasterRenderer {
     fn render(&mut self, tree: &Node) -> Result<(), Self::Error> {
         let mut access = Vec::new();
         let mut dat = Vec::new();
-        let rong_dung = WIDTH as f32 - LE * 2.0;
+        let rong_dung = self.rong as f32 - LE * 2.0;
 
         // Ba lượt tách bạch: đo → đặt → vẽ. Gộp lượt đo vào lượt vẽ là cách bản
         // 4.1 hỏng — không có kích thước thì không đặt cạnh nhau được gì.
@@ -446,7 +527,7 @@ impl Renderer for RasterRenderer {
             return Err(RasterError::TooTall(cao_anh));
         }
         self.height = cao_anh.max(1);
-        self.pixel = vec![255u8; WIDTH * self.height];
+        self.pixel = vec![255u8; self.rong * self.height];
 
         for mot in &dat {
             self.ve_o(mot);
@@ -621,10 +702,67 @@ impl RasterRenderer {
         }
     }
 
+    /// Ô này ứng với đích nào, nếu nó chạm được.
+    ///
+    /// MỘT chỗ duy nhất trả lời câu ấy — dùng cho cả tiêu điểm bàn phím lẫn rê
+    /// chuột, và cùng phép so khớp với `focus_order`. Ba bản sao của cùng một
+    /// câu hỏi là ba bản sẽ trôi khác nhau.
+    fn dich_cua(dat: &DaDat) -> Option<FocusTarget> {
+        if let Some(nhan) = dat.o.nhan.as_ref() {
+            Some(FocusTarget::Field(nhan.clone()))
+        } else {
+            dat.o.hanh_dong.as_ref().map(|id| FocusTarget::Action {
+                id: id.clone(),
+                toggle: dat.o.cong_tac,
+            })
+        }
+    }
+
+    /// Ô này có đang được chọn không.
+    fn dang_chon(&self, dat: &DaDat) -> bool {
+        self.tieu_diem.is_some() && self.tieu_diem == Self::dich_cua(dat)
+    }
+
     fn ve_o(&mut self, dat: &DaDat) {
         let o = &dat.o;
+
+        // ── Nền nhạt khi chuột rê qua ──
+        //
+        // Nền chứ không phải khung: khung đã mang hai nghĩa rồi (ô có khung =
+        // nút/ô nhập; khung đôi = mất mát), và nghĩa thứ ba trên cùng một hình
+        // dạng là chỗ người dùng bắt đầu đoán. Nền nhạt đủ thấy mà không đọc
+        // nhầm thành một trạng thái của chính cái nút.
+        if self.duoi_chuot.is_some() && self.duoi_chuot == Self::dich_cua(dat) {
+            let trai = dat.trai as usize;
+            let tren = dat.tren as usize;
+            let rong = (o.rong as usize).min(self.rong.saturating_sub(trai));
+            for hang in tren..(tren + o.cao as usize).min(self.height) {
+                for cot in trai..(trai + rong).min(self.rong) {
+                    let v = &mut self.pixel[hang * self.rong + cot];
+                    *v = v.saturating_sub(20);
+                }
+            }
+        }
+
+        // ── Viền tiêu điểm bàn phím ──
+        //
+        // Kẻ BÊN NGOÀI ô, chừa một khe hở. Hai lý do, cả hai đều là hình dạng
+        // chứ không phải màu — bộ dựng này chỉ có mực xám:
+        //
+        // * Nút mất mát đã dùng KHUNG ĐÔI ở PHÍA TRONG (B31). Viền tiêu điểm mà
+        //   cũng vẽ vào trong thì hai dấu hiệu chồng lên nhau, và người dùng mất
+        //   khả năng phân biệt "nút này nguy hiểm" với "nút này đang được chọn".
+        // * Chữ và ô nhập KHÔNG có khung riêng, nên viền ngoài là dấu hiệu duy
+        //   nhất thấy được ở mọi kiểu ô.
+        if self.dang_chon(dat) {
+            let trai = (dat.trai as usize).saturating_sub(2);
+            let tren = (dat.tren as usize).saturating_sub(2);
+            let rong = (o.rong as usize + 4).min(self.rong.saturating_sub(trai + 1));
+            self.khung(trai, tren, rong, o.cao as usize + 4);
+        }
+
         if o.kieu == KieuO::Khung {
-            let rong = (o.rong as usize).min(WIDTH.saturating_sub(dat.trai as usize + 2));
+            let rong = (o.rong as usize).min(self.rong.saturating_sub(dat.trai as usize + 2));
             self.khung(dat.trai as usize, dat.tren as usize, rong, o.cao as usize);
             // ⚠️ Nút MẤT MÁT vẽ KHUNG ĐÔI — B31.
             //
@@ -657,7 +795,8 @@ impl RasterRenderer {
         );
         let mut b = buffer.borrow_with(&mut self.fonts);
 
-        let (pixel, rong_anh, cao_anh) = (&mut self.pixel, WIDTH, self.height);
+        let rong_anh = self.rong;
+        let (pixel, cao_anh) = (&mut self.pixel, self.height);
         let nen_x = (dat.trai + dem) as i32;
         // ⚠️ Dời xuống bằng phần nét thò LÊN TRÊN mà lượt đo đã thấy. Không dời
         // thì nét vẽ lên trên mép ô, đè vào ô phía trên.
@@ -685,15 +824,15 @@ impl RasterRenderer {
     fn khung(&mut self, trai: usize, tren: usize, rong: usize, cao: usize) {
         for buoc in 0..rong {
             for hang in [tren, tren + cao] {
-                if hang < self.height && trai + buoc < WIDTH {
-                    self.pixel[hang * WIDTH + trai + buoc] = 150;
+                if hang < self.height && trai + buoc < self.rong {
+                    self.pixel[hang * self.rong + trai + buoc] = 150;
                 }
             }
         }
         for buoc in 0..=cao {
             for cot in [trai, trai + rong] {
-                if tren + buoc < self.height && cot < WIDTH {
-                    self.pixel[(tren + buoc) * WIDTH + cot] = 150;
+                if tren + buoc < self.height && cot < self.rong {
+                    self.pixel[(tren + buoc) * self.rong + cot] = 150;
                 }
             }
         }
@@ -709,6 +848,168 @@ impl RasterRenderer {
 mod kiem_thu {
     use super::*;
     use tcc_ui::{Flow, Gap};
+
+    /// **Thứ tự `Tab` phải là thứ tự ĐỌC, và phải có ĐỦ mọi thứ chạm được.**
+    ///
+    /// Bỏ sót một loại là bàn phím không tới được nó — người dùng chuột thấy
+    /// một giao diện, người dùng bàn phím thấy một giao diện khác.
+    #[test]
+    fn thu_tu_tieu_diem_la_thu_tu_doc() {
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay_mau()).unwrap();
+        assert_eq!(
+            bd.focus_order(),
+            vec![
+                FocusTarget::Action {
+                    id: "xoa".to_owned(),
+                    toggle: false
+                },
+                FocusTarget::Field("Mã PIN".to_owned()),
+                FocusTarget::Action {
+                    id: "mang".to_owned(),
+                    toggle: true
+                },
+            ],
+            "thứ tự Tab lệch khỏi thứ tự cây"
+        );
+    }
+
+    /// **Công tắc và nút phải PHÂN BIỆT được trong thứ tự tiêu điểm.**
+    ///
+    /// Gộp chúng thì `Enter` trên một công tắc sẽ đóng màn hình — đúng cái lỗi
+    /// mà `sau_cu_bam` đã tách ra để tránh cho chuột.
+    #[test]
+    fn tieu_diem_phan_biet_cong_tac_voi_nut() {
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay_mau()).unwrap();
+        let d = bd.focus_order();
+        assert!(matches!(d[0], FocusTarget::Action { toggle: false, .. }));
+        assert!(matches!(d[2], FocusTarget::Action { toggle: true, .. }));
+    }
+
+    /// **Viền tiêu điểm phải THẤY ĐƯỢC, và vẽ RA NGOÀI ô.**
+    ///
+    /// Đo bằng MỰC, không bằng cây: đây là dấu hiệu người dùng nhìn bằng mắt, và
+    /// một dấu hiệu "có trong cây nhưng không có trên màn hình" thì vô dụng.
+    /// Cùng lý lẽ với phép thử của B31.
+    #[test]
+    fn vien_tieu_diem_them_muc_that() {
+        let ve = |dich: Option<FocusTarget>| {
+            let mut bd = RasterRenderer::new();
+            bd.set_focus(dich);
+            bd.render(&cay_mau()).unwrap();
+            bd.ink()
+        };
+        let khong = ve(None);
+        let co = ve(Some(FocusTarget::Action {
+            id: "xoa".to_owned(),
+            toggle: false,
+        }));
+        assert!(
+            co > khong,
+            "chọn một nút mà số mực không tăng: {khong} → {co}"
+        );
+    }
+
+    /// **Rộng cửa sổ đổi thì bố cục PHẢI xếp lại theo số mới.**
+    ///
+    /// Trước 25/08/2026 chiều rộng là hằng biên dịch: kéo cửa sổ rộng ra thì
+    /// chữ vẫn xuống dòng ở đúng chỗ cũ và phần thừa là dải trắng.
+    #[test]
+    fn doi_rong_thi_bo_cuc_xep_lai() {
+        let dai = Node::text(
+            "Một đoạn đủ dài để phải xuống dòng khi khung hẹp, và không cần xuống dòng              khi khung rộng ra — đó chính là thứ phép thử này đo.",
+        )
+        .unwrap();
+
+        let cao = |rong: usize| {
+            let mut bd = RasterRenderer::new();
+            bd.set_width(rong);
+            bd.render(&dai).unwrap();
+            (bd.height(), bd.image().len())
+        };
+        let (cao_hep, byte_hep) = cao(400);
+        let (cao_rong, byte_rong) = cao(1200);
+
+        assert!(
+            cao_rong < cao_hep,
+            "khung rộng gấp ba mà vẫn cao bằng: {cao_hep} → {cao_rong}"
+        );
+        assert_eq!(byte_hep, 400 * cao_hep, "ảnh không đúng chiều rộng đã đặt");
+        assert_eq!(byte_rong, 1200 * cao_rong);
+    }
+
+    /// **Chiều rộng bị KẸP, không nhận số vô lý.**
+    ///
+    /// Kéo cửa sổ về gần bằng không là một thao tác bình thường của người dùng;
+    /// nó không được thành một ảnh rộng 0 hay một phép chia cho không.
+    #[test]
+    fn rong_bi_kep_trong_khoang_dung_duoc() {
+        let mut bd = RasterRenderer::new();
+        bd.set_width(0);
+        assert_eq!(bd.width(), MIN_WIDTH);
+        bd.set_width(99_999);
+        assert_eq!(bd.width(), MAX_WIDTH);
+        // Và vẽ được ở cả hai đầu, không hoảng loạn.
+        bd.set_width(MIN_WIDTH);
+        assert!(bd.render(&cay_mau()).is_ok());
+        bd.set_width(MAX_WIDTH);
+        assert!(bd.render(&cay_mau()).is_ok());
+    }
+
+    /// **Rê chuột qua một nút phải THẤY ĐƯỢC, và khác dấu hiệu tiêu điểm.**
+    ///
+    /// Đo bằng mực. Ba dấu hiệu trên cùng một bộ dựng một-kênh-mực phải phân
+    /// biệt được bằng HÌNH DẠNG: khung (là nút), khung đôi (mất mát — B31),
+    /// viền ngoài (đang chọn — B51). Nền nhạt là cái thứ tư, và nó không được
+    /// trông giống ba cái kia.
+    #[test]
+    fn re_chuot_thay_duoc_va_khac_tieu_diem() {
+        let nut = FocusTarget::Action {
+            id: "xoa".to_owned(),
+            toggle: false,
+        };
+        let ve = |tieu: Option<FocusTarget>, chuot: Option<FocusTarget>| {
+            let mut bd = RasterRenderer::new();
+            bd.set_focus(tieu);
+            bd.set_hover(chuot);
+            bd.render(&cay_mau()).unwrap();
+            bd.ink()
+        };
+        let khong = ve(None, None);
+        let re = ve(None, Some(nut.clone()));
+        let chon = ve(Some(nut.clone()), None);
+
+        assert!(re > khong, "rê chuột không đổi gì trên màn hình");
+        assert_ne!(
+            re, chon,
+            "rê chuột và tiêu điểm cho ra CÙNG một hình — hai trạng thái khác nhau mà trông giống hệt"
+        );
+    }
+
+    /// **Rê chuột KHÔNG được đổi chỗ bàn phím đang đứng.**
+    #[test]
+    fn re_chuot_khong_doi_tieu_diem() {
+        let mut bd = RasterRenderer::new();
+        let o = FocusTarget::Field("Mã PIN".to_owned());
+        bd.set_focus(Some(o.clone()));
+        bd.set_hover(Some(FocusTarget::Action {
+            id: "xoa".to_owned(),
+            toggle: false,
+        }));
+        bd.render(&cay_mau()).unwrap();
+        // Tiêu điểm vẫn ở ô nhập: viền ngoài phải quanh ĐÚNG ô ấy.
+        let chi_tieu_diem = {
+            let mut b = RasterRenderer::new();
+            b.set_focus(Some(o));
+            b.render(&cay_mau()).unwrap();
+            b.ink()
+        };
+        assert!(
+            bd.ink() > chi_tieu_diem,
+            "rê chuột lên nút khác mà tổng dấu hiệu không tăng — một trong hai đã bị nuốt"
+        );
+    }
 
     fn cay_mau() -> Node {
         Node::group(Flow::Column, Gap::Large)

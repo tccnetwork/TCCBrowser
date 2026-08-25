@@ -63,6 +63,9 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B47 | The implementation emits **only** error codes the specification defines — checked in **both** directions | `khoa_khong_phai_diem_van_ra_bad_signature`; rule 10 and rule 10b in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.18 |
 | B48 | A signature verifies **only** at its exact length — no trailing bytes, no truncation | `chu_ky_thua_hay_thieu_mot_byte_deu_bi_choi`, vector `them mot byte thua` — added 2026-08-25, see §3.19 |
 | B49 | **Every** capability entry point — not a representative one — refuses after `revoke_all` | `thu_hoi_giet_moi_loi_vao_cua_moi_quyen` — added 2026-08-25, see §3.20 |
+| B50 | The window is **operable by keyboard**: `Tab` reaches every interactive target and wraps, `Enter` never activates from inside a field, `Enter` on a toggle does not close the screen | `tab_di_vong_hai_dau`, `enter_trong_o_nhap_khong_kich_hoat_gi`, `enter_tren_cong_tac_khong_dong_man`, `tieu_diem_va_o_dang_chon_luon_khop` — added 2026-08-25, see §3.21 |
+| B51 | Focus is **visible**, and its mark is distinct from the destructive mark of B31 | `vien_tieu_diem_them_muc_that` (measures ink, not the tree) — added 2026-08-25, see §3.21 |
+| B52 | Hover, focus and destructive each have a **distinct shape** — a single-ink renderer cannot say them in colour | `re_chuot_thay_duoc_va_khac_tieu_diem`, `re_chuot_khong_doi_tieu_diem` — added 2026-08-25, see §3.21 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1145,7 +1148,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 373.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 380.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1306,6 +1309,58 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.21 The window could not be operated by keyboard at all
+
+Until 2026-08-25 the frame handled exactly two keys: characters, and
+`Backspace`. There was no `Tab`, no `Enter`, no focus indicator. Every button
+and every field was reachable **only by mouse**.
+
+That is an accessibility failure, but it is also a security one, and the second
+is the reason it belongs in this document. §3.12 recorded the mirror of it — a
+blind user could not type a PIN — and the fix there went through the
+accessibility axis. This one is simpler: a person who cannot use a mouse could
+not answer a permission dialog, and a dialog that cannot be answered is a
+dialog that gets answered by someone else.
+
+Two rules in the new keyboard path exist for the same reason the mouse rules do:
+
+- **`Enter` inside a text field activates nothing.** On a permission dialog the
+  nearest button may be *Allow*; a stray Enter there is an answer the user never
+  gave.
+- **`Enter` on a toggle flips the toggle and keeps the screen open**, exactly as
+  a click does. A keyboard path that closed the dialog on the first toggle would
+  answer, on the user's behalf, every item they had not yet read.
+
+The focus ring is drawn **outside** the box with a gap, because destructive
+buttons already use a **double frame inside** (B31). Drawing focus inside too
+would collapse two distinct signals — *this one is dangerous* and *this one is
+selected* — into one shape. This renderer has a single ink channel, so a signal
+has to be a shape, never a colour.
+
+Clicking now also sets focus. Before, a click followed by `Tab` jumped back to
+the start — mouse and keyboard were looking at different interfaces.
+
+Hovering highlights the target under the cursor — buttons previously gave no
+feedback at all. It is a **light fill**, deliberately not another frame: frames
+already carry two meanings on this renderer (a frame means *button or field*, a
+double frame means *destructive*, B31), and a third meaning on the same shape is
+where a user starts guessing. Hover is also kept **separate from keyboard
+focus**; merging them would mean moving the mouse silently moves where `Enter`
+would land.
+
+⚠️ Still not proven with a real assistive technology. The tests check the frame's
+own model of focus; nobody has yet listened to a screen reader read this window.
+
+### 3.22 A window that could not be resized
+
+Layout width was a compile-time constant. Widening the window left the text
+wrapping at the old column with white space beside it, because nothing
+recomputed. It is now a property of the renderer, clamped to a usable range, and
+a resize relays out.
+
+The clamp is not cosmetic: dragging a window nearly shut is an ordinary thing to
+do, and it must not become an image of width zero or a division by it.
 
 ### 3.20 B4 was proved on one path out of four
 
@@ -1831,7 +1886,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 373 tests
+cargo test --workspace                              # 380 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

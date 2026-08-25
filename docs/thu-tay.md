@@ -120,6 +120,38 @@ TCC_TU_DONG_BAM="tu-choi" ./target/debug/tcc-browser hop-thoai examples/hello-tc
 `tools/kiem-khoi-ung-dung.sh` dùng chúng, và **cố ý bấm TỪ CHỐI**: một kiểm khói
 tự đồng ý mọi quyền là kiểm khói dạy rằng đồng ý mới là mặc định.
 
+## Bàn phím (từ 25/08/2026)
+
+Cửa sổ trước đó chỉ nhận chữ và `Backspace` — mọi nút chỉ với tới được bằng
+chuột. Nay:
+
+| Phím | Việc |
+|---|---|
+| `Tab` / `Shift+Tab` | đi tới đích kế tiếp / trước đó, **đi vòng** ở hai đầu |
+| `Enter` / `Space` | bấm nút, hoặc gạt công tắc đang chọn |
+| `Escape` | **huỷ** — thoát mà KHÔNG trả lời |
+| `Backspace` | xoá lùi trong ô nhập |
+
+Đích đang chọn có **viền kẻ bên ngoài**, chừa khe hở — cố ý khác với khung đôi
+của nút mất mát, để "nguy hiểm" và "đang chọn" không lẫn vào nhau.
+
+**Đáng thử phá:**
+
+- Đưa tiêu điểm vào **ô nhập** rồi bấm `Enter`. Phải **không xảy ra gì**. Trên
+  hộp thoại quyền, nút gần nhất có thể là *Cho phép*, và một phím Enter lạc chỗ
+  ở đó là một câu trả lời anh chị chưa hề đưa ra.
+- Đưa tiêu điểm vào **công tắc** rồi `Enter`. Công tắc phải gạt, hộp thoại
+  **không được đóng**.
+- `Escape` trên hộp thoại quyền → thoát, và **không quyền nào được cấp**.
+- `Tab` liên tục quá số mục → phải vòng về đầu, không kẹt.
+
+## Kéo đổi cỡ cửa sổ (từ 25/08/2026)
+
+Kéo cạnh cửa sổ: chữ phải **xuống dòng lại theo chiều rộng mới**. Trước đó bố
+cục cố định 640 điểm ảnh nên kéo rộng ra chỉ được thêm một dải trắng.
+
+Kéo hẹp hết cỡ và rộng hết cỡ — phải dừng ở giới hạn, không vỡ.
+
 ## Chưa làm được
 
 - **Không có giao dịch mainnet nào.** Cổng chặn cứng: chưa qua kiểm định an ninh
