@@ -7,7 +7,14 @@ license.workspace = true
 
 [features]
 # Mở cửa sổ thật. Không bật mặc định để `cargo test` không phải kéo wry+tao.
-window = ["tcc-shell/window", "tcc-shell/network"]
+# Trợ năng đi CÙNG cửa sổ, không phải một cờ riêng.
+#
+# Tới 25/08/2026 cầu AccessKit chỉ bật được qua `tcc-shell/window-tro-nang`, mà
+# `tcc-browser` không có đường nào tới đó — nên MỌI bản sản phẩm đều không có
+# trục trợ năng. Nó bị gạt ra vì trọng lượng phụ thuộc lúc `cargo test`, không
+# phải vì ai quyết rằng người dùng không cần. `cargo test --workspace` không
+# dựng cờ này, nên gộp vào đây không làm bộ thử nặng thêm.
+window = ["tcc-shell/window", "tcc-shell/network", "tcc-shell/window-tro-nang"]
 # Ví trong trình duyệt. Tách riêng: bản dựng không có nó KHÔNG có mục ví nào,
 # và đó là bản dựng đúng cho tới khi có hồ sơ cấp phép Apple (vi-thiet-ke §19).
 wallet = ["window", "tcc-shell/wallet"]

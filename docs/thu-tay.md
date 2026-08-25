@@ -145,6 +145,10 @@ của nút mất mát, để "nguy hiểm" và "đang chọn" không lẫn vào 
 - `Escape` trên hộp thoại quyền → thoát, và **không quyền nào được cấp**.
 - `Tab` liên tục quá số mục → phải vòng về đầu, không kẹt.
 
+**Ô nhập đang chọn có dấu nháy** ở cuối chữ. Nháy nằm ở CUỐI vì khung chỉ nhận
+thêm ở cuối — chưa di chuyển được con trỏ vào giữa chuỗi, và vẽ một dấu nháy ở
+chỗ không gõ được thì là nói dối.
+
 ## Kéo đổi cỡ cửa sổ (từ 25/08/2026)
 
 Kéo cạnh cửa sổ: chữ phải **xuống dòng lại theo chiều rộng mới**. Trước đó bố
@@ -157,5 +161,7 @@ Kéo hẹp hết cỡ và rộng hết cỡ — phải dừng ở giới hạn, 
 - **Không có giao dịch mainnet nào.** Cổng chặn cứng: chưa qua kiểm định an ninh
   độc lập thì không có giao dịch thật, không hạn chót nào ghi đè.
 - Không mở được trang web bất kỳ — không còn bộ dựng web trong dự án này.
-- Chưa thử với trình đọc màn hình thật. Trục trợ năng có mã và có phép thử,
-  nhưng **chưa ai ngồi nghe nó đọc** — đó là việc cần người, không phải mã.
+- Chưa thử với **trình đọc màn hình** thật. Cầu AccessKit nay CÓ trong bản sản
+  phẩm — trước 25/08/2026 thì không: nó nằm sau một cờ mà `tcc-browser` không có
+  đường nào bật, nên **mọi bản từng chạy đều không có trục trợ năng**. Nhưng
+  chưa ai ngồi nghe VoiceOver đọc nó, và **có mặt không có nghĩa là đúng**.

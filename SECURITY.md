@@ -66,6 +66,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B50 | The window is **operable by keyboard**: `Tab` reaches every interactive target and wraps, `Enter` never activates from inside a field, `Enter` on a toggle does not close the screen | `tab_di_vong_hai_dau`, `enter_trong_o_nhap_khong_kich_hoat_gi`, `enter_tren_cong_tac_khong_dong_man`, `tieu_diem_va_o_dang_chon_luon_khop` — added 2026-08-25, see §3.21 |
 | B51 | Focus is **visible**, and its mark is distinct from the destructive mark of B31 | `vien_tieu_diem_them_muc_that` (measures ink, not the tree) — added 2026-08-25, see §3.21 |
 | B52 | Hover, focus and destructive each have a **distinct shape** — a single-ink renderer cannot say them in colour | `re_chuot_thay_duoc_va_khac_tieu_diem`, `re_chuot_khong_doi_tieu_diem` — added 2026-08-25, see §3.21 |
+| B53 | The **product build with a window always carries the accessibility bridge** — it is not a separate flag someone can forget | rule 24 in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.23 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1148,7 +1149,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 380.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 381.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1309,6 +1310,29 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.23 The shipped binary had no accessibility bridge at all
+
+The AccessKit adapter was wired up on 2026-08-19 and this document has been
+citing it since. What nobody checked is whether the **product** could switch it
+on: it lived behind `tcc-shell/window-tro-nang`, and `tcc-browser` — the crate
+that becomes the binary a person runs — exposed no path to that flag. Every
+build anyone has ever run had a window and no accessibility tree. A screen
+reader pointed at it would have found a rectangle of pixels.
+
+It was not a decision. The flag exists so `cargo test` does not drag in three
+platform adapters, and the product simply never got reconnected to it. The
+window feature of the application now includes it, and rule 24 fails the build
+if anyone separates them again. `cargo test --workspace` does not build that
+feature, so the test suite is no heavier.
+
+The lesson repeats the one in §3.17 almost exactly. There, the conformance
+vectors were real but invisible to the oracle. Here, the accessibility bridge
+was real but absent from the artefact. In both cases the work existed, the
+document cited it, and the thing that actually ships did not have it.
+
+⚠️ This makes the bridge **present**. It does not make it **correct** — still
+nobody has listened to a screen reader read this window.
 
 ### 3.21 The window could not be operated by keyboard at all
 
@@ -1886,12 +1910,12 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 380 tests
+cargo test --workspace                              # 381 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 23 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 24 architecture rules
 ```
 
 All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in

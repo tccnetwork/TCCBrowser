@@ -31,7 +31,7 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh   # 23 luật, chạy trước biên dịch trong CI
+tools/kiem-luat-phu-thuoc.sh   # 24 luật, chạy trước biên dịch trong CI
 cargo test --workspace
 cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
@@ -111,7 +111,7 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chỉ `grep` tìm chữ "FAILED" thì nó báo XANH cho bốn bộ thử **chưa hề chạy**.
   Đo mã thoát, và dùng `"$@"`/`eval` thay vì `$c` trần.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
-  đỏ không phải bằng chứng. Điều này áp cho cả 23 luật kiến trúc.
+  đỏ không phải bằng chứng. Điều này áp cho cả 24 luật kiến trúc.
 
 ## Ranh giới không được vượt
 

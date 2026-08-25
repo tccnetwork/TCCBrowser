@@ -503,6 +503,22 @@ else
 fi
 
 echo
+echo "--- Luật 24: bản sản phẩm có cửa sổ PHẢI có cầu trợ năng ---"
+# Tới 25/08/2026 cầu AccessKit chỉ bật được qua `tcc-shell/window-tro-nang`, mà
+# `tcc-browser` không có đường nào tới đó. Nghĩa là MỌI bản người dùng chạy đều
+# không có trục trợ năng — trình đọc màn hình nhìn vào chỉ thấy một mảng điểm
+# ảnh. Nó rơi ra vì trọng lượng phụ thuộc lúc `cargo test`, không phải vì ai
+# quyết rằng người dùng không cần.
+#
+# Luật này canh đúng một điều: cờ `window` của ứng dụng kéo theo trợ năng. Ai
+# tách chúng ra lần nữa thì phải đi qua đây.
+if grep -qE '^window = .*window-tro-nang' apps/tcc-browser/Cargo.toml; then
+  dat "cờ cửa sổ của bản sản phẩm kéo theo cầu trợ năng"
+else
+  bao "bản sản phẩm dựng được cửa sổ mà KHÔNG có cầu trợ năng — trình đọc màn hình chỉ thấy điểm ảnh"
+fi
+
+echo
 echo "--- Luật 9: khoá demo KHÔNG được rời khỏi examples/ ---"
 # `examples/khoa-vi-du-AI-CUNG-CO.hex` nằm ngay trong kho, ai cũng có. Ký một gói
 # thật bằng nó nghĩa là bất kỳ ai cũng giả mạo được nhà phát hành đó — và khi có

@@ -744,6 +744,29 @@ impl RasterRenderer {
             }
         }
 
+        // ── Dấu nháy trong ô nhập đang được chọn ──
+        //
+        // Một ô nhập không có dấu nháy trông y hệt một ô chữ có khung: người
+        // dùng không biết gõ vào thì chữ đi đâu, hay có đi đâu không. Vẽ ở CUỐI
+        // chữ vì khung chỉ nhận thêm ở cuối — di chuyển con trỏ giữa chuỗi chưa
+        // có, và vẽ một dấu nháy ở chỗ không gõ được là nói dối.
+        if o.nhan.is_some() && self.dang_chon(dat) {
+            let dem = DEM;
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "toạ độ trong ảnh, luôn dương và nhỏ"
+            )]
+            let x = (dat.trai + o.rong - dem).max(0.0) as usize;
+            let tren = dat.tren as usize + 2;
+            let day = (tren + (o.cao as usize).saturating_sub(4)).min(self.height);
+            for hang in tren..day {
+                if x < self.rong {
+                    self.pixel[hang * self.rong + x] = 40;
+                }
+            }
+        }
+
         // ── Viền tiêu điểm bàn phím ──
         //
         // Kẻ BÊN NGOÀI ô, chừa một khe hở. Hai lý do, cả hai đều là hình dạng
@@ -1008,6 +1031,51 @@ mod kiem_thu {
         assert!(
             bd.ink() > chi_tieu_diem,
             "rê chuột lên nút khác mà tổng dấu hiệu không tăng — một trong hai đã bị nuốt"
+        );
+    }
+
+    /// **Ô nhập đang được chọn phải có DẤU NHÁY, đúng chỗ gõ vào.**
+    ///
+    /// ⚠️ Bản đầu của phép thử này SO MỰC giữa "chọn ô nhập" và "chọn nút" rồi
+    /// kết luận có nháy. Nó vô nghĩa: hai ô to nhỏ khác nhau nên viền của chúng
+    /// đã khác mực sẵn, chẳng liên quan gì tới dấu nháy — kiểm đột biến bỏ hẳn
+    /// phần vẽ nháy đi mà nó vẫn XANH.
+    ///
+    /// Bản này soi ĐÚNG CỘT nơi dấu nháy phải nằm: sát mép trong của khung, sau
+    /// chữ. Viền tiêu điểm nằm ngoài khung nên không chạm tới cột ấy, và chữ
+    /// không với tới đó vì bề rộng ô là bề rộng chữ cộng đệm.
+    #[test]
+    fn o_nhap_dang_chon_co_dau_nhay_dung_cho() {
+        let cay = Node::field("Ghi chú", "abc", false).unwrap();
+        let o = FocusTarget::Field("Ghi chú".to_owned());
+
+        let cot_co_muc = |chon: Option<FocusTarget>| {
+            let mut bd = RasterRenderer::new();
+            bd.set_focus(chon);
+            bd.render(&cay).unwrap();
+            let (trai, tren, rong, cao) = bd.placed_boxes()[0];
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "toạ độ trong ảnh, luôn dương và nhỏ"
+            )]
+            let x = (trai + rong - DEM) as usize;
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "toạ độ trong ảnh, luôn dương và nhỏ"
+            )]
+            let (y0, y1) = (tren as usize + 2, (tren + cao) as usize);
+            (y0..y1.min(bd.height()))
+                .filter(|y| bd.image()[y * bd.width() + x] < 250)
+                .count()
+        };
+
+        let khong_chon = cot_co_muc(None);
+        let dang_chon = cot_co_muc(Some(o));
+        assert!(
+            dang_chon > khong_chon,
+            "cột chỗ dấu nháy không có gì thêm khi ô được chọn: {khong_chon} → {dang_chon}"
         );
     }
 

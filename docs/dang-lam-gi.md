@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**380 phép thử · 154 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**381 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -251,6 +251,30 @@ kéo rộng ra thì chữ vẫn xuống dòng ở cột cũ, phần thừa là d
 thuộc tính của bộ dựng, kẹp trong khoảng dùng được, và `Resized` xếp lại bố
 cục. Kẹp không phải để đẹp: kéo cửa sổ gần khép lại là thao tác bình thường, nó
 không được thành một ảnh rộng 0.
+
+**Bản sản phẩm KHÔNG hề có cầu trợ năng.** Adapter AccessKit nối từ
+19/08/2026 và tài liệu vẫn trích dẫn nó từ đó. Điều không ai kiểm: `tcc-browser`
+— crate thành cái nhị phân người ta chạy — **không có đường nào** bật cờ
+`window-tro-nang`. Mọi bản từng chạy đều có cửa sổ và không có cây trợ năng;
+một trình đọc màn hình chĩa vào đó chỉ thấy một mảng điểm ảnh.
+
+Không phải một quyết định. Cờ ấy tồn tại để `cargo test` khỏi kéo ba adapter
+nền, rồi bản sản phẩm đơn giản là không được nối lại. Nay cờ `window` của ứng
+dụng kéo theo nó, và **luật 24** làm đỏ nếu ai tách ra lần nữa.
+
+Lặp lại gần như y hệt bài học của bộ vector: ở đó vector có thật nhưng trọng
+tài không nhìn thấy; ở đây cầu trợ năng có thật nhưng **thứ xuất xưởng không
+mang nó**. Cả hai lần, việc đã làm, tài liệu đã trích, và cái thực sự đến tay
+người dùng thì không có.
+
+**Dấu nháy trong ô nhập** — ô nhập không nháy trông y hệt ô chữ có khung. Vẽ ở
+CUỐI chữ vì khung chỉ nhận thêm ở cuối; di chuyển con trỏ giữa chuỗi chưa có, và
+vẽ một dấu nháy ở chỗ không gõ được là nói dối.
+
+⚠️ Phép thử đầu tiên tôi viết cho dấu nháy **vô nghĩa**: nó so mực giữa "chọn ô
+nhập" và "chọn nút", mà hai ô to nhỏ khác nhau nên viền đã khác mực sẵn — kiểm
+đột biến bỏ hẳn phần vẽ nháy mà nó vẫn xanh. Bản sau soi ĐÚNG CỘT nơi nháy phải
+nằm.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
