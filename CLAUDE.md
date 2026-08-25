@@ -84,6 +84,10 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
   thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
   xảy ra thật, phép đo này có đổi kết quả không?**
+- **Thăm dò một API thì `cargo check --all-targets`, không phải `cargo build`.**
+  26/08/2026 tôi viết một `#[cfg(test)]` gọi `tao::clipboard::Clipboard` rồi
+  chạy `cargo build`, thấy xanh và tin là API ấy có. `cargo build` KHÔNG biên
+  dịch mô-đun test — phép thăm dò chưa hề chạm tới thứ nó đang hỏi.
 - **Khi kiểm đột biến bằng tay, phân biệt LỖI BIÊN DỊCH với PHÉP THỬ ĐỎ.**
   25/08/2026 tôi đếm dòng `test result: FAILED` và báo một đột biến là "sống"
   — trong khi nó chỉ không biên dịch được, tức là phép đo vô hiệu chứ không

@@ -68,6 +68,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B52 | Hover, focus and destructive each have a **distinct shape** — a single-ink renderer cannot say them in colour | `re_chuot_thay_duoc_va_khac_tieu_diem`, `re_chuot_khong_doi_tieu_diem` — added 2026-08-25, see §3.21 |
 | B53 | The **product build with a window always carries the accessibility bridge** — it is not a separate flag someone can forget | rule 24 in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.23 |
 | B54 | Text editing works **at the caret**, and cuts on character boundaries — never on bytes | `chen_xoa_cat_theo_chu_khong_theo_byte`, `xoa_mot_lan_di_het_mot_chu_co_dau`, `con_tro_ve_dung_cho_trong_chuoi` — added 2026-08-26, see §3.24 |
+| B55 | Clearing a screen's state is bound to **one named variant** — a screen that merely updates keeps what the user typed, a new screen never inherits it | `xoa_trang_thai_gan_voi_dung_mot_bien_the` — added 2026-08-26, see §3.25 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1311,6 +1312,29 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.25 Pressing a button erased what you had typed
+
+Every screen transition went through one path that reset all frame-held state:
+toggles, field contents, focus. For a **new** screen that reset is a security
+property, and this document has said so: a toggle left over from the previous
+screen is the previous screen answering on the next one's behalf, and a PIN
+typed under one label reappearing under the same label elsewhere is a leak.
+
+But the in-app result — press a button, get a line of output — was built as a
+*new* screen, because it is the old tree plus one line. So typing into the
+field and then pressing any button silently discarded the text.
+
+There are two different operations here and they had one name. They now have
+two: `Next::Show` for a new screen, which clears; `Next::Update` for the same
+screen with a changed tree, which keeps. `Show` remains the default, and the
+distinction is stated at the call site rather than inherited quietly.
+
+The test asserts at source level that the clearing sits behind the condition
+and that each variant keeps its meaning, because merging them again fails in
+one of two ways — either a button press wipes the user's input, or the previous
+screen's toggles answer for the next one. The second is a hole, not an
+annoyance.
 
 ### 3.24 Text could only be edited at the end
 

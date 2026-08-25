@@ -82,7 +82,21 @@ pub struct Screen {
 
 /// Bên gọi quyết định đi tiếp hay dừng, sau mỗi màn hình.
 pub enum Next {
+    /// MÀN HÌNH MỚI. Xoá sạch trạng thái: công tắc, nội dung ô nhập, tiêu điểm.
+    ///
+    /// Xoá là một tính chất AN NINH, không phải dọn dẹp. Công tắc của màn cũ
+    /// còn lại là câu trả lời của màn cũ đang trả lời hộ màn mới; chữ trong ô
+    /// còn lại là một mã PIN gõ ở màn này hiện ra ở màn khác cùng nhãn.
     Show(Box<Screen>),
+    /// CÙNG màn hình, cây vừa đổi — GIỮ trạng thái người dùng đã nhập.
+    ///
+    /// Dùng khi cây mới là cây cũ cộng thêm một dòng: kết quả một cú bấm, một
+    /// câu báo lỗi. Xoá ở đây nghĩa là bấm một nút làm mất sạch chữ người dùng
+    /// vừa gõ vào ô bên trên, và họ không hiểu vì sao.
+    ///
+    /// ⚠️ Hai biến thể tách nhau CỐ Ý, và `Show` là mặc định. Ai muốn giữ
+    /// trạng thái phải nói ra ở chỗ gọi, không được lặng lẽ thừa hưởng.
+    Update(Box<Screen>),
     Done,
 }
 
@@ -370,9 +384,16 @@ impl Phien {
     }
 
     /// Sang màn hình mới: vẽ lại, đổi tiêu đề, đặt lại chiều cao cửa sổ.
-    fn doi(&mut self, man: Screen, window: &tao::window::Window) -> Result<(), String> {
+    fn doi(
+        &mut self,
+        man: Screen,
+        window: &tao::window::Window,
+        giu_trang_thai: bool,
+    ) -> Result<(), String> {
         self.man = man;
-        self.tt = TrangThai::default();
+        if !giu_trang_thai {
+            self.tt = TrangThai::default();
+        }
         // ⚠️ Xoá tiêu điểm TRONG BỘ DỰNG nữa, không chỉ trong trạng thái.
         //
         // `TrangThai::default()` nói "không ai đang được chọn", nhưng bộ dựng
@@ -381,11 +402,32 @@ impl Phien {
         // cờ có cùng mã hành động, viền ấy rơi vào một nút người dùng chưa hề
         // chạm tới. Cùng hạng lỗi với `hang_tro_nang` không được dọn khi đổi
         // màn (F3).
-        self.bo_dung.set_focus(None);
+        // Giữ trạng thái thì giữ CẢ tiêu điểm: vẫn là màn hình ấy, và nhảy
+        // tiêu điểm về đâu đó sau một cú bấm là bắt người dùng tìm lại chỗ cũ.
+        self.bo_dung.set_focus(if giu_trang_thai {
+            self.tt.tieu_diem.clone()
+        } else {
+            None
+        });
         self.bo_dung.set_hover(None);
-        self.bo_dung
-            .render(&self.man.tree)
-            .map_err(|e| e.to_string())?;
+        self.bo_dung.set_caret(if giu_trang_thai {
+            self.tt.o_dang_chon.clone().map(|n| (n, self.tt.con_tro))
+        } else {
+            None
+        });
+        // Cây mới, giá trị ô cũ: dựng lại cây từ trạng thái đang giữ, y như
+        // `ve_lai_man_hinh`. Không thế thì ô hiện lại giá trị gốc của cây và
+        // chữ người dùng gõ biến mất khỏi màn hình dù vẫn còn trong trạng thái.
+        let cay = if giu_trang_thai {
+            self.man
+                .tree
+                .with_toggles(&self.bat)
+                .and_then(|c| c.with_fields(&self.tt.noi_dung_o))
+                .unwrap_or_else(|_| self.man.tree.clone())
+        } else {
+            self.man.tree.clone()
+        };
+        self.bo_dung.render(&cay).map_err(|e| e.to_string())?;
         window.set_title(&self.man.title);
         // ⚠️ Đặt lại chiều cao theo màn mới. Không đặt thì một màn ngắn nối sau
         // màn dài để lại khoảng trắng lớn, còn màn dài nối sau màn ngắn thì phần
@@ -880,13 +922,17 @@ fn chay_trong_vong(
         let ket = p.ket_man();
         let sau = tiep(&ket);
         ket_qua.push(ket);
-        let Next::Show(m) = sau else {
-            *dieu_khien = ControlFlow::Exit;
-            return;
+        let (m, giu_trang_thai) = match sau {
+            Next::Show(m) => (m, false),
+            Next::Update(m) => (m, true),
+            Next::Done => {
+                *dieu_khien = ControlFlow::Exit;
+                return;
+            }
         };
         // Không vẽ được màn tiếp thì DỪNG, không ở lại màn cũ: ở lại là người
         // dùng bấm xong mà màn hình không đổi, và họ sẽ bấm lại.
-        if let Err(e) = p.doi(*m, &window) {
+        if let Err(e) = p.doi(*m, &window, giu_trang_thai) {
             loi_doi_man = Some(e);
             *dieu_khien = ControlFlow::Exit;
             return;
@@ -2122,5 +2168,41 @@ mod kiem_thu {
         tt.con_tro = 99;
         tt.kep_con_tro();
         assert_eq!(tt.con_tro, 3);
+    }
+
+    /// **`Show` XOÁ trạng thái, `Update` GIỮ — và mặc định phải là xoá.**
+    ///
+    /// Kiểm ở tầng nguồn vì hai nhánh nằm trong vòng lặp sự kiện. Điều phải
+    /// giữ là chỗ xoá gắn với ĐÚNG một biến thể: gộp lại thì hoặc bấm một nút
+    /// làm mất chữ người dùng vừa gõ (`Show` cho mọi thứ), hoặc công tắc của
+    /// màn cũ trả lời hộ màn mới (`Update` cho mọi thứ) — cái sau là một lỗ
+    /// an ninh, không phải một phiền toái.
+    #[test]
+    fn xoa_trang_thai_gan_voi_dung_mot_bien_the() {
+        let than = include_str!("window.rs");
+        let Some(sau) = than.split("let (m, giu_trang_thai) = match sau {").nth(1) else {
+            panic!("không tìm thấy chỗ phân nhánh Show/Update")
+        };
+        let nhanh = &sau[..sau.find("};").unwrap_or(sau.len())];
+        assert!(
+            nhanh.contains("Next::Show(m) => (m, false)"),
+            "`Show` không còn xoá trạng thái"
+        );
+        assert!(
+            nhanh.contains("Next::Update(m) => (m, true)"),
+            "`Update` không còn giữ trạng thái"
+        );
+
+        // Và chỗ xoá phải nằm SAU một điều kiện, không xoá vô điều kiện.
+        let Some(than_doi) = than.split("fn doi(").nth(1) else {
+            panic!("không tìm thấy `doi`")
+        };
+        let dau = than_doi
+            .find("self.tt = TrangThai::default();")
+            .expect("`doi` phải có chỗ xoá trạng thái");
+        assert!(
+            than_doi[..dau].contains("if !giu_trang_thai {"),
+            "`doi` xoá trạng thái VÔ ĐIỀU KIỆN — `Update` không giữ được gì"
+        );
     }
 }

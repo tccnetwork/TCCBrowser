@@ -306,6 +306,33 @@ viền có thể rơi vào một nút người dùng chưa hề chạm tới —
 có cùng mã hành động. Cùng hạng với F3: hai bản sao của một trạng thái, chỉ một
 bản được dọn.
 
+**Bấm một nút là mất sạch chữ vừa gõ.** Mọi lần đổi màn đi qua MỘT đường, và
+đường ấy xoá sạch trạng thái khung giữ: công tắc, nội dung ô, tiêu điểm. Với
+một MÀN MỚI, xoá là tính chất AN NINH — công tắc màn cũ còn lại là màn cũ trả
+lời hộ màn mới, một mã PIN gõ dưới một nhãn hiện lại dưới cùng nhãn ở màn khác
+là rò rỉ. Nhưng màn KẾT QUẢ trong ứng dụng (bấm nút → một dòng) được dựng như
+màn mới, vì nó là cây cũ cộng một dòng.
+
+Hai việc khác nhau mang một cái tên. Nay hai tên: `Next::Show` (màn mới — xoá)
+và `Next::Update` (cùng màn, cây đổi — giữ). `Show` vẫn là mặc định; ai muốn
+giữ phải NÓI RA ở chỗ gọi. Gộp lại thì hỏng theo một trong hai kiểu, và kiểu
+thứ hai là một lỗ an ninh chứ không phải phiền toái. B55.
+
+**KHÔNG làm sao chép/dán, và ghi rõ vì sao.** `tao` 0.34 đã bỏ mô-đun bộ nhớ
+tạm; thư viện thay thế (`arboard` 3.6) kéo theo cả `image` — một thư viện GIẢI
+MÃ ẢNH — cho một việc chép chữ. Trong dự án lấy "không có trình phân tích nào
+giữa byte của gói và màn hình" làm luận điểm chính, cái giá ấy không tương
+xứng. Đã gỡ phần mã đã viết thay vì để nó nằm lại chờ ai đó bật lên.
+
+Nếu sau này quyết làm, luật đã nghĩ sẵn: **ô BÍ MẬT không sao chép được** — ô
+ấy che chữ có chủ đích, sao chép nó là đặt đúng thứ vừa che lên một bảng nháp
+toàn hệ thống. Dán thì cho, vì đó là người dùng đưa dữ liệu VÀO, và chuỗi dán
+vẫn phải đi qua đúng phép kiểm của chữ gõ tay.
+
+⚠️ Thăm dò đầu tiên cho `tao::clipboard` SAI: tôi đặt nó trong `#[cfg(test)]`
+rồi chạy `cargo build` — mà `cargo build` không biên dịch mô-đun test, nên nó
+chưa hề kiểm gì. Thăm dò một API thì dùng `cargo check --all-targets`.
+
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
 định an ninh độc lập, và soát `ttf-parser`.

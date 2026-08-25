@@ -547,7 +547,11 @@ fn bam_trong_ung_dung(
     let Ok(cay_moi) = bao_duoi_cay(goc, &cau) else {
         return Next::Done;
     };
-    Next::Show(Box::new(Screen {
+    // `Update`, KHÔNG phải `Show`: cây mới là cây cũ cộng một dòng kết quả —
+    // vẫn là màn hình ấy. `Show` xoá sạch trạng thái, nên nó sẽ xoá luôn chữ
+    // người dùng vừa gõ vào ô bên trên, và họ chỉ thấy chữ mình biến mất sau
+    // khi bấm một nút chẳng liên quan.
+    Next::Update(Box::new(Screen {
         tree: cay_moi,
         title: tieu_de.to_owned(),
         text: crate::text::raster_text(ngon_ngu),
