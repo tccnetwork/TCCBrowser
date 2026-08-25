@@ -299,6 +299,23 @@ mod kiem_thu {
         for hai in tu.windows(2) {
             assert!(hai[0] < hai[1], "{} không đứng trước {}", hai[0], hai[1]);
         }
+
+        // ⚠️ ĐÚNG 2048 từ, và đây không phải một con số cho đẹp.
+        //
+        // Mỗi từ mang 11 bit chỉ số, và cả phép gói bit dựa vào việc chỉ số
+        // LUÔN nhỏ hơn 2^11: sau `bit << 11` thì 11 bit thấp bằng 0, nên `|` và
+        // `^` cho kết quả y hệt. Thừa một từ là chỉ số 2048 tràn ra bit thứ 12,
+        // hai phép ấy tách nhau, và cụm từ mã hoá ra sai — im lặng.
+        //
+        // Kiểm đột biến 26/08/2026 chỉ ra chỗ này: hai đột biến `|` thành `^`
+        // trong `mnemonic.rs` SỐNG, và chúng sống vì tương đương về toán học.
+        // Không phép thử nào giết được chúng, nên thứ phải ghim là BẤT BIẾN
+        // khiến chúng tương đương — chính là con số này.
+        assert_eq!(
+            tu.len(),
+            1 << BITS_PER_WORD,
+            "từ điển không đúng 2^{BITS_PER_WORD} từ — chỉ số sẽ tràn khỏi 11 bit"
+        );
     }
 
     /// **Gõ nhầm một chữ phải BỊ TỪ CHỐI, không được "gần đúng thì cho qua".**

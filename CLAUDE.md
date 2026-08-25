@@ -95,6 +95,12 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   cho một lượt mà `error: test failed` chính là **phép thử đỏ**. Đếm
   `^error\[E` và `could not compile` cho lỗi biên dịch, `test result: FAILED`
   cho phép thử đỏ; hai con số, không phải một.
+- **`cargo-mutants` phải chạy VỚI CỜ mà mã sống sau đó.** Trọng tài mặc định là
+  `cargo test --workspace`, và lệnh ấy không bật cờ nào — nên mã sau một cờ
+  KHÔNG được biên dịch, phép thử của nó KHÔNG chạy, và công cụ ghi mọi mutant
+  là "sống sót". 26/08/2026: `tcc-chain` báo **45 sống**; bật
+  `--features import-web-wallet,os-keystore` thì con số thật là **25**. Hai
+  mươi con số kia là "chưa nhìn tới" đội lốt "không bắt được".
 - **`cargo-mutants`: `TIMEOUT` KHÔNG phải "sống sót".** 25/08/2026 lượt đo lại
   trả về 61 dòng `TIMEOUT`, 0 dòng `MISSED` — trông y hệt một bộ thử vô dụng.
   Đọc tới ĐUÔI mới thấy `No space left on device`: mỗi việc song song là một

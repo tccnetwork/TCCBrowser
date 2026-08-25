@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**386 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**388 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -364,6 +364,40 @@ kiểm. Nay trần là THAM SỐ, phép thử đặt nó bằng hai mươi byte,
 đáng: chặn đúng ở mép, và **cộng dồn qua thư mục con** — kiểm từng tệp riêng lẻ
 thì bao nhiêu tệp cũng lọt. Số học của chính hằng ấy là một `const assert`, nên
 đổi nó làm hỏng BẢN DỰNG chứ không phải một phép thử.
+
+**Một phép che không ai kiểm, ở đúng kiểu giữ hạt giống ví.** `WalletSecret`
+mang 32 byte hạt giống và có bản `Debug` viết tay, chú thích ghi rõ mục đích:
+"không in khoá ra nhật ký, dù ai đó gọi `{:?}` trên cả một cấu trúc lớn".
+
+Không gì đọc thứ nó in ra. Thay cả thân hàm bằng `Ok(())` — in ra chuỗi rỗng —
+mà mọi phép thử vẫn xanh.
+
+Đột biến đáng sợ không phải `Ok(())`. Là ai đó thay bản viết tay bằng
+`#[derive(Debug)]`, và từ lúc ấy hạt giống chảy vào mọi dòng nhật ký in một cấu
+trúc có chứa nó. Không công cụ nào sinh ra đột biến ấy, và trước phép thử này
+thì không gì chặn.
+
+Phép thử kiểm HAI chiều, và chiều thứ hai là chiều người ta hay quên: không
+được lộ, VÀ không được rỗng. Một bản `Debug` in chuỗi rỗng cũng qua vế "không
+lộ" trong khi xoá sạch thứ người soát cần đọc.
+
+**Hai mutant cố ý để sống.** `|` thành `^` trong phép gói bit ở `mnemonic.rs`:
+sau `bit << 11` thì 11 bit thấp bằng 0 và mọi chỉ số nhỏ hơn 2¹¹, nên hai phép
+ấy **y hệt nhau về toán học**. Không phép thử nào giết được, và không nên cố.
+Thứ ghim được là BẤT BIẾN khiến chúng tương đương — từ điển đúng 2048 từ — mà
+điều ấy cũng chưa ai khẳng định. Nay có: đổi `BITS_PER_WORD` là phép thử từ
+điển đỏ.
+
+⚠️ **Lượt đo đầu của crate này KHÔNG phải một phép đo.** Với trọng tài
+`cargo test --workspace`, nó báo **45 mutant sống** ở crate ví. `import.rs` nằm
+trọn sau cờ `import-web-wallet`, mà lệnh ấy không bật cờ nào — nên mã bị đột
+biến chưa từng được biên dịch, phép thử của nó chưa từng chạy, và mọi mutant
+trong đó bị ghi là sống. Bật cờ lên: con số thật là **25**.
+
+Lần thứ ba trong hai ngày "chưa chạy tới" được báo thành "phép thử yếu" — sau
+bộ vector ngoài trọng tài và lượt đĩa đầy. Lần này cái giá của việc tin nhầm sẽ
+là một ngày đi vá hai mươi chỗ không hỏng, ở đúng crate không được phép làm
+hỏng.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

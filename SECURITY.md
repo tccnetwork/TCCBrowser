@@ -71,6 +71,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B55 | Clearing a screen's state is bound to **one named variant** — a screen that merely updates keeps what the user typed, a new screen never inherits it | `xoa_trang_thai_gan_voi_dung_mot_bien_the` — added 2026-08-26, see §3.25 |
 | B56 | The **content size cap** holds at its exact edge and accumulates across subdirectories | `tran_noi_dung_chan_dung_o_mep`; the constant itself is a build-time `const` assertion — added 2026-08-26, see §3.26 |
 | B57 | A code the specification **withdrew** stays unreachable from a package, and a test proves it | `goi_co_publisher_khong_phai_hex_ra_ma_not_hex`, `goi_co_con_tren_nut_la_ra_ma_bad_json`; rule 10b — added 2026-08-26, see §3.26 |
+| B58 | A `Debug` that exists to **redact** is tested — it hides the secret **and** still says something | `debug_cua_kieu_giu_khoa_khong_lo_khoa`, `debug_khoa_cong_khai_va_chu_ky_noi_duoc_do_dai` — added 2026-08-26, see §3.27 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1153,7 +1154,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 386.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 388.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1314,6 +1315,48 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.27 A redaction nobody tested, in the type that holds the seed
+
+`WalletSecret` carries the 32-byte wallet seed. It has a hand-written `Debug`
+whose doc comment states its whole purpose: *do not print the key to a log, even
+if someone calls `{:?}` on a large enclosing struct.*
+
+Nothing read what it printed. Mutating the entire body to `Ok(())` — print
+nothing at all — left every test green, which means the redaction had never been
+observed by anything.
+
+The mutation that matters is not `Ok(())`. It is someone replacing the
+hand-written impl with `#[derive(Debug)]`, at which point the seed flows into
+every log line that formats a struct containing it. No tool generates that
+mutation, and before this test nothing would have caught it.
+
+The test checks **both directions**, and the second is the one people forget: the
+output must not contain the seed, **and** must not be empty. A `Debug` that
+prints nothing also passes "does not leak" while destroying what an auditor needs
+to read. Mutation-checked three ways — empty output, leaked seed, and the same
+on `PublicKey`.
+
+**Two survivors were left alive on purpose.** In `mnemonic.rs`, `|` becomes `^`
+in the bit-packing of words to entropy. After `bit << 11` the low eleven bits
+are zero and every index is under 2¹¹, so the two operators are **mathematically
+identical**. No test can distinguish them and none should try. What can be
+pinned is the invariant that makes them identical — the wordlist is exactly 2048
+entries — and that had no assertion either. It has one now: change
+`BITS_PER_WORD` and the dictionary test fails.
+
+⚠️ **The first measurement of this crate was not a measurement.** Run with the
+oracle at `cargo test --workspace`, it reported **45 survivors** in the wallet.
+`import.rs` lives entirely behind `import-web-wallet`, a feature that command
+does not enable — so the mutated code was never compiled and its tests never
+ran, and every mutant in it was recorded as surviving. Re-run with the feature
+on, the real figure is **25**.
+
+That is the third time in two days that *"never reached"* has been reported as
+*"your tests are weak"* — after the conformance vectors outside the oracle
+(§3.17) and a full disk turning every mutant into a timeout. Here the cost of
+believing it would have been a day spent patching twenty untouched holes in the
+one crate that must not be broken.
 
 ### 3.26 The rule I wrote yesterday had yesterday's bug in it
 
@@ -2013,7 +2056,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 386 tests
+cargo test --workspace                              # 388 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

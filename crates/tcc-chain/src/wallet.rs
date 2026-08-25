@@ -444,4 +444,53 @@ mod kiem_thu {
     fn boi_canh_kdf_khong_duoc_doi() {
         assert_eq!(SEED_CONTEXT, "tcc_chain_2026_seed_v1");
     }
+
+    /// **`Debug` của kiểu giữ khoá KHÔNG được lộ khoá — và phải NÓI gì đó.**
+    ///
+    /// Bản `Debug` ấy tồn tại đúng để che: chú thích trên nó viết "không in
+    /// khoá ra nhật ký, dù ai đó gọi `{:?}` trên cả một cấu trúc lớn". Nhưng
+    /// tới 26/08/2026 KHÔNG phép thử nào đọc thứ nó in ra — kiểm đột biến thay
+    /// cả thân hàm bằng "in chuỗi rỗng" mà mọi phép thử vẫn xanh.
+    ///
+    /// Một phép che không ai kiểm là một phép che gỡ đi lúc nào cũng được mà
+    /// không ai hay. Đổi nó thành `#[derive(Debug)]` là hạt giống ví chảy thẳng
+    /// vào nhật ký, và trước phép thử này thì không gì chặn.
+    ///
+    /// Kiểm HAI chiều: không lộ, và không rỗng. Chỉ kiểm "không lộ" thì một
+    /// bản `Debug` in ra chuỗi rỗng cũng qua — mà lúc ấy nhật ký mất luôn thứ
+    /// người soát cần.
+    #[test]
+    fn debug_cua_kieu_giu_khoa_khong_lo_khoa() {
+        let hat = [0xABu8; SEED_LEN];
+        let bi_mat = WalletSecret::from_raw_seed(hat);
+        let ra = format!("{bi_mat:?}");
+
+        // Không lộ hạt giống, dù dưới dạng hex hay dạng mảng byte.
+        assert!(!ra.contains("abab"), "hạt giống lọt vào Debug: {ra}");
+        assert!(!ra.contains("171"), "byte thô lọt vào Debug: {ra}");
+        assert!(!ra.contains("[0xAB"), "mảng byte lọt vào Debug: {ra}");
+        // Và vẫn nói được nó là cái gì.
+        assert!(
+            ra.contains("WalletSecret"),
+            "Debug rỗng, nhật ký mất dấu: {ra:?}"
+        );
+        assert!(ra.contains("giấu"), "Debug không nói rõ là đã giấu: {ra}");
+    }
+
+    /// **`Debug` của khoá công khai và chữ ký cũng phải NÓI gì đó.**
+    ///
+    /// Hai kiểu này không giữ bí mật, nhưng cùng một đột biến ("in chuỗi rỗng")
+    /// cũng sống ở đó. Một dòng nhật ký rỗng trong lúc soát một giao dịch là
+    /// mất đúng thứ đang cần nhìn.
+    #[test]
+    fn debug_khoa_cong_khai_va_chu_ky_noi_duoc_do_dai() {
+        let k = WalletSecret::from_raw_seed([7u8; SEED_LEN]);
+        let cong_khai = k.public_key();
+        let ra = format!("{cong_khai:?}");
+        assert!(ra.contains("PublicKey"), "Debug rỗng: {ra:?}");
+        assert!(
+            ra.contains(&cong_khai.as_bytes().len().to_string()),
+            "không nói độ dài: {ra}"
+        );
+    }
 }
