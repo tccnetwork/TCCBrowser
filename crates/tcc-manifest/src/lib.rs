@@ -390,4 +390,37 @@ mod kiem_thu {
     fn do_dai_bam_hai_crate_khop_nhau() {
         assert_eq!(content_hash_hex(b"x").len(), tcc_spec::CONTENT_HASH_HEX_LEN);
     }
+
+    /// **Đúng 64 KiB phải ĐƯỢC NHẬN; hơn một byte thì không.**
+    ///
+    /// `spec/0.1/02-manifest.md:3` ghi "at most **64 KiB**" — dải bao gồm đầu
+    /// trên. `cargo-mutants` đổi `>` thành `>=` mà không phép thử nào đỏ: phép
+    /// thử cũ chỉ thử bản kê khai nhỏ hoặc lớn hẳn, không cái nào đứng ở mép.
+    /// Cùng hạng với sáu ranh giới đã vá trong `tcc-spec`.
+    #[test]
+    fn dung_tran_bản_ke_khai_thi_van_qua() {
+        // Đệm cho tổng byte đúng bằng trần, rồi thêm một byte.
+        let dem = |tong: usize| {
+            let g = Goi {
+                manifest: vec![b'{'; tong],
+                signature: vec![0; 3373],
+                content: FileTree::new(),
+            };
+            kiem(&g)
+        };
+        assert!(
+            !matches!(
+                dem(MAX_MANIFEST_BYTES),
+                Err(ManifestError::ManifestTooLarge { .. })
+            ),
+            "đúng {MAX_MANIFEST_BYTES} byte bị chặn bằng trần — đặc tả nói được nhận"
+        );
+        assert!(
+            matches!(
+                dem(MAX_MANIFEST_BYTES + 1),
+                Err(ManifestError::ManifestTooLarge { .. })
+            ),
+            "hơn trần một byte mà không bị chặn"
+        );
+    }
 }

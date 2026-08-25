@@ -414,6 +414,70 @@ mod kiem_thu {
         );
     }
 
+    /// **Thu hồi phải giết MỌI lối vào, của MỌI quyền năng.**
+    ///
+    /// Phép thử B4 gốc chỉ đi qua quyền MẠNG. Ngày 25/08/2026 hai lỗ lộ ra,
+    /// và chúng lộ ra theo hai cách khác nhau — đáng ghi cả hai:
+    ///
+    /// * `cargo-mutants` thay thân `allow_read_address` bằng `Ok(())` và không
+    ///   phép thử nào đỏ. Hàm ấy chỉ làm ĐÚNG MỘT việc là hỏi quyền còn sống
+    ///   không, nên "thay cả thân vẫn xanh" nghĩa là việc duy nhất ấy chưa từng
+    ///   được kiểm.
+    /// * `allow_write` thì công cụ KHÔNG tìm ra, vì thân nó còn phép kiểm hạn
+    ///   mức nên `-> Ok(())` bị bắt. Phải tự tay gỡ đúng dòng `life.touch()?`
+    ///   mới thấy: mọi phép thử vẫn xanh. Danh mục đột biến của công cụ là hữu
+    ///   hạn, và im lặng của nó không phải bằng chứng.
+    ///
+    /// Nên phép thử này đi qua TẤT CẢ, không phải một đường mẫu: thêm một
+    /// quyền năng mới mà quên thu hồi thì chỗ này là nơi phải sửa.
+    #[test]
+    fn thu_hoi_giet_moi_loi_vao_cua_moi_quyen() {
+        let xin_vi = CapabilityRequest {
+            name: "wallet".to_string(),
+            scope: Scope::Wallet {
+                may_request_signature: true,
+            },
+            reason: "ký giao dịch".to_string(),
+        };
+        let xin_kho = CapabilityRequest {
+            name: "storage".to_string(),
+            scope: Scope::Storage { quota_bytes: 1000 },
+            reason: "lưu nháp".to_string(),
+        };
+        let s = grant(
+            app(),
+            &[xin_mang(&["shop.tcc-coin.com"]), xin_vi, xin_kho],
+            cho_het,
+        )
+        .unwrap();
+
+        // Bản sao CẦM TRÊN TAY từ trước lúc thu hồi — đó mới là điều B4 nói.
+        let mang = s.network().unwrap().clone();
+        let vi = s.wallet().unwrap().clone();
+        let kho = s.storage().unwrap().clone();
+
+        assert!(mang.allow("shop.tcc-coin.com").is_ok());
+        assert!(vi.allow_read_address().is_ok());
+        assert!(vi.allow_request_signature().is_ok());
+        assert!(kho.allow_write(10).is_ok());
+
+        s.revoke_all();
+
+        let sau: [(&str, Result<(), CapabilityError>); 4] = [
+            ("mạng", mang.allow("shop.tcc-coin.com")),
+            ("ví: đọc địa chỉ", vi.allow_read_address()),
+            ("ví: xin chữ ký", vi.allow_request_signature()),
+            ("kho: ghi", kho.allow_write(10)),
+        ];
+        for (ten, ket) in sau {
+            assert_eq!(
+                ket,
+                Err(CapabilityError::Revoked),
+                "{ten} vẫn dùng được sau khi thu hồi"
+            );
+        }
+    }
+
     #[test]
     fn vi_chi_doc_thi_khong_xin_duoc_chu_ky() {
         let xin = CapabilityRequest {

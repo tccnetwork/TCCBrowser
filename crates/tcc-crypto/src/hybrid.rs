@@ -106,6 +106,7 @@ impl HybridEd25519MlDsa {
         let pq_seed_len = PqSigningKey::<MlDsa65>::key_size();
         let want = ED_SECRET + pq_seed_len;
 
+        dung_do_dai(secret, want, "khoá bí mật")?;
         let ed_bytes = take(secret, 0, ED_SECRET, "khoá bí mật", want)?;
         let pq_bytes = take(secret, ED_SECRET, pq_seed_len, "khoá bí mật", want)?;
 
@@ -131,6 +132,27 @@ impl HybridEd25519MlDsa {
 }
 
 /// Cắt một lát có kiểm độ dài, báo lỗi nói rõ trường nào sai.
+/// Chối ngay nếu độ dài KHÔNG khớp chính xác. **Hàm thuần.**
+///
+/// `take` chỉ hỏi "có đủ byte ở khoảng này không", nên đầu vào DÀI HƠN vẫn lọt
+/// và phần thừa bị bỏ qua. Với chữ ký thì đó là chữ ký dẻo (B48). Với khoá thì
+/// cũng vậy: một khoá công khai thừa byte vẫn xác minh được, nên cùng một khoá
+/// có vô số cách viết — và bất kỳ chỗ nào ghim khoá theo byte đều bị qua mặt.
+///
+/// Bố cục byte là phần của TIÊU CHUẨN (`spec/0.1`), không phải chi tiết cài
+/// đặt: "đúng bằng" chứ không phải "ít nhất".
+fn dung_do_dai(data: &[u8], want: usize, field: &'static str) -> Result<(), CryptoError> {
+    if data.len() == want {
+        Ok(())
+    } else {
+        Err(CryptoError::BadLength {
+            field,
+            expected: want,
+            actual: data.len(),
+        })
+    }
+}
+
 fn take<'a>(
     data: &'a [u8],
     at: usize,
@@ -154,6 +176,7 @@ impl SignatureScheme for HybridEd25519MlDsa {
         let pq_seed_len = PqSigningKey::<MlDsa65>::key_size();
         let want = ED_SECRET + pq_seed_len;
 
+        dung_do_dai(secret, want, "khoá bí mật")?;
         let ed_bytes = take(secret, 0, ED_SECRET, "khoá bí mật", want)?;
         let pq_bytes = take(secret, ED_SECRET, pq_seed_len, "khoá bí mật", want)?;
 
@@ -185,6 +208,7 @@ impl SignatureScheme for HybridEd25519MlDsa {
         let pq_pub_len = PqVerifyingKey::<MlDsa65>::key_size();
         let want_pub = ED_PUBLIC + pq_pub_len;
 
+        dung_do_dai(public, want_pub, "khoá công khai")?;
         let ed_pub = take(public, 0, ED_PUBLIC, "khoá công khai", want_pub)?;
         let pq_pub = take(public, ED_PUBLIC, pq_pub_len, "khoá công khai", want_pub)?;
 
@@ -204,13 +228,7 @@ impl SignatureScheme for HybridEd25519MlDsa {
         // `Signature::try_from` chối. Bỏ cách suy ấy mà không thay bằng phép
         // kiểm này thì byte thừa bị `take` BỎ QUA và chữ ký vẫn hợp lệ — chữ
         // ký DẺO. Vector `them mot byte thua` bắt được đúng lúc đổi (25/08/2026).
-        if signature.len() != want_sig {
-            return Err(CryptoError::BadLength {
-                field: "chữ ký",
-                expected: want_sig,
-                actual: signature.len(),
-            });
-        }
+        dung_do_dai(signature, want_sig, "chữ ký")?;
         let ed_sig = take(signature, 0, ed_sig_len, "chữ ký", want_sig)?;
         let pq_sig = take(signature, ed_sig_len, pq_sig_len, "chữ ký", want_sig)?;
 

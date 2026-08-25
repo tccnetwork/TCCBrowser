@@ -187,7 +187,7 @@ cannot be what proves that. Stated in the file's own `description`, and repeated
 here because a reader who only skims section headings would otherwise conclude
 the code is untested.
 
-## `verify.json` — 10 cases
+## `verify.json` — 11 cases
 
 End-to-end verification, and — the part that matters — the **order** the checks
 run in. [`01-package.md`](../spec/0.1/01-package.md) calls that order a security

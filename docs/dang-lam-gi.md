@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**371 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**373 phép thử · 154 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -74,7 +74,7 @@ khẳng định cấu trúc nên đúng, năm đã nghỉ hưu.
   thêm phép thử ranh giới, mỗi cái kiểm lại bằng chính đột biến từng sống.
 - **Phần còn lại là lỗi của PHƯƠNG PHÁP, không phải của mã.** `cargo-mutants`
   lấy `cargo test` làm trọng tài, mà `tcc-conformance` là một `main.rs` **không
-  có `#[test]` nào**. 153 vector chỉ chạy khi ai đó gõ `cargo run`. Chúng CÓ
+  có `#[test]` nào**. 154 vector chỉ chạy khi ai đó gõ `cargo run`. Chúng CÓ
   chạy — trong CI và trong danh sách trước-khi-đẩy — nhưng đứng ngoài tầm nhìn
   của trọng tài, nên mọi đột biến mà chỉ vector bắt được đều bị báo "sống". Đổi
   `SpecError::ma` thành `"xyzzy"` — chính những mã lỗi cả tiêu chuẩn so khớp
@@ -192,6 +192,37 @@ một phép thử ghim MÃ ấy. Phép thử `chan_duong_dan_trung` có tồn t�
 định BIẾN THỂ, mà tên biến thể là chuyện nội bộ; bản cài đặt thứ hai so khớp
 bằng mã. Nay luật đòi phép thử ghim mã, và phép thử đã ghim.
 
+**Đo `tcc-manifest` + `tcc-capability` (chưa từng chạy đột biến lần nào): 35
+mutant, 26 bị bắt, 2 sống.** Cả hai đều là lỗ thật, và một trong hai nằm dưới
+một hàng B đã tuyên bố là có bằng chứng:
+
+- `WalletCapability::allow_read_address` thay CẢ THÂN bằng `Ok(())` mà không
+  phép thử nào đỏ. Hàm ấy chỉ làm đúng một việc — hỏi quyền còn sống không —
+  nên "thay cả thân vẫn xanh" nghĩa là việc duy nhất ấy chưa từng được kiểm.
+  Quyền ví ĐÃ THU HỒI vẫn đọc được địa chỉ. B4 chỉ có bằng chứng cho đường
+  MẠNG.
+- Trần bản kê khai 64 KiB: `>` thành `>=` không ai đỏ. Đặc tả ghi "at most 64
+  KiB" — bao gồm. Cùng hạng sáu ranh giới đã vá ở `tcc-spec`.
+
+**Và một lỗ thứ ba mà CÔNG CỤ KHÔNG TÌM RA.** `StorageCapability::allow_write`
+cũng chỉ canh thu hồi bằng một dòng, nhưng thân nó còn phép kiểm hạn mức nên
+`-> Ok(())` bị bắt. Phải tự tay gỡ đúng dòng `life.touch()?` mới thấy: mọi phép
+thử vẫn xanh. Danh mục đột biến của `cargo-mutants` là hữu hạn, và **im lặng
+của nó không phải bằng chứng** — đúng câu tài liệu này viết đi viết lại về mọi
+phép đo khác.
+
+Nay một phép thử duy nhất đi qua **cả bốn** lối vào sau khi thu hồi, không phải
+một đường mẫu: thêm quyền năng mới mà quên thu hồi thì chỗ ấy là nơi phải sửa.
+Gỡ từng dòng canh một để chắc phép thử nhìn thấy — bốn lần, bốn lần đỏ. B49.
+
+**Chữ ký dẻo còn một bậc nữa: KHOÁ.** `take` chỉ hỏi "có đủ byte ở khoảng này
+không", nên khoá công khai thừa byte vẫn cắt đủ 1984 byte đầu và vẫn xác minh
+được. Đường sản phẩm không hở (tầng bản kê khai kiểm độ dài hex), nhưng
+`tcc-crypto` là crate LÁ mà bản cài đặt thứ hai dùng trực tiếp. Nay một hàm
+thuần `dung_do_dai` canh cả ba đường — khoá bí mật, khoá công khai, chữ ký — và
+có vector `publisher key is one byte too long` đứng cạnh ca 200-byte đã có: hai
+ca là hai đầu của cùng một bất biến, mà trước đó chỉ đầu NGẮN được thử.
+
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
 định an ninh độc lập, và soát `ttf-parser`.
@@ -200,7 +231,7 @@ cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ
 
 Nhánh `giai-doan-3.1`, CI xanh.
 
-**337 phép thử (thời điểm ấy) · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
+**337 phép thử (thời điểm ấy) · 154 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
 
 ### Máy dựng web đã bỏ HẲN (23/08)
 
@@ -254,7 +285,7 @@ nay phép thử ta viết đọc lại cây ta cũng tự dựng.
 Nhánh `giai-doan-3.1`. `main` **cố ý** dừng ở `f738085` (chưa có ví) để người
 soát ngoài đọc một cây ổn định.
 
-**383 phép thử · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
+**383 phép thử · 154 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
 
 | Giai đoạn | Tình trạng |
 |---|---|

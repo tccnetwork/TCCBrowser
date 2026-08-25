@@ -1,219 +1,240 @@
 {
- "description": "End-to-end package verification, and the ORDER the checks run in. 01-package.md calls that order a security property: the size cap comes before parsing, the scheme comparison before the cryptography, and the signature before anything in the manifest is believed. Cases marked `sign: true` are signed by the runner with `signer_secret_hex` before verification, so they test the pipeline rather than a fixed fixture. See FORMAT.md.",
- "signer_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
- "cases": [
-  {
-   "case": "a correctly signed package verifies",
-   "expect_pass": true,
-   "sign": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "The accepting case is what stops an implementation that rejects everything from passing this whole group."
-  },
-  {
-   "case": "scheme is not the one in use",
-   "expect_pass": false,
-   "code": "scheme-mismatch",
-   "sign": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa87-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "Checked BEFORE the cryptography, so the author gets a usable message instead of \"bad signature\"."
-  },
-  {
-   "case": "publisher is not hex",
-   "expect_pass": false,
-   "code": "not-hex",
-   "sign": false,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "Shape checking catches this first, so the code is `not-hex`. `publisher-not-hex` exists in the code list but cannot be reached from a package — see 06-error-codes.md."
-  },
-  {
-   "case": "publisher is hex but not a usable key",
-   "expect_pass": false,
-   "code": "bad-length",
-   "sign": false,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "200 bytes is not 1984. A key of the wrong length is a different scheme."
-  },
-  {
-   "case": "content hash does not match the content",
-   "expect_pass": false,
-   "code": "content-hash-mismatch",
-   "sign": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "tamper_content_after_signing": true,
-   "notes": "Signed correctly, then the content is changed afterwards. This is the check that makes the manifest a commitment to the content rather than a label on it."
-  },
-  {
-   "case": "entry names a file that is not in the package",
-   "expect_pass": false,
-   "code": "missing-entry",
-   "sign": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "khong-co.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "The hash matches and the signature is valid — the package is authentic and still unopenable. Authenticity and usability are different questions."
-  },
-  {
-   "case": "manifest over 64 KiB",
-   "expect_pass": false,
-   "code": "manifest-too-large",
-   "sign": false,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "pad_manifest_to": 70000,
-   "notes": "Rejected at step 0, before a single byte is parsed: refusing to spend resources on input nobody has authenticated yet."
-  },
-  {
-   "case": "signature is wrong AND the content was changed",
-   "expect_pass": false,
-   "code": "bad-signature",
-   "sign": false,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "tamper_content_after_signing": true,
-   "notes": "Two rules broken at once. Precedence says the signature is checked before the content hash, so the code is bad-signature. Reporting content-hash-mismatch here would be reporting a comparison against a claim nobody has verified."
-  },
-  {
-   "case": "scheme is unknown AND the content was changed",
-   "expect_pass": false,
-   "code": "scheme-mismatch",
-   "sign": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "SIGNER",
-    "scheme": "hybrid-ed25519-mldsa87-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "tamper_content_after_signing": true,
-   "notes": "Precedence: the declared scheme is checked at step 7, the content hash at step 9. An implementation that hashes content before noticing it cannot verify the scheme spends the work for nothing and reports the later code."
-  },
-  {
-   "case": "publisher is not hex AND the scheme is unknown",
-   "expect_pass": false,
-   "code": "not-hex",
-   "sign": false,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "zzzz",
-    "scheme": "hybrid-ed25519-mldsa87-v1",
-    "content_hash": "COMPUTED",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "files": {
-    "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
-   },
-   "notes": "I predicted scheme-mismatch here and the vector said not-hex. The scheme check is step 7, but a publisher that is not hex is caught during shape checking at step 6, which precedes it — the precedence table was right and my reading of it was not. This case exists because the order between two manifest-level failures is not visible from reading the fields."
-  }
- ]
+  "description": "End-to-end package verification, and the ORDER the checks run in. 01-package.md calls that order a security property: the size cap comes before parsing, the scheme comparison before the cryptography, and the signature before anything in the manifest is believed. Cases marked `sign: true` are signed by the runner with `signer_secret_hex` before verification, so they test the pipeline rather than a fixed fixture. See FORMAT.md.",
+  "signer_secret_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+  "cases": [
+    {
+      "case": "a correctly signed package verifies",
+      "expect_pass": true,
+      "sign": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "The accepting case is what stops an implementation that rejects everything from passing this whole group."
+    },
+    {
+      "case": "scheme is not the one in use",
+      "expect_pass": false,
+      "code": "scheme-mismatch",
+      "sign": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa87-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "Checked BEFORE the cryptography, so the author gets a usable message instead of \"bad signature\"."
+    },
+    {
+      "case": "publisher is not hex",
+      "expect_pass": false,
+      "code": "not-hex",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "Shape checking catches this first, so the code is `not-hex`. `publisher-not-hex` exists in the code list but cannot be reached from a package — see 06-error-codes.md."
+    },
+    {
+      "case": "publisher is hex but not a usable key",
+      "expect_pass": false,
+      "code": "bad-length",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "200 bytes is not 1984. A key of the wrong length is a different scheme."
+    },
+    {
+      "case": "publisher key is one byte too long",
+      "expect_pass": false,
+      "code": "bad-length",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "ababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "1985 bytes is not 1984 either. A key that is too LONG is the dangerous direction: slicing the first 1984 bytes succeeds and the tail is ignored, so one key would have unlimited spellings and anything pinning a key byte-wise is defeated. Same invariant as `them mot byte thua` for signatures."
+    },
+    {
+      "case": "content hash does not match the content",
+      "expect_pass": false,
+      "code": "content-hash-mismatch",
+      "sign": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "tamper_content_after_signing": true,
+      "notes": "Signed correctly, then the content is changed afterwards. This is the check that makes the manifest a commitment to the content rather than a label on it."
+    },
+    {
+      "case": "entry names a file that is not in the package",
+      "expect_pass": false,
+      "code": "missing-entry",
+      "sign": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "khong-co.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "The hash matches and the signature is valid — the package is authentic and still unopenable. Authenticity and usability are different questions."
+    },
+    {
+      "case": "manifest over 64 KiB",
+      "expect_pass": false,
+      "code": "manifest-too-large",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "pad_manifest_to": 70000,
+      "notes": "Rejected at step 0, before a single byte is parsed: refusing to spend resources on input nobody has authenticated yet."
+    },
+    {
+      "case": "signature is wrong AND the content was changed",
+      "expect_pass": false,
+      "code": "bad-signature",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "tamper_content_after_signing": true,
+      "notes": "Two rules broken at once. Precedence says the signature is checked before the content hash, so the code is bad-signature. Reporting content-hash-mismatch here would be reporting a comparison against a claim nobody has verified."
+    },
+    {
+      "case": "scheme is unknown AND the content was changed",
+      "expect_pass": false,
+      "code": "scheme-mismatch",
+      "sign": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "SIGNER",
+        "scheme": "hybrid-ed25519-mldsa87-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "tamper_content_after_signing": true,
+      "notes": "Precedence: the declared scheme is checked at step 7, the content hash at step 9. An implementation that hashes content before noticing it cannot verify the scheme spends the work for nothing and reports the later code."
+    },
+    {
+      "case": "publisher is not hex AND the scheme is unknown",
+      "expect_pass": false,
+      "code": "not-hex",
+      "sign": false,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "zzzz",
+        "scheme": "hybrid-ed25519-mldsa87-v1",
+        "content_hash": "COMPUTED",
+        "entry": "ui.json",
+        "capabilities": []
+      },
+      "files": {
+        "ui.json": "{\"kind\": \"text\", \"content\": \"x\"}"
+      },
+      "notes": "I predicted scheme-mismatch here and the vector said not-hex. The scheme check is step 7, but a publisher that is not hex is caught during shape checking at step 6, which precedes it — the precedence table was right and my reading of it was not. This case exists because the order between two manifest-level failures is not visible from reading the fields."
+    }
+  ]
 }

@@ -62,6 +62,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B46 | The bounds the specification states as **inclusive** are the bounds the code enforces, at the exact edge | `ranh_gioi_do_dai_dung_nhu_dac_ta_ghi`, `dung_nguong_dau_chong_thi_van_qua`, `xuong_dong_va_tab_bi_choi_voi_ly_do_rieng` — added 2026-08-25, see §3.17 |
 | B47 | The implementation emits **only** error codes the specification defines — checked in **both** directions | `khoa_khong_phai_diem_van_ra_bad_signature`; rule 10 and rule 10b in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.18 |
 | B48 | A signature verifies **only** at its exact length — no trailing bytes, no truncation | `chu_ky_thua_hay_thieu_mot_byte_deu_bi_choi`, vector `them mot byte thua` — added 2026-08-25, see §3.19 |
+| B49 | **Every** capability entry point — not a representative one — refuses after `revoke_all` | `thu_hoi_giet_moi_loi_vao_cua_moi_quyen` — added 2026-08-25, see §3.20 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1144,7 +1145,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 371.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 373.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1306,6 +1307,32 @@ withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
 
+### 3.20 B4 was proved on one path out of four
+
+`revoke_all` is the emergency stop: B4 says it kills **every copy, including
+one already in an app's hands**. Its test walked the **network** capability and
+nothing else. On 2026-08-25 the other three entry points turned out to be
+unproven, and the two ways they surfaced are worth separating.
+
+`cargo-mutants` replaced the whole body of `WalletCapability::allow_read_address`
+with `Ok(())` and no test went red. That function does exactly one thing — ask
+whether the capability is still alive — so "the entire body can be replaced and
+the suite stays green" means that one thing had never been checked. A revoked
+wallet could still read the address, under a `Bn` row that claimed evidence.
+
+`StorageCapability::allow_write` the tool did **not** find. Its body also
+enforces a quota, so `-> Ok(())` breaks the quota test and gets caught; the
+mutant that mattered was the deletion of the single line `self.life.touch()?;`,
+which the tool does not generate for that shape. Removing it by hand left every
+test green. **A mutation tool's catalogue is finite, and its silence is not
+evidence** — the same sentence this document keeps writing about every other
+measurement.
+
+Both are now covered by one test that walks **all four** entry points after
+revocation, rather than a representative one. A capability added later without
+a revocation path fails there. Each of the four guards was deleted in turn to
+confirm the test sees it.
+
 ### 3.19 The vectors caught a malleable signature — mine, hours old
 
 Mutation testing `tcc-crypto` on 2026-08-25 left seven survivors, all of them
@@ -1360,7 +1387,7 @@ re-running the mutant that survived.
 
 **The rest exposed a flaw in the method, not the code.** `cargo-mutants` uses
 `cargo test` as its oracle, and `tcc-conformance` was a `main.rs` with **zero**
-`#[test]` functions. The 153 vectors ran only when someone typed `cargo run`.
+`#[test]` functions. The 154 vectors ran only when someone typed `cargo run`.
 They *were* run — by CI, and by the pre-push checklist — but they were invisible
 to the oracle, so every mutation that only a vector catches was reported as
 surviving. Mutating `SpecError::ma` to return `"xyzzy"` — the machine-readable
@@ -1795,7 +1822,7 @@ one half does not propagate to the other, and that is precisely why the signatur
 is hybrid.**
 
 ```sh
-cargo run -p tcc-conformance                 # 153 conformance vectors
+cargo run -p tcc-conformance                 # 154 conformance vectors
 cargo run -p tcc-conformance -- --chi-tiet
 ```
 
@@ -1804,9 +1831,9 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 371 tests
+cargo test --workspace                              # 373 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
-cargo run -p tcc-conformance                        # 153 conformance vectors
+cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh                        # 23 architecture rules

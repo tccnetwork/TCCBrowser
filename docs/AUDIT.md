@@ -42,7 +42,7 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 371 tests
+cargo test --workspace                              # 373 tests
 # Feature-gated code is NOT built by --workspace, and a hand-copied list of the
 # flag combinations drifts: by 2026-08-25 the one in CLAUDE.md named a test
 # target deleted with the web engine and omitted four combinations CI still ran.
@@ -51,7 +51,7 @@ tools/kiem-theo-co.sh
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 tools/kiem-luat-phu-thuoc.sh                        # 23 architecture rules
-cargo run -p tcc-conformance                        # 153 conformance vectors, nine groups
+cargo run -p tcc-conformance                        # 154 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py
@@ -236,5 +236,5 @@ Not a public issue. Use GitHub's private vulnerability reporting on this
 repository, or the TCC IT department.
 
 A report that the **design** is wrong is worth more here than a report that the
-code disagrees with the design. The code has 371 tests watching it. The design
+code disagrees with the design. The code has 373 tests watching it. The design
 has had one pair of eyes.
