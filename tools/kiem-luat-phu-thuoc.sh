@@ -261,10 +261,18 @@ for p in pathlib.Path("conformance/vectors").glob("*.json"):
 print(" ".join(sorted(doc - vec - {"duplicate-path"})))
 PY2
 )
-if [ -n "$thieu" ]; then
+# Miễn trừ KHÔNG phải tha bổng. `duplicate-path` không diễn đạt được bằng
+# vector, nhưng vẫn là mã của TIÊU CHUẨN, nên nó phải được một phép thử Rust
+# ghim lại. Tới 25/08/2026 không chỗ nào ghim: phép thử `chan_duong_dan_trung`
+# khẳng định BIẾN THỂ `TreeError::DuplicatePath`, mà tên biến thể là chuyện nội
+# bộ — bản cài đặt thứ hai so khớp bằng MÃ. Miễn trừ đúng cho "vector" đã bị áp
+# rộng thành "không ai phải kiểm".
+if ! grep -rq "\"$MIEN\"" crates/tcc-spec/src/tree.rs; then
+  bao "mã miễn trừ '$MIEN' không vector nào chạm tới VÀ không phép thử nào ghim"
+elif [ -n "$thieu" ]; then
   bao "mã lỗi trong đặc tả mà KHÔNG vector nào chạm tới:$thieu"
 else
-  dat "mọi mã lỗi trong đặc tả đều có vector (miễn trừ có ghi lý do: $MIEN)"
+  dat "mọi mã lỗi trong đặc tả đều có vector ('$MIEN' miễn vector, nhưng có phép thử ghim)"
 fi
 
 echo

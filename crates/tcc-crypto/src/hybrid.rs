@@ -188,16 +188,31 @@ impl SignatureScheme for HybridEd25519MlDsa {
         let ed_pub = take(public, 0, ED_PUBLIC, "khoá công khai", want_pub)?;
         let pq_pub = take(public, ED_PUBLIC, pq_pub_len, "khoá công khai", want_pub)?;
 
+        // ⚠️ Độ dài chờ đợi phải là độ dài THẬT của một chữ ký lai, không phải
+        // độ dài suy ra từ chính đầu vào đang bị nghi. Bản đầu viết
+        // `pq_sig_len = signature.len().saturating_sub(ED_SIG)`, nên một chữ ký
+        // 10 byte làm `pq_sig_len` thành 0 và thông báo báo "chờ 64 byte" —
+        // trong khi con số thật là 3373. Người đọc câu ấy đi tìm một chữ ký 64
+        // byte, mãi mãi. Cùng hạng lỗi với `bad-key`: câu lỗi kể một chuyện
+        // không có thật.
         let ed_sig_len = ED_SIG;
-        let pq_sig_len = signature.len().saturating_sub(ed_sig_len);
-        let ed_sig = take(signature, 0, ed_sig_len, "chữ ký", ed_sig_len + pq_sig_len)?;
-        let pq_sig = take(
-            signature,
-            ed_sig_len,
-            pq_sig_len,
-            "chữ ký",
-            ed_sig_len + pq_sig_len,
-        )?;
+        let pq_sig_len = ml_dsa::EncodedSignature::<MlDsa65>::default().len();
+        let want_sig = ed_sig_len + pq_sig_len;
+        // ⚠️ Kiểm ĐỘ DÀI TỔNG trước khi cắt, và kiểm bằng `!=` chứ không phải
+        // `<`. Cách cũ suy `pq_sig_len` TỪ CHÍNH đầu vào, nên nó vô tình ép
+        // tổng phải khớp: thừa một byte thì nửa hậu lượng tử dài 3310 và
+        // `Signature::try_from` chối. Bỏ cách suy ấy mà không thay bằng phép
+        // kiểm này thì byte thừa bị `take` BỎ QUA và chữ ký vẫn hợp lệ — chữ
+        // ký DẺO. Vector `them mot byte thua` bắt được đúng lúc đổi (25/08/2026).
+        if signature.len() != want_sig {
+            return Err(CryptoError::BadLength {
+                field: "chữ ký",
+                expected: want_sig,
+                actual: signature.len(),
+            });
+        }
+        let ed_sig = take(signature, 0, ed_sig_len, "chữ ký", want_sig)?;
+        let pq_sig = take(signature, ed_sig_len, pq_sig_len, "chữ ký", want_sig)?;
 
         // ---- Nửa cổ điển ----
         let ed_pub_arr: [u8; ED_PUBLIC] =
@@ -399,6 +414,113 @@ mod kiem_thu {
             loi.ma(),
             "bad-signature",
             "mã ngoài tiêu chuẩn cho khoá hỏng: {loi}"
+        );
+    }
+
+    /// **Lỗi sai độ dài phải nói ĐÚNG con số nó chờ.**
+    ///
+    /// `cargo-mutants` ngày 25/08/2026 đổi `+` thành `*` và `-` ở bảy chỗ tính
+    /// `want` — cả bảy SỐNG. Đọc thân `take` thì thấy `total` chỉ đi vào trường
+    /// `expected` của thông báo, còn quyết định cắt lát dùng `at..at + len`:
+    /// hành vi KHÔNG đổi, mọi khoá sai độ dài vẫn bị chối.
+    ///
+    /// Vẫn ghim, và lý do phân biệt rạch ròi với luật "thông báo là văn xuôi
+    /// được phép sửa": ở đây không phải câu chữ mà là một CON SỐ. Báo "chờ
+    /// 3968 byte" trong khi thật ra chờ 1984 là một câu SAI SỰ THẬT, và người
+    /// đọc nó sẽ đi sửa khoá của mình cho khớp một con số không có thật.
+    #[test]
+    fn loi_sai_do_dai_noi_dung_con_so_no_cho() {
+        let (s, k) = bo_ky();
+        let dung = k.secret.len();
+
+        // Thiếu một byte: phải báo đúng độ dài thật, không phải một biến thể
+        // của nó.
+        let thieu = &k.secret[..dung - 1];
+        match s.sign(thieu, b"x").unwrap_err() {
+            CryptoError::BadLength {
+                expected, actual, ..
+            } => {
+                assert_eq!(expected, dung, "nói sai độ dài đang chờ");
+                assert_eq!(actual, dung - 1, "nói sai độ dài nhận được");
+            }
+            khac @ CryptoError::BadSignature { .. } => {
+                panic!("chờ BadLength, nhận {khac:?}")
+            }
+        }
+
+        // `public_from_secret` tính `want` bằng MỘT DÒNG RIÊNG — kiểm đột biến
+        // chỉ dòng của `sign` thì dòng này vẫn sống. Ba đường, ba lần tính,
+        // ba lần phải nói đúng.
+        match HybridEd25519MlDsa::public_from_secret(thieu).unwrap_err() {
+            CryptoError::BadLength { expected, .. } => {
+                assert_eq!(expected, dung, "public_from_secret nói sai độ dài");
+            }
+            khac @ CryptoError::BadSignature { .. } => {
+                panic!("chờ BadLength, nhận {khac:?}")
+            }
+        }
+
+        let sig = s.sign(&k.secret, b"x").unwrap();
+
+        // Chữ ký ngắn: con số phải là độ dài THẬT của chữ ký lai, không phải
+        // độ dài suy ra từ chính đầu vào đang bị nghi.
+        let ngan = &sig[..10];
+        match s.verify(&k.public, b"x", ngan).unwrap_err() {
+            CryptoError::BadLength {
+                expected, actual, ..
+            } => {
+                assert_eq!(expected, sig.len(), "nói sai độ dài chữ ký đang chờ");
+                assert_eq!(actual, 10);
+            }
+            khac @ CryptoError::BadSignature { .. } => {
+                panic!("chờ BadLength, nhận {khac:?}")
+            }
+        }
+
+        // Cùng chuyện với khoá công khai ở đường xác minh.
+        let dung_pub = k.public.len();
+        match s.verify(&k.public[..dung_pub - 1], b"x", &sig).unwrap_err() {
+            CryptoError::BadLength { expected, .. } => {
+                assert_eq!(expected, dung_pub, "nói sai độ dài khoá công khai");
+            }
+            khac @ CryptoError::BadSignature { .. } => {
+                panic!("chờ BadLength, nhận {khac:?}")
+            }
+        }
+    }
+
+    /// **Thừa MỘT byte ở cuối chữ ký phải bị chối.**
+    ///
+    /// Chữ ký dẻo: nếu byte thừa bị bỏ qua thì cùng một thông điệp có VÔ SỐ
+    /// chữ ký hợp lệ, và bất kỳ chỗ nào đối chiếu chữ ký theo byte — sổ ghi,
+    /// bộ nhớ đệm, phép chống phát lại — đều bị qua mặt.
+    ///
+    /// Phép thử này tồn tại vì ngày 25/08/2026 tôi TỰ TAY tạo ra lỗ ấy: sửa
+    /// `pq_sig_len` từ "suy từ đầu vào" thành hằng của thuật toán, và cách suy
+    /// cũ hoá ra đang gánh thêm việc ép tổng độ dài khớp chính xác. Bộ vector
+    /// tuân thủ (`them mot byte thua`) bắt được — và nó bắt được vì hôm ấy
+    /// vector đã được đưa vào `cargo test`. Ghim thêm ở tầng đơn vị để lần sau
+    /// không phải chạy cả bộ kiểm định mới biết.
+    #[test]
+    fn chu_ky_thua_hay_thieu_mot_byte_deu_bi_choi() {
+        let (s, k) = bo_ky();
+        let msg = b"chuyen 1000 TCC";
+        let sig = s.sign(&k.secret, msg).unwrap();
+        assert!(
+            s.verify(&k.public, msg, &sig).is_ok(),
+            "chữ ký đúng phải qua"
+        );
+
+        let mut thua = sig.clone();
+        thua.push(0);
+        assert!(
+            s.verify(&k.public, msg, &thua).is_err(),
+            "thừa một byte vẫn qua — chữ ký DẺO"
+        );
+
+        assert!(
+            s.verify(&k.public, msg, &sig[..sig.len() - 1]).is_err(),
+            "thiếu một byte vẫn qua"
         );
     }
 }

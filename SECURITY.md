@@ -61,6 +61,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B45 | The sentence that carries a **safety fact** is the sentence that carries the warning mark — not merely some sentence on the same screen | `man_hong_noi_ro_khong_luu_gi`, `quyen_vi_ky_duoc_hien_khac_han_quyen_khac`, `cau_chuyen_tien_duoc_ve_khac_di` — added 2026-08-25, see §3.15 |
 | B46 | The bounds the specification states as **inclusive** are the bounds the code enforces, at the exact edge | `ranh_gioi_do_dai_dung_nhu_dac_ta_ghi`, `dung_nguong_dau_chong_thi_van_qua`, `xuong_dong_va_tab_bi_choi_voi_ly_do_rieng` — added 2026-08-25, see §3.17 |
 | B47 | The implementation emits **only** error codes the specification defines — checked in **both** directions | `khoa_khong_phai_diem_van_ra_bad_signature`; rule 10 and rule 10b in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.18 |
+| B48 | A signature verifies **only** at its exact length — no trailing bytes, no truncation | `chu_ky_thua_hay_thieu_mot_byte_deu_bi_choi`, vector `them mot byte thua` — added 2026-08-25, see §3.19 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1143,7 +1144,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 369.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 371.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1304,6 +1305,42 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.19 The vectors caught a malleable signature — mine, hours old
+
+Mutation testing `tcc-crypto` on 2026-08-25 left seven survivors, all of them
+the same shape: `+` becoming `*` where the *expected length* is computed for an
+error message. Reading `take` confirmed the arithmetic feeds only the
+`expected:` field — the slicing decision uses `at..at + len` — so behaviour was
+unaffected and every wrong-length key was still rejected.
+
+Pinning them was still right, and the reason is worth separating from the rule
+that error text may be reworded freely: this is not wording, it is a **number**.
+Reporting *"expected 3968 bytes"* when the true figure is 1984 is a false
+statement, and whoever reads it goes off to build a key of a length that does
+not exist.
+
+Writing that test exposed a worse one. For the **signature**, the expected
+length was derived from the input under suspicion —
+`pq_sig_len = signature.len().saturating_sub(64)` — so a 10-byte signature was
+reported as *"expected 64"* when the real answer is 3373. Replacing it with the
+algorithm's own constant made the message truthful and **introduced signature
+malleability**: the old derivation had been quietly doing a second job. With
+`pq_sig_len` fixed, `take` sliced its 3309 bytes and a **trailing extra byte
+was ignored** — the same message now had unlimited valid signatures, and
+anything comparing signatures byte-wise (a ledger, a cache, a replay guard) is
+defeated.
+
+The conformance vector `them mot byte thua` failed the moment the change
+compiled. It failed under **`cargo test --workspace`** — which it could not have
+done before that morning, when the vectors ran only under `cargo run`. The
+argument for §3.17 was theoretical when it was written; it stopped being
+theoretical the same day.
+
+The fix checks the total length with `!=` before slicing, and both directions
+are now pinned at the unit level too, so the next person does not need the full
+conformance run to learn it. Mutation-checked: `!=` weakened to `<`, and the
+check deleted outright — red both times.
 
 ### 3.17 The conformance suite was not a test
 
@@ -1767,7 +1804,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 369 tests
+cargo test --workspace                              # 371 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

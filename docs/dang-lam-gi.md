@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**369 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**371 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -153,6 +153,44 @@ Mất ba lượt mới ra con số ấy, và hai lượt đầu **không phải 
 Cả hai lượt đều không phải "phép thử yếu", và `TIMEOUT` là **chưa phán được**,
 không phải "sống". Cùng hạng lỗi với mọi thứ hôm nay, chỉ đảo chiều: mọi lần
 trước "chưa chạy tới" trông giống ĐẠT; lần này nó trông giống KHÔNG BẮT ĐƯỢC.
+
+**Bộ vector bắt được một chữ ký DẺO — do chính tôi vừa tạo ra (B48).**
+
+Đo đột biến `tcc-crypto`: 34 mutant, 26 bị bắt, 7 sống. Cả 7 là nhóm `+` trong
+phép tính `want` — đọc thân `take` thì `total` chỉ đi vào trường `expected` của
+thông báo, còn quyết định cắt lát dùng `at..at + len`, nên hành vi không đổi.
+
+Vẫn ghim, và lý do phải tách bạch với luật "thông báo là văn xuôi được phép
+sửa": đây không phải câu chữ mà là một CON SỐ. Báo "chờ 3968 byte" trong khi
+con số thật là 1984 là câu SAI SỰ THẬT, người đọc sẽ đi làm một khoá dài bằng
+một con số không tồn tại.
+
+Viết phép thử ấy thì lòi ra chỗ tệ hơn. Với CHỮ KÝ, độ dài chờ đợi được suy ra
+từ chính đầu vào đang bị nghi (`signature.len().saturating_sub(64)`), nên chữ
+ký 10 byte bị báo là "chờ 64" trong khi con số thật là 3373. Thay bằng hằng của
+thuật toán làm câu lỗi đúng — và **mở ra chữ ký dẻo**: cách suy cũ đang lặng lẽ
+gánh việc thứ hai là ÉP TỔNG ĐỘ DÀI KHỚP CHÍNH XÁC (thừa một byte thì nửa hậu
+lượng tử dài 3310 và `Signature::try_from` chối). Bỏ nó đi thì `take` cắt đủ
+3309 byte, byte thừa BỊ BỎ QUA, và cùng một thông điệp có vô số chữ ký hợp lệ.
+
+Vector `them mot byte thua` đỏ ngay khi bản sửa biên dịch xong — và nó đỏ dưới
+`cargo test --workspace`, điều mà SÁNG CÙNG NGÀY còn chưa làm được. Lập luận
+cho việc đưa vector vào bộ thử lúc viết còn là lý thuyết; nó thôi là lý thuyết
+trong cùng một ngày.
+
+Sửa bằng phép kiểm `!=` trên tổng độ dài TRƯỚC khi cắt. Ghim cả hai chiều ở
+tầng đơn vị để lần sau không phải chạy cả bộ kiểm định mới biết. Kiểm đột biến:
+nới `!=` thành `<` → đỏ; xoá hẳn phép kiểm → đỏ.
+
+**Bài học không phải "đừng sửa mã mật mã".** Là: một dòng có thể đang gánh hai
+việc mà chỉ một việc được ghi lại. Khi thay nó, hỏi việc thứ hai là gì — và nếu
+không tìm ra, đó chưa phải bằng chứng rằng không có.
+
+**Miễn trừ không phải tha bổng.** Luật 16 tha `duplicate-path` khỏi cần vector
+(một đối tượng JSON không thể có hai khoá trùng — đúng), nhưng rồi không gì đòi
+một phép thử ghim MÃ ấy. Phép thử `chan_duong_dan_trung` có tồn tại và khẳng
+định BIẾN THỂ, mà tên biến thể là chuyện nội bộ; bản cài đặt thứ hai so khớp
+bằng mã. Nay luật đòi phép thử ghim mã, và phép thử đã ghim.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

@@ -361,10 +361,13 @@ mod kiem_thu {
     fn chan_duong_dan_trung() {
         let mut t = FileTree::new();
         t.insert("a.txt", b"1".to_vec()).unwrap();
-        assert!(matches!(
-            t.insert("a.txt", b"2".to_vec()),
-            Err(TreeError::DuplicatePath(_))
-        ));
+        let loi = t.insert("a.txt", b"2".to_vec()).unwrap_err();
+        assert!(matches!(loi, TreeError::DuplicatePath(_)));
+        // Ghim MÃ, không chỉ ghim biến thể. Tên biến thể là chuyện nội bộ; mã
+        // là thứ bản cài đặt thứ hai so khớp. `duplicate-path` là mã chuẩn DUY
+        // NHẤT không vector nào chạm tới được — một đối tượng JSON không thể có
+        // hai khoá trùng — nên nếu chỗ này không ghim thì không chỗ nào ghim.
+        assert_eq!(loi.ma(), "duplicate-path");
     }
 
     /// ⚠️ Trên macOS và Windows, "Logo.png" và "logo.png" là CÙNG một tệp.
