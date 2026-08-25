@@ -1,4 +1,40 @@
-# Example — `hello-tcc`
+# Examples
+
+Two signed packages, committed to the repository. Verifiable immediately, with
+nothing to build first:
+
+```sh
+cargo run -p tcc-cli -- verify examples/hello-tcc
+cargo run -p tcc-cli -- verify examples/vi-du-vi
+```
+
+---
+
+## `vi-du-vi` — what a **wallet** request looks like
+
+`hello-tcc` asks for one capability, and it is a network one. That leaves the
+most consequential row in the permission dialog — the wallet — with nothing to
+show it against. This package asks for `wallet` **with**
+`may_request_signature`, so the dialog renders the row that says, in the frame's
+own words rather than the app's:
+
+> Can ask you to sign transactions — **this moves money**
+
+Three things are worth looking at rather than reading about:
+
+| Look at | Why |
+|---|---|
+| The wallet row against the network row | B45: the warning mark has to sit on **that sentence**, not merely somewhere on the screen |
+| The "Gửi tiền" button's **double frame** | B31: a single-ink renderer cannot say *destructive* in colour, so it says it in shape — and B51's focus ring is drawn **outside** so the two never merge |
+| Pressing "Gửi tiền" | `gui-tien` is **not declared in the signed manifest**. The button exists; the behaviour does not. It is refused, and the frame says so instead of failing quietly |
+
+⚠️ **No mainnet transaction exists here, or anywhere in this project.** The hard
+gate holds: nothing real until an independent security audit. The package says
+so on its own screen.
+
+---
+
+# `hello-tcc`
 
 A signed TCC package, committed to the repository. Verifiable immediately, with
 nothing to build first:

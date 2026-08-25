@@ -1101,9 +1101,8 @@ mod kiem_thu {
                 reason = "toạ độ trong ảnh, luôn dương và nhỏ"
             )]
             let (y0, y1) = (tren as usize + 3, (tren + cao) as usize - 3);
-            (0..bd.width()).any(|x| {
-                (y0..y1.min(bd.height())).all(|y| bd.image()[y * bd.width() + x] <= 60)
-            })
+            (0..bd.width())
+                .any(|x| (y0..y1.min(bd.height())).all(|y| bd.image()[y * bd.width() + x] <= 60))
         };
 
         assert!(co_nhay(Some(o)), "ô đang chọn mà không có dấu nháy");

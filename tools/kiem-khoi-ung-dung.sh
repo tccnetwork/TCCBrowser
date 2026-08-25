@@ -71,6 +71,35 @@ for lenh in "quyen" "hop-thoai"; do
   fi
 done
 
+# ── Gói xin quyền VÍ: màn quan trọng nhất, và chưa gì tự động đi qua ───────
+#
+# `hello-tcc` chỉ xin quyền MẠNG, nên tới 26/08/2026 hàng quyền ví — hàng duy
+# nhất mang câu "việc này chuyển tiền" — chưa lần nào được một phép kiểm tự
+# động dựng ra. Nó chỉ tồn tại trong phép thử đơn vị của bộ dựng.
+#
+# Kiểm ba điều, và điều thứ ba mới là điều đáng: dựng được, không hoảng loạn,
+# và câu cảnh báo CÓ MẶT trong cây hộp thoại. Thiếu điều thứ ba thì đây chỉ là
+# một phép kiểm "chạy được", mà chạy được không có nghĩa là nói đúng.
+ra=$(TCC_TU_DONG_DONG="$GIAY" ./target/debug/tcc-browser hop-thoai examples/vi-du-vi 2>&1)
+ma=$?
+if [ "$ma" != 0 ]; then
+  echo "❌ hộp thoại quyền ví thoát $ma"; echo "$ra" | head -5; loi=1
+elif printf '%s' "$ra" | grep -qE "panicked|abort"; then
+  echo "❌ hộp thoại quyền ví hoảng loạn"; loi=1
+else
+  echo "✅ hộp thoại gói xin quyền ví chạy và tự đóng"
+fi
+
+# Câu cảnh báo là chữ của KHUNG, không phải của gói — nên nó phải có mặt dù gói
+# viết gì. Đọc từ bản dựng KHÔNG cửa sổ, chỗ in cây ra chữ.
+cay=$(CARGO_TARGET_DIR=/tmp/kiem-khoi-cay cargo run -q -p tcc-browser -- \
+  hop-thoai examples/vi-du-vi 2>&1 || true)
+if printf '%s' "$cay" | grep -q "this moves money"; then
+  echo "✅ hàng quyền ví mang câu 'this moves money'"
+else
+  echo "❌ hàng quyền ví KHÔNG mang câu cảnh báo — B45"; loi=1
+fi
+
 # ── Luồng VÍ: đường chưa ai chạy bao giờ ────────────────────────────────────
 #
 # `wallet_flow` cổng sang `open_sequence` ngày 23/08 và tới 24/08 vẫn chưa lần

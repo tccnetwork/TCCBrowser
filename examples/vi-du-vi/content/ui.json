@@ -1,0 +1,49 @@
+{
+  "kind": "group",
+  "flow": "column",
+  "gap": "large",
+  "children": [
+    {
+      "kind": "text",
+      "content": "Trả tiền thử",
+      "emphasis": "title"
+    },
+    {
+      "kind": "text",
+      "content": "Gói này xin quyền VÍ có kèm quyền xin chữ ký. Nó ở đây để bạn nhìn thấy hàng quyền ví trông khác hẳn hàng quyền mạng ra sao — không phải để tiêu tiền của ai."
+    },
+    {
+      "kind": "text",
+      "content": "KHÔNG có giao dịch mainnet nào. Cổng chặn cứng của dự án: chưa qua kiểm định an ninh độc lập thì không có giao dịch thật, và không hạn chót nào ghi đè được điều đó."
+    },
+    {
+      "kind": "field",
+      "label": "Số tiền (chỉ để gõ thử)",
+      "value": "",
+      "secret": false
+    },
+    {
+      "kind": "group",
+      "flow": "row",
+      "gap": "medium",
+      "children": [
+        {
+          "kind": "button",
+          "label": "Hỏi tỉ giá",
+          "action": "hoi-ti-gia",
+          "tone": "neutral"
+        },
+        {
+          "kind": "button",
+          "label": "Gửi tiền",
+          "action": "gui-tien",
+          "tone": "danger"
+        }
+      ]
+    },
+    {
+      "kind": "text",
+      "content": "Nút «Gửi tiền» KHÔNG được khai trong bản kê khai đã ký, nên bấm vào sẽ bị cổng quyền năng từ chối. Vẽ được một cái nút không có nghĩa là làm được việc."
+    }
+  ]
+}

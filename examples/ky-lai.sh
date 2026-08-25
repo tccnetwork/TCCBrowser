@@ -11,5 +11,7 @@ KHOA="examples/khoa-vi-du-AI-CUNG-CO.hex"
   echo "  cargo run -p tcc-cli -- key --ra $KHOA"
   exit 1
 }
-cargo run -q -p tcc-cli -- sign examples/hello-tcc --khoa "$KHOA"
-cargo run -q -p tcc-cli -- verify examples/hello-tcc
+for goi in examples/hello-tcc examples/vi-du-vi; do
+  cargo run -q -p tcc-cli -- sign "$goi" --khoa "$KHOA"
+  cargo run -q -p tcc-cli -- verify "$goi"
+done

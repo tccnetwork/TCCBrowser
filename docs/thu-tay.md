@@ -45,6 +45,28 @@ Nếu thấy chữ nào ngụ ý ngược lại, đó là lỗi, báo lại.
 **Thử phá:** sửa một byte bất kỳ trong `examples/hello-tcc/content/ui.json` rồi
 chạy lại. Phải bị chối trước khi có bất cứ thứ gì hiện lên.
 
+## 1b. Gói thứ hai — xin quyền VÍ
+
+```bash
+./target/debug/tcc-browser examples/vi-du-vi
+```
+
+`hello-tcc` chỉ xin quyền mạng, nên hàng quan trọng nhất của hộp thoại — hàng
+**ví** — không có gì để so. Gói này xin `wallet` **kèm** quyền xin chữ ký.
+
+Ba thứ nên nhìn tận mắt:
+
+- **Hàng ví so với hàng mạng.** Câu *"việc này chuyển tiền"* phải mang dấu cảnh
+  báo — và phải là **chính câu ấy**, không phải một dấu nào đó ở đâu đó trên màn.
+- **Nút «Gửi tiền» có khung đôi.** Bộ dựng một-kênh-mực không nói "nguy hiểm"
+  bằng màu được, nên nó nói bằng **hình**. Bấm `Tab` tới nút ấy để thấy viền
+  tiêu điểm kẻ **bên ngoài** — hai dấu hiệu không lẫn vào nhau.
+- **Bấm «Gửi tiền».** `gui-tien` **không** có trong bản kê khai đã ký. Nút có
+  mặt, hành vi thì không — nó bị từ chối, và khung **nói ra** thay vì hỏng lặng.
+
+⚠️ **Không có giao dịch mainnet nào**, ở đây hay bất cứ đâu trong dự án. Gói tự
+nói điều đó trên màn hình của nó.
+
 ## 2. Chỉ xem hộp thoại hỏi quyền
 
 ```bash
