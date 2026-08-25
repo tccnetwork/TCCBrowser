@@ -84,6 +84,15 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
   thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
   xảy ra thật, phép đo này có đổi kết quả không?**
+- **`cargo-mutants`: `TIMEOUT` KHÔNG phải "sống sót".** 25/08/2026 lượt đo lại
+  trả về 61 dòng `TIMEOUT`, 0 dòng `MISSED` — trông y hệt một bộ thử vô dụng.
+  Đọc tới ĐUÔI mới thấy `No space left on device`: mỗi việc song song là một
+  BẢN SAO cả cây kèm `target/` riêng, ~1,8 GB một cái, và `-j 4` ăn hết chỗ
+  trống. Mọi mutant "hết giờ" vì bản dựng chết, không vì phép thử yếu — cùng
+  hạng lỗi với mọi thứ khác ở đây, chỉ đảo chiều: lần này "chưa chạy tới"
+  trông giống "phép thử không bắt được".
+  Trước khi tin một lượt `cargo-mutants`: xem `df -h`, và đọc đuôi đầu ra.
+  Cây tạm KHÔNG tự dọn khi lượt chạy bị cắt — `rm -rf /Volumes/DATA/.tmp/cargo-mutants-*`.
 - **ĐỪNG sửa mã trong lúc một cổng đang chạy.** 25/08/2026: `kiem-theo-co.sh`
   chạy 10 phút trong khi tôi sửa `tcc-crypto`, và có lúc cây không biên dịch
   được. Nó báo hỏng 3 lệnh — không phải vì mã hỏng mà vì nó đo một thứ đang

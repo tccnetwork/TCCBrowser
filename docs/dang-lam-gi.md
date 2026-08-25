@@ -136,6 +136,24 @@ tiêu chuẩn còn đúng hai: `NetworkCapability::hosts` (đã ghim — phải 
 của bộ dựng", mà trình phục vụ ấy bị xoá cùng bộ dựng web hai ngày trước. Nó
 phát ra bản sao CẢ CÂY đã ký, rộng hơn `read(path)` đang dùng, và không ai gọi.
 
+**Đo lại sau khi vá.** Cùng hai tệp `tcc-spec/src/{lib,tree}.rs`: lượt đầu để
+lại **22 mutant sống + 3 chưa phán được**; sau khi thêm phép thử ranh giới và
+đưa vector vào `cargo test` → **98 mutant, 96 bị bắt, 2 không dựng được, 0
+sống, 0 hết giờ**.
+
+Mất ba lượt mới ra con số ấy, và hai lượt đầu **không phải kết quả**:
+
+- Lượt 2: 61 `TIMEOUT`, **0** `MISSED` — nhìn lướt y hệt "bộ thử chẳng bắt được
+  gì". Nguyên nhân nằm ở đuôi đầu ra: `No space left on device`. Mỗi việc song
+  song là một bản sao cả cây kèm `target/` riêng (~1,8 GB), `-j 4` ăn hết ổ.
+- Lượt 3, ổ còn rộng, vẫn 39 `TIMEOUT`: `--timeout-multiplier 10` nhân với thời
+  gian chạy phép thử của RIÊNG `tcc-spec` (~2 giây) rồi áp hạn 20 giây ấy cho
+  các lượt chạy CẢ WORKSPACE (~70 giây). Đo một thứ, áp cho một thứ khác.
+
+Cả hai lượt đều không phải "phép thử yếu", và `TIMEOUT` là **chưa phán được**,
+không phải "sống". Cùng hạng lỗi với mọi thứ hôm nay, chỉ đảo chiều: mọi lần
+trước "chưa chạy tới" trông giống ĐẠT; lần này nó trông giống KHÔNG BẮT ĐƯỢC.
+
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
 định an ninh độc lập, và soát `ttf-parser`.

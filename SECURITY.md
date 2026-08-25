@@ -1262,6 +1262,31 @@ return `bad-length`, which the standard does define. The variant is gone.
 happen. The mutation report did not find the bug — it found the *absence of
 evidence*, and the bug was at the end of that thread.
 
+**Measured again afterwards.** Over the same two files —
+`tcc-spec/src/lib.rs` and `tcc-spec/src/tree.rs` — the first run left **22
+surviving mutants and 3 undetermined**. After the boundary tests and after the
+conformance vectors became part of `cargo test`: **98 mutants, 96 caught, 2
+unviable, 0 surviving, 0 undetermined.**
+
+⚠️ Getting that number took three runs, and the first two were **not results**:
+
+- Run 2 returned 61 `TIMEOUT` and **zero** `MISSED` — which reads, at a glance,
+  like a test suite that catches nothing. The cause was at the end of the
+  output: `No space left on device`. Each parallel job copies the whole tree
+  with its own `target/`, ~1.8 GB apiece, and `-j 4` filled the disk. Every
+  mutant "timed out" because the *build* died.
+- Run 3, with disk to spare, still returned 39 `TIMEOUT`. `--timeout-multiplier
+  10` had multiplied the time to run **`tcc-spec`'s own tests** (~2 s) and
+  applied the resulting 20-second cap to runs of the **whole workspace suite**
+  (~70 s). The limit measured one thing and was enforced against another.
+
+Neither run had weak tests, and in both, `TIMEOUT` is *undetermined* — not
+survived. This document has recorded the same failure repeatedly in one
+direction, where "never reached" looks like **passed**; here it appears
+inverted, where "never reached" looks like **caught nothing**. Both are the
+same defect: a measurement that cannot distinguish its own failure from the
+thing it measures.
+
 **The gate that should have caught it did not exist.** Rule 10 checks one
 direction: every code in the specification exists in the source. Nothing
 checked the reverse. Rule 10b now does, and found three more codes this
