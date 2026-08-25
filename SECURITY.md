@@ -72,6 +72,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B56 | The **content size cap** holds at its exact edge and accumulates across subdirectories | `tran_noi_dung_chan_dung_o_mep`; the constant itself is a build-time `const` assertion — added 2026-08-26, see §3.26 |
 | B57 | A code the specification **withdrew** stays unreachable from a package, and a test proves it | `goi_co_publisher_khong_phai_hex_ra_ma_not_hex`, `goi_co_con_tren_nut_la_ra_ma_bad_json`; rule 10b — added 2026-08-26, see §3.26 |
 | B58 | A `Debug` that exists to **redact** is tested — it hides the secret **and** still says something | `debug_cua_kieu_giu_khoa_khong_lo_khoa`, `debug_khoa_cong_khai_va_chu_ky_noi_duoc_do_dai` — added 2026-08-26, see §3.27 |
+| B59 | "No key yet", "you pressed cancel" and "the OS failed" stay **three different answers** | `ba_ma_trang_thai_ra_ba_loi_khac_nhau` — added 2026-08-26, see §3.28 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1315,6 +1316,35 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.28 The macOS keystore is mostly untested, and now says so
+
+After mutating `tcc-chain` and `tcc-keystore` properly, the survivors clustered
+in one file: `tcc-keystore/src/macos.rs`, the **real** Keychain implementation.
+`store`, `unlock`, `contains` and `delete` can each be replaced by a stub and
+nothing goes red.
+
+That is not laziness. Testing them means writing into the developer's own login
+keychain, or standing up a temporary one; `FakeKeystore` exists precisely so the
+rest of the system can be tested without that. The honest statement is that the
+code which actually holds a user's wallet key on macOS **is not covered by the
+test suite**, and this section exists so that fact has a name rather than an
+implied "tested".
+
+One function in that file is pure and now tested: `phan_loai`, which turns an
+`OSStatus` into an error. Its doc comment already said why it matters — *"no key
+yet" and "you just pressed cancel" are two different sentences to a person* —
+and deleting the `-128` arm left every test green. A user who **cancelled** the
+Keychain prompt would have been told the operating system failed, and would have
+gone looking for a fault on their machine that does not exist.
+
+⚠️ **This gate could hang forever, and did.** The per-flag runner spent over
+forty minutes on `cargo test -p tcc-keystore --features os-keystore`: that test
+writes a real Keychain item and calls `unlock`, macOS raised its authorisation
+prompt, and the gate sat waiting for a click that was never coming. A gate that
+can block indefinitely is a gate people learn to skip, and a skipped gate is not
+a gate. Each command now runs under a timeout, and a timeout is reported as
+**"timed out"** — never as a failing test, because those are different facts.
 
 ### 3.27 A redaction nobody tested, in the type that holds the seed
 

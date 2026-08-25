@@ -95,6 +95,11 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   cho một lượt mà `error: test failed` chính là **phép thử đỏ**. Đếm
   `^error\[E` và `could not compile` cho lỗi biên dịch, `test result: FAILED`
   cho phép thử đỏ; hai con số, không phải một.
+- **Phép thử chạm Keychain THẬT có thể treo cổng vô hạn.** 26/08/2026
+  `kiem-theo-co.sh` đứng hơn bốn mươi phút ở `-p tcc-keystore --features
+  os-keystore`: phép thử ghi một mục thật rồi gọi `unlock`, macOS bật hộp thoại
+  xin quyền, và cổng chờ một cú bấm không bao giờ tới. Nay mỗi lệnh chạy dưới
+  một hạn giờ, và HẾT GIỜ được báo là hết giờ — không phải "phép thử đỏ".
 - **`cargo-mutants` phải chạy VỚI CỜ mà mã sống sau đó.** Trọng tài mặc định là
   `cargo test --workspace`, và lệnh ấy không bật cờ nào — nên mã sau một cờ
   KHÔNG được biên dịch, phép thử của nó KHÔNG chạy, và công cụ ghi mọi mutant

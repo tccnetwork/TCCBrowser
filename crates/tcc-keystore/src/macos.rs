@@ -224,4 +224,38 @@ mod kiem_thu {
         let k = MacKeychain::new();
         assert!(!k.contains("tcc-kiem-thu-khong-bao-gio-ton-tai"));
     }
+
+    /// **Ba mã trạng thái, ba câu KHÁC NHAU với người dùng.**
+    ///
+    /// Chú thích của `phan_loai` nói rõ vì sao nó tồn tại: "chưa có ví" và
+    /// "bạn vừa bấm huỷ" là hai câu khác nhau. Nhưng tới 26/08/2026 không phép
+    /// thử nào đọc kết quả của nó — kiểm đột biến xoá hẳn nhánh `-128` mà mọi
+    /// phép thử vẫn xanh, tức là một người bấm HUỶ sẽ được báo "hệ điều hành
+    /// hỏng", và họ sẽ đi tìm lỗi ở máy mình.
+    ///
+    /// Hàm này THUẦN nên kiểm được không cần Keychain thật — khác hẳn phần còn
+    /// lại của tệp này, xem ghi chú ở SECURITY.md §3.28.
+    #[test]
+    fn ba_ma_trang_thai_ra_ba_loi_khac_nhau() {
+        use security_framework::base::Error;
+
+        assert!(
+            matches!(
+                phan_loai(Error::from_code(-25300), "vi"),
+                KeystoreError::NotFound(_)
+            ),
+            "errSecItemNotFound phải thành 'chưa có ví'"
+        );
+        assert!(
+            matches!(
+                phan_loai(Error::from_code(-128), "vi"),
+                KeystoreError::UserRefused
+            ),
+            "errSecUserCanceled phải thành 'người dùng từ chối', không phải lỗi hệ điều hành"
+        );
+        assert!(
+            matches!(phan_loai(Error::from_code(-1), "vi"), KeystoreError::Os(_)),
+            "mã lạ phải thành lỗi hệ điều hành, không được nuốt thành 'chưa có ví'"
+        );
+    }
 }

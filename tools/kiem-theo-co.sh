@@ -15,7 +15,35 @@
 # Việc `linux-render`/`windows-render` là việc CỦA MỘT HỆ, nhưng lệnh của chúng
 # vẫn chạy được ở đây, nên cứ chạy: nhiều hơn CI thì không sao, ÍT hơn mới đau.
 set -u
+# Điều khiển việc: mỗi việc nền thành một NHÓM tiến trình riêng, để hết giờ thì
+# giết được cả nhóm. Giết mỗi `cargo` thì nhị phân phép thử con vẫn treo lại.
+set -m
 cd "$(dirname "$0")/.."
+
+# Hết giờ cho MỘT lệnh. Không có lệnh `timeout` trên macOS mặc định.
+#
+# ⚠️ Vì sao cần: 26/08/2026 cổng này treo hơn bốn mươi phút ở
+# `cargo test -p tcc-keystore --features os-keystore`. Phép thử ấy ghi một mục
+# THẬT vào Keychain rồi gọi `unlock`, và macOS bật hộp thoại xin quyền — cổng
+# đứng chờ một cú bấm chuột không bao giờ tới. Một cổng treo vô hạn là một cổng
+# người ta sẽ bỏ qua, và một cổng bị bỏ qua thì không phải cổng.
+HAN_GIO=${HAN_GIO:-600}
+chay_han_gio() {
+  eval "$1" >/tmp/kiem-theo-co.txt 2>&1 &
+  local pid=$!
+  local n=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$n" -ge "$HAN_GIO" ]; then
+      kill -TERM -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+      sleep 2
+      kill -KILL -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
+      return 124
+    fi
+    sleep 1
+    n=$((n + 1))
+  done
+  wait "$pid"
+}
 
 case "$(uname -s)" in
   Darwin) TOI=macOS ;;
@@ -75,7 +103,13 @@ echo "── $so lệnh theo cờ, rút từ ci.yml (hệ: $TOI) ──"
 hong=0
 while IFS= read -r l; do
   printf '▶ %s\n' "$l"
-  if ! eval "$l" >/tmp/kiem-theo-co.txt 2>&1; then
+  chay_han_gio "$l"
+  ma=$?
+  if [ "$ma" = 124 ]; then
+    echo "   ✗ HẾT GIỜ sau ${HAN_GIO}s — KHÔNG phải phép thử đỏ"
+    echo "     Lệnh chạm Keychain thật thì macOS có thể đang chờ một cú bấm."
+    hong=$((hong + 1))
+  elif [ "$ma" != 0 ]; then
     echo "   ✗ HỎNG"
     grep -a "^error" -A 6 /tmp/kiem-theo-co.txt | head -12
     hong=$((hong + 1))
