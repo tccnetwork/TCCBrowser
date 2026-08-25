@@ -1143,7 +1143,18 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 367.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 369.
+
+**A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
+handed out a **clone of the entire signed file tree**, and its own doc comment
+said why it existed: *"to give to the renderer's file server"*. That server was
+deleted with the web engine. Nothing in the repository called it — which is how
+it surfaced, in the same sweep for public API no test can reach that found
+`FileTree::paths`. It is now removed; `read(path)` remains and is narrower.
+
+The lesson is not the function. Deleting a subsystem leaves accessors shaped
+for it, and an accessor with no caller is not inert — it is a wider surface
+than anything still in use, kept alive by nobody noticing.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1731,7 +1742,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 367 tests
+cargo test --workspace                              # 369 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

@@ -518,4 +518,30 @@ mod kiem_thu {
         let _ = n.allow("b.tcc-coin.com"); // ngoài phạm vi nhưng vẫn tính là một lần dùng
         assert_eq!(s.use_count(), 2);
     }
+
+    /// **Danh sách máy chủ đã duyệt phải đọc ra ĐÚNG cái đã cấp.**
+    ///
+    /// `hosts()` là `pub` trên một crate lá và **không một chỗ nào trong kho
+    /// gọi nó** — cùng hạng với `FileTree::paths` mà `cargo-mutants` chỉ ra
+    /// ngày 25/08/2026: không ai gọi thì không đột biến nào giết được, và API
+    /// công khai không ai kiểm là một lời hứa suông. Không xoá, vì người viết
+    /// bản cài đặt thứ hai cần đọc được danh sách đã cấp để hiện lên màn hình.
+    #[test]
+    fn danh_sach_may_chu_doc_ra_dung_cai_da_cap() {
+        // Phải đi qua `grant`: `NetworkCapability` CỐ Ý không dựng được từ
+        // ngoài — đó chính là bất biến "quyền năng không giả mạo được", và
+        // phép thử này không được là chỗ đầu tiên phá nó.
+        let s = grant(
+            app(),
+            &[xin_mang(&["shop.tcc-coin.com", "rpc2.tcc-coin.com"])],
+            cho_het,
+        )
+        .unwrap();
+        let q = s.network().unwrap();
+        assert_eq!(q.hosts(), ["shop.tcc-coin.com", "rpc2.tcc-coin.com"]);
+
+        // Không xin gì thì không có quyền để mà đọc.
+        let rong = grant(app(), &[], cho_het).unwrap();
+        assert!(rong.network().is_none(), "chưa xin mà có quyền mạng");
+    }
 }

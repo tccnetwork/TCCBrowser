@@ -429,4 +429,26 @@ mod kiem_thu {
         assert_eq!(cay.get("ui.json"), Some(&b"{}"[..]));
         assert_eq!(cay.get("khong-co.json"), None);
     }
+
+    /// **Trần độ dài đường dẫn đúng như đặc tả ghi — 1024 được nhận.**
+    ///
+    /// `spec/0.1/01-package.md:99` viết "Non-empty, at most **1024**
+    /// characters": dải bao gồm đầu trên. `cargo-mutants` ngày 25/08/2026 đổi
+    /// `>` thành `>=` và `==` ở `check_path` mà không phép thử nào đỏ — cùng
+    /// hạng lỗi với bốn ranh giới trong `lib.rs`, chỉ khác chỗ.
+    #[test]
+    fn tran_do_dai_duong_dan_dung_nhu_dac_ta_ghi() {
+        let vua_du = "a".repeat(MAX_PATH_LEN);
+        assert_eq!(vua_du.len(), 1024);
+        assert!(
+            check_path_public(&vua_du).is_ok(),
+            "đường dẫn đúng 1024 byte bị chặn oan"
+        );
+        assert!(
+            check_path_public(&"a".repeat(MAX_PATH_LEN + 1)).is_err(),
+            "1025 byte phải bị chối"
+        );
+        // Rỗng là một nhánh RIÊNG, mã lỗi khác — giữ nó khỏi trôi vào nhánh trần.
+        assert_eq!(check_path_public("").unwrap_err().ma(), "empty-path");
+    }
 }

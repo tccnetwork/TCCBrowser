@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**367 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**369 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -111,6 +111,30 @@ lọt sạch, và không quét biến thể enum. Siết lại thì lộ 87 đ�
 là khoá chuỗi giao diện của `tcc-shell`, không phải "bề mặt người viết bản cài
 đặt thứ hai đọc" như chính luật tự định nghĩa. Thu phạm vi về sáu crate làm nên
 tiêu chuẩn thì còn **bốn**: `Goi`, `LienKetMem`, `ThieuTep`, `ChuKySaiDoDai`.
+
+**Đối chiếu hết 34 đột biến, không bỏ sót cái nào.** Phân loại xong thì ra bốn
+nhóm — và chỉ một nhóm là lỗ chưa vá:
+
+- **Đã chết nhờ phép thử ranh giới**: sáu cái ở `check_host`, `AppId::parse`,
+  `check_display_text`. Cộng thêm `check_path` (trần 1024) vá nốt hôm nay —
+  đặc tả ghi "at most 1024", bao gồm.
+- **Đã chết nhờ đưa vector vào `cargo test`**: `SpecError::ma`, `TreeError::ma`
+  (ba trong bốn mã có vector; `duplicate-path` là miễn trừ đã ghi lý do —
+  một đối tượng JSON không thể có hai khoá trùng), `CryptoError::ma`, và cả ba
+  cái `ContentHasher` — nhóm `canonical` gọi nó trực tiếp.
+- **Đã chết nhờ phép thử bộ đọc**: `FileTree::is_empty` / `paths` / `len`. Lý
+  do chúng sống không phải phép thử yếu mà là **không ai gọi**.
+- **Cố ý KHÔNG ghim**: năm cái `+` trong `hybrid.rs` chỉ đi vào con số "chờ bao
+  nhiêu byte" trong *thông báo lỗi*. Chính dự án quy định thông báo là văn xuôi
+  được phép sửa, chỉ MÃ mới ổn định — ghim văn xuôi lại là mâu thuẫn với luật
+  ấy. Ghi ra đây để lần sau không ai tưởng là bỏ sót.
+
+**Quét thêm một hạng cùng loại: hàm `pub` không ai gọi.** Ở sáu crate làm nên
+tiêu chuẩn còn đúng hai: `NetworkCapability::hosts` (đã ghim — phải đi qua
+`grant`, vì kiểu này CỐ Ý không dựng được từ ngoài) và `VerifiedApp::copy_content`
+— **đã gỡ**. Chú thích của nó nói rõ nó tồn tại "để trao cho trình phục vụ tệp
+của bộ dựng", mà trình phục vụ ấy bị xoá cùng bộ dựng web hai ngày trước. Nó
+phát ra bản sao CẢ CÂY đã ký, rộng hơn `read(path)` đang dùng, và không ai gọi.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

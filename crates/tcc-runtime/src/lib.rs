@@ -107,16 +107,6 @@ impl LoadedApp {
             .unwrap_or_else(|| unreachable!("load đã kiểm điểm vào tồn tại"))
     }
 
-    /// Bản sao cây tệp đã ký, để trao cho trình phục vụ của bộ dựng.
-    ///
-    /// Bản SAO chứ không phải tham chiếu: trình phục vụ sống trong vòng lặp sự
-    /// kiện của cửa sổ, lâu hơn lời gọi này. Cây tệp đã qua kiểm chữ ký nên bản
-    /// sao cũng vậy — không có đường nào nhét nội dung chưa ký vào đây.
-    #[must_use]
-    pub fn copy_content(&self) -> FileTree {
-        self.content.clone()
-    }
-
     /// Đọc một tệp bất kỳ trong gói. Ứng dụng chỉ thấy được nội dung ĐÃ KÝ —
     /// không có đường nào ra hệ thống tệp thật.
     #[must_use]
