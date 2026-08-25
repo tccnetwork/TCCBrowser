@@ -37,7 +37,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B21 | An action **cannot request** a capability that was never asked for | `kiem_hanh_vi` + `hanh_vi_goi_may_chu_chua_xin_quyen_thi_tu_choi` |
 | B22 | **Not one packet leaves the machine** before the grant | `chua_cap_quyen_thi_khong_goi_ra_ngoai_mot_lan_nao` |
 | B23 | **Redirects are NOT followed** — that is a capability escape | `max_redirects(0)` + `moi_chuyen_huong_deu_bi_tu_choi` |
-| B24 | HTTPS only, with a timeout and a size ceiling | `tcc-net` |
+| B24 | HTTPS only, with a timeout and a size ceiling | `dia_chi_luon_la_https`, `chi_2xx_moi_dat`, `moi_chuyen_huong_deu_bi_tu_choi`, `chi_loi_vuot_tran_moi_bao_la_qua_lon`, `cau_bao_qua_lon_mang_tran_cua_kenh_ay`, `MAX_BYTES`/`MAX_WAIT` (build-time `const` assertion) — three of these added 2026-08-25, see §3.16 |
 | B25 | The path out to the network is **visible in the dependency tree** | Rule 8: only `tcc-shell` depends on `tcc-net` |
 | B26 | A remembered permission is bound to the **signer's key**, not just the app id | `doi_khoa_nguoi_ky_thi_phai_hoi_lai` |
 | B27 | A remembered permission is bound to the **scope**, not just the capability name | `noi_rong_pham_vi_thi_phai_hoi_lai` |
@@ -1077,7 +1077,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 351.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 353.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1153,6 +1153,58 @@ present on the screen, and the smoke script deliberately presses **deny** — a
 smoke test that grants permissions teaches that granting is the default — but
 anyone who sets this variable is giving themselves the power to answer for the
 user.
+
+### 3.16 B24 claimed three things and proved one
+
+The B24 row read: *HTTPS only, with a timeout and a size ceiling* — three
+separate enforceable behaviours. Its entire evidence column was the crate name,
+`tcc-net`. Auditing it on 2026-08-25 found HTTPS-only well covered (four pure
+tests, no server needed) and the other two covered by **nothing**.
+
+What the audit turned up, in the order it turned up:
+
+**The ceiling really is enforced, and it is off by one.** `ureq`'s
+`LimitReader` returns an *error* rather than truncating silently — the
+distinction matters, because a silently truncated body is a partial file
+treated as complete. But it errors on the read **after** the quota is
+exhausted, so a body of exactly `MAX_BYTES` is **rejected**: the ceiling is
+strictly-less-than, not less-than-or-equal. That is the safe direction, so the
+behaviour stands and the doc comment now says what the code does. Both facts
+were read out of `ureq-3.4.0/src/body/limit.rs:22-24`, not recalled — the
+distinction §3.5b had to introduce the hard way.
+
+**Both read sites mapped errors wrongly, in opposite directions.**
+`lib.rs` wrote `map_err(|_| TooLarge)`: a mid-transfer disconnect, a reset, a
+timeout — every read failure was reported to the user as *the file is too
+large*, and someone reading that goes looking for a smaller file forever, for a
+fault that has nothing to do with size. `rpc.rs` wrote `map_err(Goi)`: the
+genuine ceiling hit vanished into a generic *call failed*. The mapping is now
+one pure function used by both, and `TooLarge` carries the **channel's own**
+limit (8 MiB for packages, 1 MiB for RPC) instead of a hard-coded constant that
+lied about one of the two.
+
+`ureq::Error::BodyExceedsLimit` survives the `into_io()` → `From<io::Error>`
+round trip (`error.rs:198` and `:216`), which is what makes the distinction
+possible at all; that too was read, not assumed.
+
+**The sanity of both constants is now a build-time assertion, not a test.**
+Written first as a `#[test]`, clippy pointed out what it really was — an
+assertion over constants — and the honest form is `const { assert!(…) }` at
+module scope. Setting the ceiling to zero or dropping the timeout now **fails
+the build**, which is louder than a red test and impossible to run past.
+Mutation-checked: `MAX_WAIT = Duration::ZERO` stops compilation with
+`E0080: evaluation panicked`.
+
+⚠️ **What is still not proven.** That the constants are sane is not that
+`ureq` honours them. Whether the timeout fires, and whether the ceiling holds
+against a real hostile server, needs a TLS server standing in the test — the
+HTTPS-only rule means no plain-HTTP fixture can reach this code. The tests say
+what they cover and no more.
+
+⚠️ 15 of the 45 `Bn` rows still cite no test. Ten of those are type-level or
+structural claims where that is the right answer (`Tone` has no colour field; a
+package ships no code) and five are retired. B24 was the row where it was the
+wrong answer. The rest have not been audited one by one.
 
 ### 3.15 Nine tests asked "is there a warning *somewhere*" (B45, new)
 
@@ -1529,7 +1581,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 351 tests
+cargo test --workspace                              # 353 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

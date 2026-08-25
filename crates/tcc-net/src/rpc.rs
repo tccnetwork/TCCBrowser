@@ -97,7 +97,7 @@ impl JsonRpc {
             .with_config()
             .limit(MAX_RESPONSE)
             .read_to_string()
-            .map_err(|e| NetError::Goi(e.to_string()))?;
+            .map_err(|e| crate::dich_loi_doc(&e, MAX_RESPONSE))?;
 
         let v: serde_json::Value = serde_json::from_str(&chu)
             .map_err(|e| NetError::Goi(format!("không phải JSON: {e}")))?;

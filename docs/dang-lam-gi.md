@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**351 phép thử · 153 vector · 22 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**353 phép thử · 153 vector · 22 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -40,6 +40,27 @@ tôi quan tâm với thứ nằm cạnh nó.**
 Hai cổng mới, cả hai đã kiểm đột biến: `kiem-so-lieu.sh` giờ kiểm tên `--test`/
 `--bin` (trước chỉ kiểm gói và cờ, nên mù với `--test hai-bo-dung`), và kiểm con
 số 20 kia khỏi trôi.
+
+**B24 khẳng định ba việc, chứng minh một.** Hàng ấy ghi "chỉ HTTPS, có hạn
+giờ, có trần" và cột bằng chứng chỉ có hai chữ `tcc-net`. HTTPS thì bốn phép
+thử thuần lo đủ; hai việc kia **không phép thử nào** chạm tới. Soát ra ba thứ:
+
+- `ureq` **báo lỗi** chứ không cắt cụt im lặng khi vượt trần (đọc
+  `body/limit.rs:22-24`, không nhớ) — nhưng nó lỗi ở lần đọc SAU khi hết hạn
+  ngạch, nên thân đúng bằng `MAX_BYTES` bị **từ chối**. Trần là "nhỏ hơn ngặt",
+  không phải "nhỏ hơn hoặc bằng". Lệch về phía an toàn nên giữ, tài liệu sửa.
+- **Hai chỗ đọc thân ánh xạ lỗi sai, theo hai hướng ngược nhau.** `lib.rs` nuốt
+  mọi lỗi đọc thành "quá lớn" (đứt mạng cũng báo tệp to); `rpc.rs` làm mất tín
+  hiệu "quá lớn" vào câu "gọi thất bại". Nay một hàm thuần chung, và `TooLarge`
+  mang trần CỦA CHÍNH KÊNH ẤY (8 MiB gói, 1 MiB RPC).
+- Độ hợp lý của hai hằng chuyển thành `const { assert! }` — đặt trần về 0 thì
+  **hỏng bản dựng**, to hơn một phép thử đỏ. Clippy chỉ ra chỗ này khi tôi viết
+  nó thành `#[test]`.
+
+Vẫn **chưa chứng minh được**: `ureq` có thật sự tôn trọng hạn giờ không, và trần
+có nổ trước một máy chủ thù địch thật không — cần một máy chủ TLS đứng trong
+phép thử. 15/45 hàng B còn lại chưa trích phép thử nào; mười trong số đó là
+khẳng định cấu trúc nên đúng, năm đã nghỉ hưu.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

@@ -45,10 +45,27 @@ use thiserror::Error;
 ///
 /// Không có trần thì một máy chủ thù địch chỉ cần trả một luồng vô tận là ngốn
 /// hết bộ nhớ — không cần lỗ hổng nào.
+///
+/// ⚠️ Trần này là **NHỎ HƠN NGẶT**, không phải "nhỏ hơn hoặc bằng". `LimitReader`
+/// của `ureq` báo lỗi ở lần đọc **sau khi** hết hạn ngạch, nên thân đúng bằng
+/// `MAX_BYTES` byte bị TỪ CHỐI (đọc `ureq-3.4.0/src/body/limit.rs:22-24`, không
+/// phải nhớ). Lệch một byte, và lệch về phía an toàn, nên giữ nguyên — nhưng
+/// tài liệu phải nói đúng điều mã làm.
 pub const MAX_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Thời gian chờ toàn cục cho một lần gọi.
 pub const MAX_WAIT: Duration = Duration::from_secs(20);
+
+// Hai hằng trên là bức tường duy nhất chống máy chủ thù địch mà ta kiểm được
+// KHÔNG cần dựng máy chủ TLS. Kiểm ở đây, lúc DỰNG, chứ không phải trong một
+// `#[test]`: đặt trần về 0 hay bỏ hạn giờ thì bản dựng CHẾT, to hơn một phép
+// thử đỏ mà người ta có thể chạy thiếu.
+//
+// `Duration` không so sánh được trong ngữ cảnh `const`, nên so qua `as_secs`.
+const _: () = {
+    assert!(MAX_BYTES > 0 && MAX_BYTES <= 64 * 1024 * 1024);
+    assert!(MAX_WAIT.as_secs() > 0 && MAX_WAIT.as_secs() <= 60);
+};
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum NetError {
@@ -64,8 +81,8 @@ pub enum NetError {
     #[error("đường dẫn phải bắt đầu bằng / và không chứa ký tự điều khiển")]
     DuongDanXau,
 
-    #[error("trả về quá {MAX_BYTES} byte")]
-    TooLarge,
+    #[error("trả về quá {0} byte")]
+    TooLarge(u64),
 
     #[error("gọi thất bại: {0}")]
     Goi(String),
@@ -92,6 +109,26 @@ pub fn check_status(ma: u16) -> Result<(), NetError> {
         return Ok(());
     }
     Err(NetError::TrangThaiXau(ma))
+}
+
+/// Dịch lỗi đọc thân trả về. **Hàm thuần** — kiểm thử được mà không cần máy chủ.
+///
+/// Vì sao tách ra: hai chỗ đọc thân đều ánh xạ sai, theo hai hướng ngược nhau.
+/// Chỗ này viết `map_err(|_| TooLarge)` — nuốt MỌI lỗi đọc thành "quá lớn", nên
+/// đứt mạng giữa chừng cũng báo "tệp quá lớn" và người dùng đi tìm tệp nhỏ hơn
+/// mãi mãi. Chỗ kia (`rpc.rs`) viết `map_err(Goi)` — mất hẳn tín hiệu "quá lớn"
+/// vào một câu "gọi thất bại" chung chung.
+///
+/// `ureq` báo trần bằng `Error::BodyExceedsLimit`, và biến thể ấy **sống sót**
+/// qua vòng `into_io()` → `From<io::Error>` (đọc `ureq-3.4.0/src/error.rs:198`
+/// và `:216`), nên tới đây phân biệt được.
+pub(crate) fn dich_loi_doc(e: &ureq::Error, tran: u64) -> NetError {
+    match e {
+        ureq::Error::BodyExceedsLimit(_) => NetError::TooLarge(tran),
+        // `ureq::Error` là `#[non_exhaustive]`: nhánh bắt-tất-cả là BẮT BUỘC,
+        // không phải lười.
+        khac => NetError::Goi(khac.to_string()),
+    }
 }
 
 /// Dựng địa chỉ. **Hàm thuần.**
@@ -158,7 +195,7 @@ impl Network for HttpNetwork {
             .with_config()
             .limit(MAX_BYTES)
             .read_to_vec()
-            .map_err(|_| NetError::TooLarge.to_string())
+            .map_err(|e| dich_loi_doc(&e, MAX_BYTES).to_string())
     }
 }
 
@@ -231,5 +268,55 @@ mod kiem_thu {
                 "đường dẫn {p:?} bị chặn oan"
             );
         }
+    }
+
+    /// **Trần kích thước phải nói ĐÚNG nó là trần, không nuốt lỗi khác.**
+    ///
+    /// Bản đầu viết `map_err(|_| TooLarge)`: đứt mạng giữa chừng, máy chủ ngắt,
+    /// hết giờ — đều bị báo "tệp quá lớn". Người dùng đọc câu ấy sẽ đi tìm một
+    /// tệp nhỏ hơn, mãi mãi, cho một lỗi chẳng liên quan gì tới kích thước.
+    #[test]
+    fn chi_loi_vuot_tran_moi_bao_la_qua_lon() {
+        assert_eq!(
+            dich_loi_doc(&ureq::Error::BodyExceedsLimit(MAX_BYTES), MAX_BYTES),
+            NetError::TooLarge(MAX_BYTES)
+        );
+
+        // Mọi lỗi KHÁC phải giữ nguyên nguyên nhân của nó.
+        for khac in [
+            ureq::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::ConnectionReset,
+                "đứt giữa chừng",
+            )),
+            ureq::Error::HostNotFound,
+            ureq::Error::ConnectionFailed,
+        ] {
+            let ra = dich_loi_doc(&khac, MAX_BYTES);
+            assert!(
+                !matches!(ra, NetError::TooLarge(_)),
+                "{khac:?} bị báo nhầm là quá lớn"
+            );
+            assert!(
+                ra.to_string().contains(&khac.to_string()),
+                "mất nguyên nhân thật: {khac:?} → {ra}"
+            );
+        }
+    }
+
+    /// **Trần đi kèm CON SỐ của chính kênh đó.**
+    ///
+    /// Hai kênh có hai trần khác nhau (8 MiB cho gói, 1 MiB cho RPC). Câu lỗi
+    /// dán cứng `MAX_BYTES` thì kênh RPC nói dối người đọc về giới hạn thật.
+    #[test]
+    fn cau_bao_qua_lon_mang_tran_cua_kenh_ay() {
+        let rpc = dich_loi_doc(&ureq::Error::BodyExceedsLimit(9), 1024 * 1024);
+        assert!(
+            rpc.to_string().contains("1048576"),
+            "không nói trần thật của kênh: {rpc}"
+        );
+        assert!(
+            !rpc.to_string().contains(&MAX_BYTES.to_string()),
+            "dán cứng trần của kênh kia: {rpc}"
+        );
     }
 }
