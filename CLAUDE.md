@@ -37,29 +37,23 @@ cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
 tools/kiem-khoi-ung-dung.sh    # CHÍNH nhị phân sản phẩm, đi hết đường
 
-# Và MỌI tổ hợp cờ CI có chạy — `cargo test --workspace` KHÔNG dựng chúng:
-cargo test -p tcc-shell --features accesskit --test hai-bo-dung
-cargo test -p tcc-shell --features window
-cargo test -p tcc-render-raster --features window
-cargo test -p tcc-render-raster --features accesskit-platform
-cargo test -p tcc-shell --features window
-
-# `clippy` cũng phải chạy THEO TỪNG CỜ, không chỉ một lượt workspace:
-cargo clippy -p tcc-render-raster --features window --all-targets -- -D warnings
-cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
-cargo clippy -p tcc-shell --features window --all-targets -- -D warnings
-cargo clippy -p tcc-shell --features window --all-targets -- -D warnings
+tools/kiem-theo-co.sh          # MỌI tổ hợp cờ CI chạy, rút thẳng từ ci.yml (~10 phút)
 ```
 
-Dòng `clippy` theo cờ thêm 22/08/2026, sau khi CI đỏ vì đúng chỗ ấy: một
-`.expect()` trong phép thử mới. `cargo test` của cờ ấy XANH, `clippy --workspace`
-XANH — vì mã sau cờ chỉ được `clippy` soi khi chính cờ ấy được bật. `-D warnings`
-là một cổng, và một cổng không soi tới thì không phải cổng.
+`kiem-theo-co.sh` thay cho danh sách chép tay, 25/08/2026. Danh sách cũ có bốn
+dòng và đã trôi ba đường: gọi `--test hai-bo-dung` (bộ thử xoá cùng WebView, gõ
+vào là chết), ghi `-p tcc-shell --features window` hai lần, và bỏ hẳn
+`accesskit`, `import-web-wallet`, `os-keystore`, `wallet` — bốn tổ hợp CI vẫn
+chạy. Bộ rút tìm ra **20** lệnh. Một danh sách chép tay thì trôi; rút từ nguồn
+thì không trôi được.
 
-Nhóm cờ ở cuối thêm 19/08/2026, sau lần CI đỏ thứ hai trong ngày: mã sau một cờ
-mà `cargo test --workspace` không dựng thì **không tồn tại** đối với lượt kiểm ở
-máy mình, và ta chỉ biết nó hỏng khi CI báo. Luật 21 đã bắt CI phải `test` mọi
-cờ nó `check`; dòng này bắt CHÍNH MÌNH làm điều đó trước khi đẩy.
+Vì sao nhóm này tồn tại (19/08/2026, sau lần CI đỏ thứ hai trong ngày): mã sau
+một cờ mà `cargo test --workspace` không dựng thì **không tồn tại** đối với lượt
+kiểm ở máy mình. Đo lại 25/08/2026 cho chắc: nhét một `assert!(false)` sau
+`feature = "os-keystore"` thì `cargo test --workspace` vẫn XANH, còn
+`cargo test -p tcc-keystore --features os-keystore` đỏ. Và `clippy` cũng phải
+theo cờ, không chỉ một lượt workspace — 22/08/2026 CI đỏ vì một `.expect()`
+trong phép thử sau cờ: mã sau cờ chỉ được `clippy` soi khi chính cờ ấy bật.
 
 `kiem-so-lieu.sh` nằm trong danh sách này từ 19/08/2026, sau khi CI đỏ vì đúng
 việc bỏ sót nó: thêm hai phép thử là ba tài liệu ghi sai con số. Nó chạy lâu
@@ -90,6 +84,10 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
   thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
   xảy ra thật, phép đo này có đổi kết quả không?**
+- **`zsh` KHÔNG tách từ tham số chưa trích dẫn.** `for c in "-p x --features y"; do cargo $c; done`
+  truyền cả chuỗi làm MỘT đối số; `cargo` chết vì tên gói sai, và nếu vòng lặp
+  chỉ `grep` tìm chữ "FAILED" thì nó báo XANH cho bốn bộ thử **chưa hề chạy**.
+  Đo mã thoát, và dùng `"$@"`/`eval` thay vì `$c` trần.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
   đỏ không phải bằng chứng. Điều này áp cho cả 22 luật kiến trúc.
 

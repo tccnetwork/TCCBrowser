@@ -72,6 +72,23 @@ pub(crate) mod do_cay {
 
     use tcc_ui::{Emphasis, Node, NodeKind};
 
+    /// **Câu `cau` có mang dấu CẢNH BÁO không** — hỏi đúng câu, không hỏi cả cây.
+    ///
+    /// # Vì sao cần hàm này
+    ///
+    /// Chín phép thử từng viết `s.contains("[cảnh-báo]")`. Câu ấy chỉ hỏi *"có
+    /// dấu cảnh báo ở ĐÂU ĐÓ không"* — và kiểm đột biến ngày 25/08/2026 chỉ ra
+    /// hậu quả: chuyển dấu ấy từ câu "việc này CHUYỂN TIỀN" sang một dòng khác
+    /// thì phép thử **vẫn xanh**, trong khi đúng câu nó sinh ra để canh đã chìm
+    /// vào chữ thường.
+    ///
+    /// Bất biến là "CÂU NÀY nổi rõ", nên phép thử phải nói ra câu nào.
+    pub(crate) fn co_canh_bao(cay: &Node, cau: &str) -> bool {
+        chu(cay)
+            .lines()
+            .any(|d| d.contains("[cảnh-báo]") && d.contains(cau))
+    }
+
     /// Cả cây thành chữ: nhãn, nội dung, trạng thái công tắc, mức nhấn.
     pub(crate) fn chu(cay: &Node) -> String {
         let mut ra = String::new();

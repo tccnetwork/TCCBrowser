@@ -58,6 +58,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B42 | A **text field** is reachable from the accessibility axis, and `Focus` **never** activates a button | `o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc`, `tieu_diem_khong_kich_hoat_nut` — added 2026-08-23, see §3.12 |
 | B43 | Text the **frame** holds passes the same display-string checks as text from disk | `chu_do_khung_giu_khong_lach_duoc_phep_kiem`, `phim_go_khong_hop_le_bi_tu_choi_ngay` — added 2026-08-23, see §3.13 |
 | B44 | The process creates **exactly one** event loop, whatever screens it shows | `vong_lap_su_kien_dung_mot_lan_cho_ca_tien_trinh` — added 2026-08-24, see §3.14 |
+| B45 | The sentence that carries a **safety fact** is the sentence that carries the warning mark — not merely some sentence on the same screen | `man_hong_noi_ro_khong_luu_gi`, `quyen_vi_ky_duoc_hien_khac_han_quyen_khac`, `cau_chuyen_tien_duoc_ve_khac_di` — added 2026-08-25, see §3.15 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1152,6 +1153,38 @@ present on the screen, and the smoke script deliberately presses **deny** — a
 smoke test that grants permissions teaches that granting is the default — but
 anyone who sets this variable is giving themselves the power to answer for the
 user.
+
+### 3.15 Nine tests asked "is there a warning *somewhere*" (B45, new)
+
+Auditing the ~20 screen tests rewritten during the WebView removal, one of them
+— `cau_chuyen_tien_duoc_ve_khac_di`, which exists to prove the sentence *"this
+moves money"* stands out from everything around it — turned out to pass when
+the warning mark was moved to a **different line entirely**. It asked
+`s.contains("[cảnh-báo]")`: *is there a warning mark anywhere in this tree?*
+Nine tests asked that same question.
+
+The distance between the two questions is the whole point of the invariant. A
+screen full of marks marks nothing; the claim being tested was never "this
+screen is alarming", it was "**this sentence** is the alarming one".
+
+`do_cay::co_canh_bao(cay, cau)` asks the narrow question — the line carrying
+`cau` also carries the mark — and all nine sites now use it. Mutation-testing
+the converted sites moved the mark to a neighbouring line **without removing
+it**: red at every site, green under the old wording.
+
+Converting them exposed a real defect behind the weak one. On the recovery
+**failure** screen the mark sat on the diagnostic detail (`kho khoá từ chối`),
+while the sentence the user has to act on — *nothing was stored, the key is
+gone* — was plain body text among four other lines. Its sibling screen marks
+the identical class of sentence (`PhienKhongCatDau`, `recovery_screen.rs:106`).
+The test named `man_hong_noi_ro_khong_luu_gi` — *"says clearly nothing was
+stored"* — had been green for that screen the whole time, because a mark on the
+diagnostic answered the question it was actually asking. Both sentences now
+carry the mark, and the test names each of them separately.
+
+The general lesson is older than this bug and keeps costing the same way: a
+test that cannot distinguish *the thing I care about* from *anything in the
+same neighbourhood* is not evidence about the thing I care about.
 
 ### 3.13 B16 held for disk and leaked at the keyboard (B43, new)
 

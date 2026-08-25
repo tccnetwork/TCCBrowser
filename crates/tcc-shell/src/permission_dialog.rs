@@ -373,17 +373,20 @@ mod kiem_thu {
     /// không — và nửa đầu mới là nửa người dùng NHÌN thấy.
     #[test]
     fn quyen_vi_ky_duoc_hien_khac_han_quyen_khac() {
-        let ve = |q: &str| {
-            let cay = build(&ke_khai(q), Language::En).unwrap();
-            crate::do_cay::chu(&cay)
-        };
-        let vi = ve(XIN_VI_KY);
-        let mang = ve(r#"[{"name":"network",
+        let cay = |q: &str| build(&ke_khai(q), Language::En).unwrap();
+        let cay_vi = cay(XIN_VI_KY);
+        let cay_mang = cay(r#"[{"name":"network",
                     "scope":{"kind":"network","hosts":["shop.tcc-coin.com"]},
                     "reason":"tải danh sách"}]"#);
+        let vi = crate::do_cay::chu(&cay_vi);
+        let mang = crate::do_cay::chu(&cay_mang);
+        // ⚠️ Vế KHẲNG ĐỊNH phải nói ĐÚNG HÀNG nào mang dấu — hàng quyền ví.
+        // Hỏi "có dấu ở đâu đó không" thì chuyển dấu sang một dòng khác vẫn
+        // xanh, và bất biến là "HÀNG NÀY khác hẳn", không phải "màn này có một
+        // dấu nào đó".
         assert!(
-            vi.contains("[cảnh-báo]"),
-            "hàng ví không mang dấu hiệu cảnh báo:\n{vi}"
+            crate::do_cay::co_canh_bao(&cay_vi, "this moves money"),
+            "hàng ví không mang dấu cảnh báo:\n{vi}"
         );
         assert!(
             !mang.contains("[cảnh-báo]"),

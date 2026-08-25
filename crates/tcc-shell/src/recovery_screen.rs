@@ -206,7 +206,11 @@ pub fn build_failure(chi_tiet: &str, ngon_ngu: Language) -> Result<Node, UiError
         man = man.child(Node::text_with(chi_tiet.to_owned(), Emphasis::Warning)?)?;
     }
 
-    man.child(Node::text(t(TextKey::HongKhongCatDuoc))?)?.child(
+    man.child(Node::text_with(
+        t(TextKey::HongKhongCatDuoc),
+        Emphasis::Warning,
+    )?)?
+    .child(
         Node::group(Flow::Row, Gap::Medium)
             // Quay lại đứng TRƯỚC: hỏng xong thì việc thường làm là sửa,
             // không phải bỏ cuộc.
@@ -334,7 +338,10 @@ mod kiem_thu {
                 s.contains(label(TextKey::CumTuAiNhinCungDoc, ngon_ngu)),
                 "không cảnh báo người xung quanh đọc được ({ngon_ngu:?})"
             );
-            assert!(s.contains("[cảnh-báo]"), "cảnh báo không nổi rõ");
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, label(TextKey::CumTuAiNhinCungDoc, ngon_ngu)),
+                "câu 'ai nhìn cũng đọc được' không mang dấu cảnh báo ({ngon_ngu:?})"
+            );
         }
     }
 
@@ -388,13 +395,21 @@ mod kiem_thu {
     #[test]
     fn man_hong_noi_ro_khong_luu_gi() {
         for ngon_ngu in [Language::En, Language::Vi] {
-            let s = ve(&build_failure("kho khoá từ chối", ngon_ngu).unwrap());
+            let cay = build_failure("kho khoá từ chối", ngon_ngu).unwrap();
+            let s = ve(&cay);
             assert!(s.contains("kho khoá từ chối"), "mất chi tiết lỗi:\n{s}");
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, "kho khoá từ chối"),
+                "chi tiết lỗi không nổi rõ ({ngon_ngu:?}):\n{s}"
+            );
             assert!(
                 s.contains(label(TextKey::HongKhongCatDuoc, ngon_ngu)),
                 "không nói rõ chưa lưu gì ({ngon_ngu:?}):\n{s}"
             );
-            assert!(s.contains("[cảnh-báo]"), "lỗi không nổi rõ");
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, label(TextKey::HongKhongCatDuoc, ngon_ngu)),
+                "câu 'chưa cất được gì' không mang dấu cảnh báo ({ngon_ngu:?})"
+            );
         }
     }
 
@@ -439,7 +454,8 @@ mod kiem_thu {
     #[test]
     fn phien_thu_noi_khong_cat_truoc_khi_go() {
         for ngon_ngu in [Language::En, Language::Vi] {
-            let s = ve(&build_session_entry(None, ngon_ngu).unwrap());
+            let cay = build_session_entry(None, ngon_ngu).unwrap();
+            let s = ve(&cay);
             let cau = label(TextKey::PhienKhongCatDau, ngon_ngu);
             assert!(
                 s.contains(cau),
@@ -453,7 +469,10 @@ mod kiem_thu {
                 vi_cau < vi_o,
                 "nói sau khi người ta đã gõ xong thì để làm gì"
             );
-            assert!(s.contains("[cảnh-báo]"));
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, cau),
+                "câu 'phiên này không cất gì' không mang dấu cảnh báo ({ngon_ngu:?})"
+            );
         }
     }
 

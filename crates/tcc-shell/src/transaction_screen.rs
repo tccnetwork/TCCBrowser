@@ -259,10 +259,12 @@ mod kiem_thu {
     #[test]
     fn cau_chuyen_tien_duoc_ve_khac_di() {
         let t = mau();
-        let s = ve(&t, &t.signing_message()).unwrap();
+        let cay = build(&t, &t.signing_message(), Language::Vi).unwrap();
+        let cau = crate::text::label(TextKey::GdChuyenTien, Language::Vi);
         assert!(
-            s.contains("[cảnh-báo]"),
-            "câu chuyển tiền không mang dấu hiệu cảnh báo:\n{s}"
+            crate::do_cay::co_canh_bao(&cay, cau),
+            "câu chuyển tiền không mang dấu cảnh báo:\n{}",
+            crate::do_cay::chu(&cay)
         );
     }
 
@@ -308,7 +310,10 @@ mod kiem_thu {
             // Câu ấy phải mang MỨC NHẤN cảnh báo, không phải chỉ là chữ
             // thường trùng nội dung: mức nhấn là thứ bộ dựng buộc phải làm
             // trông khác đi, còn chữ thường thì không.
-            assert!(s.contains("[cảnh-báo]"), "{s}");
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, crate::text::label(TextKey::XongConCho, ngon_ngu)),
+                "câu 'chưa vào khối' không mang dấu cảnh báo ({ngon_ngu:?}):\n{s}"
+            );
         }
     }
 

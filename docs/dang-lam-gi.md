@@ -5,13 +5,51 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **23/08/2026**.
+> Cập nhật lần cuối: **25/08/2026**.
+
+## Đứng ở đâu — 25/08/2026
+
+Nhánh `giai-doan-3.1`, mọi cổng xanh.
+
+**351 phép thử · 153 vector · 22 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+tuân thủ ĐẠT.**
+
+Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
+ra khỏi đó, và cả ba đều cùng một hạng lỗi: **phép đo không phân biệt được thứ
+tôi quan tâm với thứ nằm cạnh nó.**
+
+1. **Chín phép thử hỏi "có dấu cảnh báo ở ĐÂU ĐÓ không"** thay vì hỏi câu nào
+   mang dấu. `cau_chuyen_tien_duoc_ve_khac_di` — phép thử tồn tại để chứng minh
+   câu *"việc này chuyển tiền"* nổi hơn xung quanh — **vẫn xanh** khi dời dấu
+   sang dòng khác. Thêm `do_cay::co_canh_bao(cay, cau)`, đổi cả chín chỗ, kiểm
+   đột biến bằng cách **dời** dấu chứ không xoá. B45, SECURITY.md §3.15.
+
+2. **Lỗi thật nấp sau phép thử yếu ấy.** Màn hồi phục **hỏng** đặt dấu trên dòng
+   chẩn đoán, còn câu người dùng phải hành động theo — *chưa cất được gì, khoá
+   mất rồi* — thì là chữ thường giữa bốn dòng khác. Màn anh em đánh dấu đúng câu
+   cùng loại. Phép thử tên `man_hong_noi_ro_khong_luu_gi` đã xanh suốt vì dấu
+   trên dòng chẩn đoán trả lời được câu hỏi nó thực sự đặt ra. Đã sửa.
+
+3. **Danh sách "lệnh theo cờ" chép tay trong CLAUDE.md đã trôi khỏi CI** — gọi
+   một bộ thử đã xoá, ghi trùng một dòng, thiếu bốn tổ hợp. Thay bằng
+   `tools/kiem-theo-co.sh`, rút thẳng từ `ci.yml`: **20** lệnh, không phải 4.
+   Và trong lúc đo, chính vòng lặp `for` tôi viết để kiểm cũng dính bẫy: `zsh`
+   không tách từ `$c` chưa trích dẫn, nên bốn bộ thử **chưa hề chạy** mà vòng
+   lặp báo xanh cả bốn.
+
+Hai cổng mới, cả hai đã kiểm đột biến: `kiem-so-lieu.sh` giờ kiểm tên `--test`/
+`--bin` (trước chỉ kiểm gói và cờ, nên mù với `--test hai-bo-dung`), và kiểm con
+số 20 kia khỏi trôi.
+
+**Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
+cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
+định an ninh độc lập, và soát `ttf-parser`.
 
 ## Đứng ở đâu — 23/08/2026
 
 Nhánh `giai-doan-3.1`, CI xanh.
 
-**337 phép thử · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
+**337 phép thử (thời điểm ấy) · 153 vector · 22 luật kiến trúc · bộ kiểm định tuân thủ ĐẠT.**
 
 ### Máy dựng web đã bỏ HẲN (23/08)
 

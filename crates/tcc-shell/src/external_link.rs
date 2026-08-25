@@ -213,7 +213,10 @@ mod kiem_thu {
                 s.contains(label(TextKey::RaNgoaiKhongConCheChan, ngon_ngu)),
                 "không nói rõ mất che chắn ({ngon_ngu:?})"
             );
-            assert!(s.contains("[cảnh-báo]"));
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, label(TextKey::RaNgoaiKhongConCheChan, ngon_ngu)),
+                "câu mất che chắn không mang dấu cảnh báo ({ngon_ngu:?}):\n{s}"
+            );
         }
     }
 

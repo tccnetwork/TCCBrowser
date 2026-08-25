@@ -244,14 +244,15 @@ mod kiem_thu {
     #[test]
     fn man_xong_noi_ro_ban_cu_van_con() {
         for ngon_ngu in [Language::En, Language::Vi] {
-            let s = ve(&build_done(&da_nhap(), ngon_ngu).unwrap());
+            let cay = build_done(&da_nhap(), ngon_ngu).unwrap();
+            let s = ve(&cay);
             assert!(
                 s.contains(label(TextKey::NhapBanCuVanCon, ngon_ngu)),
                 "thiếu câu về bản cũ ({ngon_ngu:?}):\n{s}"
             );
             assert!(
-                s.contains("[cảnh-báo]"),
-                "câu về bản cũ không mang dấu hiệu cảnh báo ({ngon_ngu:?}):\n{s}"
+                crate::do_cay::co_canh_bao(&cay, label(TextKey::NhapBanCuVanCon, ngon_ngu)),
+                "câu về bản cũ không mang dấu cảnh báo ({ngon_ngu:?}):\n{s}"
             );
         }
     }

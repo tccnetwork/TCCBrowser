@@ -126,6 +126,15 @@ else
   dat "mọi bằng chứng SECURITY.md trích dẫn đều tồn tại trong mã nguồn"
 fi
 
+# ── Con số lệnh-theo-cờ ghi trong CLAUDE.md phải khớp bộ rút ─────────────────
+dem_that=$("$(dirname "$0")/kiem-theo-co.sh" --dem)
+dem_ghi=$(grep -oE 'Bộ rút tìm ra \*\*([0-9]+)\*\* lệnh' CLAUDE.md | grep -oE '[0-9]+')
+if [ "$dem_that" != "$dem_ghi" ]; then
+  bao "CLAUDE.md ghi $dem_ghi lệnh theo cờ, bộ rút tìm ra $dem_that"
+else
+  dat "CLAUDE.md ghi đúng số lệnh theo cờ ($dem_that)"
+fi
+
 # ── Mọi lệnh `cargo` trong tài liệu phải trỏ tới gói và cờ CÓ THẬT ────────────
 #
 # `docs/AUDIT.md` bảo người soát độc lập chạy một danh sách lệnh để tự đối chiếu
@@ -141,6 +150,10 @@ md = json.loads(subprocess.run(
     ["cargo", "metadata", "--no-deps", "--format-version", "1"],
     capture_output=True, text=True).stdout)
 goi = {p["name"]: set(p["features"]) for p in md["packages"]}
+# Tên bộ thử/nhị phân, tra theo gói. Cờ và gói có thật mà `--test` trỏ vào một
+# bộ đã xoá thì lệnh vẫn chết — chỉ chết muộn hơn một nhịp.
+dich = {p["name"]: {(t["name"], k) for t in p["targets"] for k in t["kind"]}
+        for p in md["packages"]}
 ra = []
 tep = ["README.md", "SECURITY.md", "ARCHITECTURE.md", "CLAUDE.md"]
 tep += [str(x) for x in pathlib.Path("docs").glob("*.md")]
@@ -150,12 +163,24 @@ for f in tep:
     for l in re.findall(r"^(cargo [^\n#]*)", open(f).read(), re.M):
         m = re.search(r"-p (\S+)", l)
         c = re.search(r"--features (\S+)", l)
-        if m and m.group(1) not in goi:
-            ra.append(f"{pathlib.Path(f).name}:gói-{m.group(1)}")
-        elif m and c:
+        if not m:
+            continue
+        ten = pathlib.Path(f).name
+        if m.group(1) not in goi:
+            ra.append(f"{ten}:gói-{m.group(1)}")
+            continue
+        if c:
             for co in c.group(1).split(","):
                 if co not in goi[m.group(1)]:
-                    ra.append(f"{pathlib.Path(f).name}:{m.group(1)}-thiếu-cờ-{co}")
+                    ra.append(f"{ten}:{m.group(1)}-thiếu-cờ-{co}")
+        # `--test`/`--bin` là một hạng lỗi RIÊNG: gói đúng, cờ đúng, mà bộ thử
+        # đã bị xoá. Ngày 25/08/2026 CLAUDE.md vẫn bảo chính tôi chạy
+        # `--test hai-bo-dung` — bộ so hai bộ dựng, xoá cùng WebView. Cổng này
+        # xanh suốt vì nó chỉ soi gói và cờ.
+        for co, loai in (("--test", "test"), ("--bin", "bin")):
+            d = re.search(rf"{co} (\S+)", l)
+            if d and (d.group(1), loai) not in dich[m.group(1)]:
+                ra.append(f"{ten}:{m.group(1)}-không-có-{loai}-{d.group(1)}")
 print(" ".join(sorted(set(ra))))
 PY2
 )
@@ -165,7 +190,7 @@ else
   # Dấu nháy ngược trong chuỗi kép là THAY THẾ LỆNH, không phải chữ. Bản đầu
   # viết "mọi lệnh `cargo` …" và vỏ lệnh chạy `cargo` rồi dán trang trợ giúp của
   # nó vào giữa câu báo ĐẠT.
-  dat "mọi lệnh cargo trong tài liệu đều trỏ tới gói và cờ có thật"
+  dat "mọi lệnh cargo trong tài liệu đều trỏ tới gói, cờ và bộ thử có thật"
 fi
 
 [ "$loi" = 0 ] && echo "════ ĐẠT ════" || echo "════ HỎNG: $loi ════"
