@@ -35,6 +35,11 @@ implementation **must not** display "verified publisher".
 
 ## Run it
 
+Want to **use** it rather than audit it? [`docs/thu-tay.md`](docs/thu-tay.md)
+walks the five paths that open a window, what to look at in each, and how to
+try to break them. The commands below are the checks.
+
+
 ```bash
 cargo test --workspace              # 373 tests
 cargo clippy --workspace --all-targets -- -D warnings
