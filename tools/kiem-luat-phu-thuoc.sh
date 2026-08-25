@@ -208,9 +208,19 @@ echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật
 # tài liệu và cụm từ nêu đích danh.
 that=$(grep -c '^echo "--- Luật' "$0")
 lech=""
+# `dang-lam-gi.md` là NHẬT KÝ: mỗi mục "## Đứng ở đâu — ngày" chép lại con số
+# ĐÚNG TẠI NGÀY ẤY. Chỉ mục đầu — mục hiện tại — là một khẳng định về hôm nay;
+# những mục dưới là hồ sơ. Ngày 25/08/2026 luật này đòi sửa cả ba mục cũ thành
+# 23, tức là đòi viết lại lịch sử cho khớp hiện tại. Cắt từ tiêu đề `##` THỨ HAI
+# trở xuống.
 for f in README.md SECURITY.md ARCHITECTURE.md CLAUDE.md docs/ke-hoach.md docs/dang-lam-gi.md docs/AUDIT.md; do
   [ -f "$f" ] || continue
-  for n in $(grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules)' "$f" | grep -oE '^[0-9]+' | sort -u); do
+  if [ "$f" = "docs/dang-lam-gi.md" ]; then
+    van=$(awk '/^## /{n++} n>=2{exit} {print}' "$f")
+  else
+    van=$(cat "$f")
+  fi
+  for n in $(printf '%s\n' "$van" | grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules)' | grep -oE '^[0-9]+' | sort -u); do
     [ "$n" = "$that" ] || lech="$lech $(basename "$f"):$n"
   done
 done
@@ -336,16 +346,60 @@ echo "--- Luật 13: định danh CÔNG KHAI không được mang tên tiếng V
 # Tên hàm kiểm thử, biến cục bộ và tên ví dụ đối kháng vẫn tiếng Việt — chúng là
 # LẬP LUẬN, không phải giao diện, và SECURITY.md trích dẫn tên phép thử làm bằng
 # chứng nên đổi tên là làm hỏng đúng thứ nó ghi lại.
-GOC_VIET='(chu|cau|vai|dau|mat|sac|thai|tra|luu|xoa|them|ky|bo|dung|mo|tao|vong|thoat|hoi|quyet|dinh|choi|cho|phep|bat|tat|khoa|nho|hanh|man|hinh|khoi|tan|cong|bang|kieu|thu|ghi|danh|phuc|cua|hop|quet|goi|kiem|bam|nut|loi|mang|nap|gui|tep|duong|noi|ten|nguoi|lieu|tro|nang|lietke|quen|van|tay|tinh|trang|nhieu|moi|tiep|doi|dot|bien|hat|giong|muc|tieu|sau|bot|cay|byte_doc|so|lan|phan|doan)'
-vi_pham=$(grep -rhoE 'pub (struct|enum|fn|const|trait|type|mod) [A-Za-z_][A-Za-z0-9_]*' \
-            crates/*/src/*.rs apps/*/src/*.rs tools/*/src/*.rs 2>/dev/null \
-          | awk '{print $3}' | sort -u \
-          | grep -iE "^${GOC_VIET}(_|$)|_${GOC_VIET}(_|$)" || true)
+# ⚠️ Máy canh này ĐÃ TỪNG hụt hai đường, phát hiện 25/08/2026:
+#
+#   • Nó khớp theo ranh giới `_`, nên mọi tên CamelCase lọt sạch. Biến thể
+#     `PackageError::LienKetMem` sống trong bề mặt công khai từ đầu mà không
+#     lần nào bị nêu.
+#   • Nó chỉ quét dòng KHAI BÁO `pub struct|enum|fn|…`, không quét BIẾN THỂ
+#     bên trong một `pub enum` — mà biến thể chính là thứ người viết bản cài
+#     đặt thứ hai gõ ra.
+#
+# Bản này cắt định danh theo cả `_` lẫn ranh giới hoa-thường rồi soi từng mảnh.
+vi_pham=$(python3 - <<'PY2'
+import pathlib, re
+
+GOC = set("""chu cau vai dau mat sac thai tra luu xoa them ky bo dung mo tao vong
+thoat hoi quyet dinh choi cho phep bat tat khoa nho hanh man hinh khoi tan cong
+bang kieu thu ghi danh phuc cua hop quet goi kiem bam nut loi mang nap gui tep
+duong noi ten nguoi lieu tro nang quen van tay tinh trang nhieu moi tiep doi dot
+bien hat giong muc tieu sau bot cay so lan phan doan lien ket mem qua rong cuon
+diem thanh""".split())
+
+def manh(ten):
+    for cum in ten.split("_"):
+        for m in re.findall(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+", cum):
+            yield m.lower()
+
+# Phạm vi là các crate LÀM NÊN TIÊU CHUẨN. Chính chú thích của luật này định
+# nghĩa ranh giới là "bề mặt người viết bản cài đặt thứ hai đọc", và
+# `TextKey::CumTuNutCat` — khoá chuỗi giao diện của `tcc-shell` — không phải
+# thứ đó. Siết máy dò lại 25/08/2026 làm lộ 87 định danh, 73 trong số đó là
+# khoá chuỗi ấy: bắt chúng là bắt sai chỗ luật nhắm tới, và một luật bắt sai
+# chỗ thì người ta tắt nó đi chứ không sửa mã.
+TIEU_CHUAN = ("tcc-spec", "tcc-crypto", "tcc-ui", "tcc-manifest",
+              "tcc-runtime", "tcc-capability")
+ra = set()
+for c in TIEU_CHUAN:
+    for p in (pathlib.Path("crates")/c).rglob("*.rs"):
+        t = p.read_text(errors="replace")
+        # khai báo `pub …`
+        for ten in re.findall(r"pub (?:struct|enum|fn|const|trait|type|mod) ([A-Za-z_]\w*)", t):
+            if any(x in GOC for x in manh(ten)):
+                ra.add(ten)
+        # biến thể trong `pub enum`
+        for m in re.finditer(r"pub enum \w+[^{]*\{(.*?)\n\}", t, re.S):
+            for ten in re.findall(r"^\s{4}([A-Z]\w*)", m.group(1), re.M):
+                if any(x in GOC for x in manh(ten)):
+                    ra.add(ten)
+print("\n".join(sorted(ra)))
+PY2
+)
 if [ -n "$vi_pham" ]; then
   bao "định danh public mang tên tiếng Việt:"
   printf '%s\n' "$vi_pham" | sed 's/^/      /' | head -12
 else
-  dat "$(grep -rhoE 'pub (struct|enum|fn|const|trait|type|mod) [A-Za-z_][A-Za-z0-9_]*' crates/*/src/*.rs apps/*/src/*.rs tools/*/src/*.rs 2>/dev/null | wc -l | tr -d ' ') định danh public đều là tiếng Anh"
+  dat "mọi định danh public đều là tiếng Anh"
 fi
 
 echo
@@ -373,7 +427,12 @@ echo "--- Luật 10: mã lỗi trong đặc tả phải TỒN TẠI trong mã --
 # không có trong mã nguồn là một lời hứa không ai giữ — và người ngoài đọc đặc tả
 # sẽ cài đặt theo nó rồi không bao giờ khớp bộ kiểm định.
 if [ -f spec/0.1/06-error-codes.md ]; then
-  ma_doc=$(grep -oE '^\| `[a-z][a-z0-9-]+` \|' spec/0.1/06-error-codes.md | tr -d '|` ')
+  # Cắt TRƯỚC bảng "ba mã đã gỡ" — nếu không thì luật này đòi mã nguồn phải có
+  # đúng những mã đặc tả vừa tuyên bố là không tồn tại. Bản Python của luật 16
+  # cắt đúng chỗ này từ đầu; bản shell thì không, và sai sót ấy nằm im cho tới
+  # 25/08/2026, khi `bad-key` bị gỡ khỏi mã và luật 10 lập tức đòi nó về.
+  ma_doc=$(sed '/^## Three codes were removed/,$d' spec/0.1/06-error-codes.md \
+    | grep -oE '^\| `[a-z][a-z0-9-]+` \|' | tr -d '|` ')
   ma_code=$(grep -rhoE '"[a-z][a-z0-9-]+"' crates/*/src/*.rs 2>/dev/null | tr -d '"' | sort -u)
   thieu=""
   for m in $ma_doc; do
@@ -386,6 +445,53 @@ if [ -f spec/0.1/06-error-codes.md ]; then
   fi
 else
   bao "thiếu spec/0.1/06-error-codes.md"
+fi
+
+echo
+echo "--- Luật 10b: mã lỗi trong MÃ NGUỒN phải có trong đặc tả ---"
+# Luật 10 đi một chiều: đặc tả → mã. Chiều ngược lại không ai canh, và ngày
+# 25/08/2026 nó có giá: hàm `CryptoError::ma` vẫn trả `bad-key` cho một khoá
+# đúng độ dài mà không phải điểm trên đường cong — trong khi
+# `06-error-codes.md` liệt kê `bad-key` trong "ba mã đã GỠ vì không thể xảy
+# ra". Đặc tả lý luận rằng thư viện Ed25519 kiểm điểm LƯỜI nên lỗi ấy hiện ra
+# thành `bad-signature`; `ed25519-dalek` 3.0 kiểm NGAY, nên bản này bắn một mã
+# tiêu chuẩn nói là không tồn tại. Hai bản cài đặt, hai mã, cùng một gói.
+#
+# Quét đúng thân các hàm `ma()` — nơi mã lỗi trở thành một phần của tiêu chuẩn
+# — chứ không quét mọi chuỗi trong kho.
+la=$(python3 - <<'PY2'
+import pathlib, re
+doc = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|",
+                     open("spec/0.1/06-error-codes.md").read(), re.M))
+ra = []
+for p in pathlib.Path("crates").rglob("*.rs"):
+    t = p.read_text(errors="replace")
+    for m in re.finditer(r"fn ma\(&self\) -> &'static str \{(.*?)\n    \}", t, re.S):
+        for c in re.findall(r'=> "([a-z][a-z0-9-]+)"', m.group(1)):
+            if c not in doc:
+                ra.append(f"{p.name}:{c}")
+print(" ".join(sorted(set(ra))))
+PY2
+)
+# Ba mã dưới đây là PHÁT HIỆN CÒN MỞ, không phải miễn trừ. Chúng đang chờ một
+# đề nghị theo `spec/GOVERNANCE.md` §4 — sửa một đặc tả ĐÃ CÔNG BỐ không phải
+# việc của một lượt dọn mã, và §4 đòi nêu rõ ai vỡ và kiểm bằng vector nào.
+# Chi tiết: `docs/de-nghi-ma-loi-thieu.md`.
+#
+# Cổng vẫn IN TÊN chúng ra mỗi lượt chạy. Một danh sách miễn trừ im lặng chỉ
+# đổi "chưa ai biết" lấy "không ai còn nhìn".
+CHO_QUYET="bad-scroll package-too-large symlink"
+la_moi=""; la_cho=""
+for m in $la; do
+  ma_ten=${m#*:}
+  if printf '%s\n' $CHO_QUYET | grep -qx "$ma_ten"; then la_cho="$la_cho $m"; else la_moi="$la_moi $m"; fi
+done
+if [ -n "$la_moi" ]; then
+  bao "mã lỗi bản này bắn ra nhưng đặc tả KHÔNG định nghĩa:$la_moi"
+elif [ -n "$la_cho" ]; then
+  dat "mã lỗi khớp đặc tả, TRỪ ba phát hiện còn mở:$la_cho (xem docs/de-nghi-ma-loi-thieu.md)"
+else
+  dat "mọi mã lỗi bản này bắn ra đều có trong đặc tả"
 fi
 
 echo

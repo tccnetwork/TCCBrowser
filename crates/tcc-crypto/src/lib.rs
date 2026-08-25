@@ -28,9 +28,6 @@ pub enum CryptoError {
         expected: usize,
         actual: usize,
     },
-
-    #[error("dữ liệu khoá không đọc được: {0}")]
-    BadKey(&'static str),
 }
 
 impl CryptoError {
@@ -45,7 +42,6 @@ impl CryptoError {
         match self {
             Self::BadSignature { .. } => "bad-signature",
             Self::BadLength { .. } => "bad-length",
-            Self::BadKey { .. } => "bad-key",
         }
     }
 }

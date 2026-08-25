@@ -42,20 +42,15 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 353 tests
-# Feature-gated code is NOT built by --workspace. These are what CI runs, and
-# skipping them locally is how three red builds happened in one week:
-cargo test -p tcc-shell --features window
-cargo test -p tcc-shell --features wallet
-cargo test -p tcc-render-raster --features window
-cargo test -p tcc-render-raster --features accesskit-platform
+cargo test --workspace                              # 367 tests
+# Feature-gated code is NOT built by --workspace, and a hand-copied list of the
+# flag combinations drifts: by 2026-08-25 the one in CLAUDE.md named a test
+# target deleted with the web engine and omitted four combinations CI still ran.
+# This script derives them from ci.yml instead — 20 commands, ~10 minutes.
+tools/kiem-theo-co.sh
 cargo clippy --workspace --all-targets -- -D warnings
-# `clippy` too must run per flag: code behind a flag is only linted when that
-# flag is on, and `-D warnings` that never looks is not a gate.
-cargo clippy -p tcc-render-raster --features accesskit-platform --all-targets -- -D warnings
-cargo clippy -p tcc-shell --features wallet --all-targets -- -D warnings
 cargo fmt --all -- --check
-tools/kiem-luat-phu-thuoc.sh                        # 22 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 23 architecture rules
 cargo run -p tcc-conformance                        # 153 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
@@ -63,6 +58,8 @@ python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-p
 python3 conformance/dung-goi-doc-lap.py             # package built in Python, verified by Rust
 cargo audit                                         # 0 vulnerabilities, 12 known warnings
 tools/kiem-so-lieu.sh                               # the two numbers above must be real
+tools/kiem-khoi-ung-dung.sh                         # the product binary, all five window paths
+tools/dem-unsafe.sh                                 # `unsafe` in the code actually compiled
 ```
 
 The commands above run on **macOS, Linux and Windows** in CI. Windows was added
@@ -239,5 +236,5 @@ Not a public issue. Use GitHub's private vulnerability reporting on this
 repository, or the TCC IT department.
 
 A report that the **design** is wrong is worth more here than a report that the
-code disagrees with the design. The code has 353 tests watching it. The design
+code disagrees with the design. The code has 367 tests watching it. The design
 has had one pair of eyes.

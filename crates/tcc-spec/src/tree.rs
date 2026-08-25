@@ -398,4 +398,35 @@ mod kiem_thu {
         let a = cay(&[("a.txt", b"")]);
         assert_ne!(a.canonical_bytes(), FileTree::new().canonical_bytes());
     }
+
+    /// **Bộ đọc của `FileTree` phải nói đúng cái cây đang giữ.**
+    ///
+    /// `cargo-mutants` ngày 25/08/2026: `is_empty` trả cứng `true`, trả cứng
+    /// `false`, `paths` trả `vec![]` — cả năm đột biến SỐNG. Lý do không phải
+    /// phép thử yếu mà là **không ai gọi chúng**: `paths()` không có một chỗ
+    /// dùng nào trong kho.
+    ///
+    /// Không xoá, vì `tcc-spec` là crate LÁ — người viết bản cài đặt thứ hai
+    /// cầm đúng cái cây này và cần đọc được nó. Nhưng API công khai không ai
+    /// gọi và không ai kiểm là một lời hứa suông; đây là chỗ kiểm nó.
+    #[test]
+    fn bo_doc_cua_cay_noi_dung_cai_no_giu() {
+        let mut cay = FileTree::new();
+        assert!(cay.is_empty());
+        assert_eq!(cay.len(), 0);
+        assert!(cay.paths().is_empty());
+
+        cay.insert("ui.json", b"{}".to_vec()).unwrap();
+        cay.insert("anh/logo.png", b"x".to_vec()).unwrap();
+
+        assert!(!cay.is_empty(), "cây có hai tệp mà báo rỗng");
+        assert_eq!(cay.len(), 2);
+
+        let mut duong = cay.paths();
+        duong.sort_unstable();
+        assert_eq!(duong, vec!["anh/logo.png", "ui.json"]);
+
+        assert_eq!(cay.get("ui.json"), Some(&b"{}"[..]));
+        assert_eq!(cay.get("khong-co.json"), None);
+    }
 }

@@ -1090,6 +1090,87 @@ mod kiem_thu {
         }
     }
 
+    /// **Ranh giới độ dài phải ĐÚNG như đặc tả ghi — bao gồm cả hai đầu.**
+    ///
+    /// `spec/0.1/04-capabilities.md:52` viết "1–253 characters, each label
+    /// 1–63"; `05-interface.md:284` viết "1–128 characters". Dải BAO GỒM hai
+    /// đầu, nên đúng 253, đúng 63, đúng 128 phải ĐƯỢC NHẬN.
+    ///
+    /// Vì sao có phép thử này: `cargo-mutants` ngày 25/08/2026 đổi `>` thành
+    /// `>=` ở cả ba chỗ và **không phép thử nào đỏ**. Phép thử cũ chỉ thử tên
+    /// ngắn hợp lệ và tên hỏng-hình-dạng; không cái nào đứng ở mép. Một bản cài
+    /// đặt thứ hai đọc đặc tả sẽ nhận 253, bản này sẽ chối — hai bên bất đồng ở
+    /// đúng chỗ tiêu chuẩn nói rõ nhất.
+    #[test]
+    fn ranh_gioi_do_dai_dung_nhu_dac_ta_ghi() {
+        // 63 + 1 + 63 + 1 + 63 + 1 + 61 = 253
+        let host_253 = format!("{a}.{a}.{a}.{b}", a = "a".repeat(63), b = "a".repeat(61));
+        assert_eq!(host_253.len(), 253);
+        assert!(check_host(&host_253).is_ok(), "253 ký tự phải được nhận");
+        assert!(
+            check_host(&format!("{host_253}a")).is_err(),
+            "254 ký tự phải bị chối"
+        );
+
+        let nhan_63 = format!("{}.com", "a".repeat(63));
+        assert!(check_host(&nhan_63).is_ok(), "nhãn 63 phải được nhận");
+        assert!(
+            check_host(&format!("{}.com", "a".repeat(64))).is_err(),
+            "nhãn 64 phải bị chối"
+        );
+
+        let id_128 = format!("com.{}", "a".repeat(124));
+        assert_eq!(id_128.len(), 128);
+        assert!(
+            AppId::parse(&id_128).is_ok(),
+            "mã ứng dụng 128 phải được nhận"
+        );
+        assert!(
+            AppId::parse(&format!("com.{}", "a".repeat(125))).is_err(),
+            "mã ứng dụng 129 phải bị chối"
+        );
+
+        // "cần ít nhất hai đoạn" — nên đúng HAI đoạn là hợp lệ.
+        assert!(AppId::parse("com.hello").is_ok(), "hai đoạn phải được nhận");
+        assert!(AppId::parse("hello").is_err(), "một đoạn phải bị chối");
+    }
+
+    /// **Đúng `MAX_COMBINING_MARKS` dấu là được; hơn một dấu là không.**
+    ///
+    /// Phép thử cũ chỉ thử `MAX + 1`, `20`, `500` — toàn quá ngưỡng. Đổi `>`
+    /// thành `>=` thì mọi phép thử ấy VẪN đỏ đúng như cũ, nên đột biến sống.
+    #[test]
+    fn dung_nguong_dau_chong_thi_van_qua() {
+        let vua_du = format!("a{}", "\u{0301}".repeat(MAX_COMBINING_MARKS));
+        assert!(
+            check_display_text("x", &vua_du, TextKind::Label).is_ok(),
+            "đúng {MAX_COMBINING_MARKS} dấu bị chặn oan"
+        );
+        let qua = format!("a{}", "\u{0301}".repeat(MAX_COMBINING_MARKS + 1));
+        assert!(check_display_text("x", &qua, TextKind::Label).is_err());
+    }
+
+    /// **Xuống dòng và tab bị chối VỚI LÝ DO CỦA CHÍNH CHÚNG.**
+    ///
+    /// Xoá nhánh `'\n' | '\r' | '\t'` thì ba ký tự ấy rơi xuống dải điều
+    /// khiển C0 và **vẫn bị chối** — bất biến còn nguyên, nên `cargo-mutants`
+    /// báo đột biến ấy sống mà không phép thử nào đỏ. Nhưng chú thích ngay tại
+    /// chỗ đó ghi rằng nhánh này ĐÃ TỪNG bị vô hiệu hoá trong im lặng một lần
+    /// (thứ tự nhánh sai, `\r` không bao giờ tới nơi). Ghim lý do lại là lớp
+    /// phòng thủ thứ hai cho đúng cái đã hỏng một lần rồi.
+    #[test]
+    fn xuong_dong_va_tab_bi_choi_voi_ly_do_rieng() {
+        for c in ['\n', '\r', '\t'] {
+            let loi = check_display_text("x", &format!("a{c}b"), TextKind::Label).unwrap_err();
+            assert!(
+                loi.to_string().contains("xuống dòng hoặc tab"),
+                "{c:?} bị chối bằng lý do khác: {loi}"
+            );
+        }
+        // Đoạn văn thì `\n` được phép — nhánh có điều kiện phải đứng trước.
+        assert!(check_display_text("x", "a\nb", TextKind::Paragraph).is_ok());
+    }
+
     #[test]
     fn ten_may_chu_hop_le_van_qua() {
         for h in [

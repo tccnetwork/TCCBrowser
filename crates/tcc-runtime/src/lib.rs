@@ -41,8 +41,11 @@ pub enum RuntimeError {
     #[error("cấp quyền thất bại: {0}")]
     Grant(#[from] GrantError),
 
+    // Hai tầng khác nhau, hai biến thể khác nhau: `Package` là bản kê khai và
+    // chữ ký không hợp lệ; `PackageFile` là chính TỆP gói không đọc được —
+    // liên kết mềm, đường dẫn ra ngoài, vượt trần kích thước.
     #[error("không đọc được gói: {0}")]
-    Goi(String),
+    PackageFile(String),
 }
 
 /// Đường ra ngoài, tiêm từ bên ngoài vào.
@@ -249,7 +252,7 @@ pub fn verify_from_dir(
     duong_dan: &Path,
     scheme: &dyn SignatureScheme,
 ) -> Result<(VerifiedApp, FileTree), RuntimeError> {
-    let text = |e: package::PackageError| RuntimeError::Goi(e.to_string());
+    let text = |e: package::PackageError| RuntimeError::PackageFile(e.to_string());
     let ke_khai = package::read_manifest(duong_dan).map_err(text)?;
     let chu_ky = package::read_signature(duong_dan).map_err(text)?;
     let noi_dung = package::read_content(duong_dan).map_err(text)?;

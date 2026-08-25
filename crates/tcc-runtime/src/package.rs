@@ -40,14 +40,14 @@ pub enum PackageError {
     TooLarge {
         total: u64,
     },
-    LienKetMem(String),
-    ThieuTep(String),
+    Symlink(String),
+    MissingFile(String),
     /// `signature.hex` có nhưng KHÔNG đúng 6746 chữ số hex.
     ///
     /// Tách khỏi `not-hex`: "sai định dạng" và "đúng định dạng nhưng sai độ
     /// dài" là hai chuyện khác nhau với người dựng gói — một bên là gõ nhầm,
     /// một bên là ký bằng lược đồ khác.
-    ChuKySaiDoDai(usize),
+    BadSignatureLength(usize),
     /// Không phải hex chữ thường.
     ///
     /// Tách khỏi `Io`: `Io` là "đĩa hỏng", còn đây là "tệp có nhưng viết sai".
@@ -61,10 +61,10 @@ impl PackageError {
     #[must_use]
     pub const fn ma(&self) -> &'static str {
         match self {
-            Self::ThieuTep(_) => "missing-file",
+            Self::MissingFile(_) => "missing-file",
             Self::KhongPhaiHex(_) => "not-hex",
-            Self::ChuKySaiDoDai(_) => "bad-signature-length",
-            Self::LienKetMem(_) => "symlink",
+            Self::BadSignatureLength(_) => "bad-signature-length",
+            Self::Symlink(_) => "symlink",
             Self::TooLarge { .. } => "package-too-large",
             Self::Io(_) | Self::Tree(_) => "bad-path",
         }
@@ -80,14 +80,14 @@ impl std::fmt::Display for PackageError {
                 f,
                 "nội dung {total} byte, vượt trần {MAX_CONTENT_BYTES} byte"
             ),
-            Self::LienKetMem(p) => write!(
+            Self::Symlink(p) => write!(
                 f,
                 "\"{p}\" là liên kết mềm — gói TCC không nhận liên kết mềm vì nó có \
                  thể trỏ ra ngoài thư mục gói, và cái được ký sẽ khác cái được chạy"
             ),
-            Self::ThieuTep(p) => write!(f, "thiếu \"{p}\""),
+            Self::MissingFile(p) => write!(f, "thiếu \"{p}\""),
             Self::KhongPhaiHex(p) => write!(f, "{p} không phải hex chữ thường"),
-            Self::ChuKySaiDoDai(n) => {
+            Self::BadSignatureLength(n) => {
                 write!(
                     f,
                     "signature.hex có {n} chữ số hex, cần đúng {SIGNATURE_HEX_LEN}"
@@ -110,7 +110,7 @@ impl From<io::Error> for PackageError {
 pub fn read_content(goc: &Path) -> Result<FileTree, PackageError> {
     let thu_muc = goc.join(CONTENT_DIR);
     if !thu_muc.is_dir() {
-        return Err(PackageError::ThieuTep(CONTENT_DIR.to_string()));
+        return Err(PackageError::MissingFile(CONTENT_DIR.to_string()));
     }
     let mut cay = FileTree::new();
     let mut tong: u64 = 0;
@@ -131,7 +131,7 @@ fn di_sau(goc: &Path, hien: &Path, cay: &mut FileTree, tong: &mut u64) -> Result
         let meta = fs::symlink_metadata(&duong)?;
 
         if meta.file_type().is_symlink() {
-            return Err(PackageError::LienKetMem(duong.display().to_string()));
+            return Err(PackageError::Symlink(duong.display().to_string()));
         }
         if meta.is_dir() {
             di_sau(goc, &duong, cay, tong)?;
@@ -167,7 +167,7 @@ fn di_sau(goc: &Path, hien: &Path, cay: &mut FileTree, tong: &mut u64) -> Result
 pub fn read_manifest(goc: &Path) -> Result<Vec<u8>, PackageError> {
     let p = goc.join(MANIFEST_FILE);
     if !p.is_file() {
-        return Err(PackageError::ThieuTep(MANIFEST_FILE.to_string()));
+        return Err(PackageError::MissingFile(MANIFEST_FILE.to_string()));
     }
     Ok(fs::read(p)?)
 }
@@ -177,7 +177,7 @@ pub fn read_manifest(goc: &Path) -> Result<Vec<u8>, PackageError> {
 pub fn read_signature(goc: &Path) -> Result<Vec<u8>, PackageError> {
     let p = goc.join(SIGNATURE_FILE);
     if !p.is_file() {
-        return Err(PackageError::ThieuTep(SIGNATURE_FILE.to_string()));
+        return Err(PackageError::MissingFile(SIGNATURE_FILE.to_string()));
     }
     let s = fs::read_to_string(p)?;
     read_signature_hex(&s)
@@ -209,7 +209,7 @@ pub fn read_signature_hex(noi_dung: &str) -> Result<Vec<u8>, PackageError> {
         .unwrap_or(noi_dung);
 
     if than.len() != SIGNATURE_HEX_LEN {
-        return Err(PackageError::ChuKySaiDoDai(than.len()));
+        return Err(PackageError::BadSignatureLength(than.len()));
     }
     if !than
         .bytes()
@@ -287,7 +287,7 @@ mod kiem_thu_chu_ky_hex {
     /// Thiếu tệp ra `missing-file`.
     #[test]
     fn thieu_tep_ra_dung_ma() {
-        let e = PackageError::ThieuTep("signature.hex".to_owned());
+        let e = PackageError::MissingFile("signature.hex".to_owned());
         assert_eq!(e.ma(), "missing-file");
     }
 }

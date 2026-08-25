@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**353 phép thử · 153 vector · 22 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**367 phép thử · 153 vector · 23 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -61,6 +61,56 @@ Vẫn **chưa chứng minh được**: `ureq` có thật sự tôn trọng hạn
 có nổ trước một máy chủ thù địch thật không — cần một máy chủ TLS đứng trong
 phép thử. 15/45 hàng B còn lại chưa trích phép thử nào; mười trong số đó là
 khẳng định cấu trúc nên đúng, năm đã nghỉ hưu.
+
+**Chạy `cargo-mutants` lần đầu — 34/132 đột biến sống sót ở `tcc-spec` và
+`tcc-crypto`.** Đọc kỹ thì tách làm hai loại rất khác nhau:
+
+- **Sáu cái là lỗ thật, và đều nằm ở ranh giới của chính tiêu chuẩn.** Đổi `>`
+  thành `>=` ở tên máy chủ (253), nhãn (63), mã ứng dụng (128), số dấu chồng —
+  không phép thử nào đỏ. `spec/0.1` ghi dải **bao gồm hai đầu**: "1–253
+  characters, each label 1–63". Phép thử cũ toàn dùng tên ngắn hợp lệ hoặc tên
+  hỏng-hình-dạng; không cái nào đứng ở mép. Bản cài đặt thứ hai đọc đặc tả sẽ
+  nhận 253, bản này sẽ chối — bất đồng ở đúng chỗ tiêu chuẩn nói rõ nhất. Đã
+  thêm phép thử ranh giới, mỗi cái kiểm lại bằng chính đột biến từng sống.
+- **Phần còn lại là lỗi của PHƯƠNG PHÁP, không phải của mã.** `cargo-mutants`
+  lấy `cargo test` làm trọng tài, mà `tcc-conformance` là một `main.rs` **không
+  có `#[test]` nào**. 153 vector chỉ chạy khi ai đó gõ `cargo run`. Chúng CÓ
+  chạy — trong CI và trong danh sách trước-khi-đẩy — nhưng đứng ngoài tầm nhìn
+  của trọng tài, nên mọi đột biến mà chỉ vector bắt được đều bị báo "sống". Đổi
+  `SpecError::ma` thành `"xyzzy"` — chính những mã lỗi cả tiêu chuẩn so khớp
+  bằng — mà `cargo test --workspace` vẫn XANH.
+
+Bộ kiểm định nay tách thành thư viện + vỏ dòng lệnh, chín phép thử trong
+`tests/tuan-thu.rs` (một cho mỗi nhóm, không gộp: gộp thì trượt ở đâu cũng chỉ
+một dòng đỏ và mất thứ đáng giá nhất — nhóm nào). `cargo test --workspace` giờ
+chạy vector, và đúng đột biến ấy đỏ.
+
+**Một mã lỗi tiêu chuẩn nói là KHÔNG THỂ tồn tại, bản này bắn ra thật.** Kéo
+tiếp sợi chỉ đột biến: `CryptoError::ma` không giết được vì `bad-key` không nằm
+trong vector nào, và nó không nằm trong vector nào vì `06-error-codes.md` xếp
+nó vào "ba mã đã gỡ vì không thể xảy ra". Lý lẽ khi gỡ: "thư viện Ed25519
+thường kiểm điểm LƯỜI nên khoá không giải nén được hiện ra thành
+`bad-signature`". `ed25519-dalek` 3.0 kiểm NGAY trong `from_bytes` — 32 byte
+`0x7f` cho ra `bad-key`. Đã đưa về `bad-signature` theo đặc tả; sáu chỗ `BadKey`
+còn lại đều là sai độ dài nên dùng `bad-length` (mã có thật). Gỡ hẳn biến thể.
+
+Thêm **luật 10b** hỏi chiều ngược của luật 10 (mã nguồn → đặc tả). Nó bắt ngay
+ba mã nữa đặc tả không định nghĩa: `symlink`, `package-too-large`, `bad-scroll`
+— hai cái ở tầng gói. Sửa một đặc tả ĐÃ CÔNG BỐ không phải việc của một lượt
+dọn mã (`GOVERNANCE.md` §4 đòi nêu ai vỡ và kiểm bằng vector nào), nên viết
+thành đề nghị: [`de-nghi-ma-loi-thieu.md`](de-nghi-ma-loi-thieu.md). Cổng **kê
+tên chúng ra mỗi lượt chạy**, không miễn trừ im lặng.
+
+Gỡ `bad-key` khỏi mã lại làm **luật 10 đỏ**: nó quét cả bảng "ba mã đã gỡ" nên
+đòi mã nguồn phải có đúng cái mã đặc tả vừa rút. Bản Python của luật 16 cắt
+đúng chỗ ấy từ đầu, bản shell thì không — và lỗi ấy nằm im được đúng chừng nào
+bản cài đặt còn sai theo chiều bù lại.
+
+**Luật 13 bỏ sót vì máy dò yếu.** Nó khớp theo ranh giới `_` nên tên CamelCase
+lọt sạch, và không quét biến thể enum. Siết lại thì lộ 87 định danh — nhưng 73
+là khoá chuỗi giao diện của `tcc-shell`, không phải "bề mặt người viết bản cài
+đặt thứ hai đọc" như chính luật tự định nghĩa. Thu phạm vi về sáu crate làm nên
+tiêu chuẩn thì còn **bốn**: `Goi`, `LienKetMem`, `ThieuTep`, `ChuKySaiDoDai`.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

@@ -109,12 +109,19 @@ impl HybridEd25519MlDsa {
         let ed_bytes = take(secret, 0, ED_SECRET, "khoá bí mật", want)?;
         let pq_bytes = take(secret, ED_SECRET, pq_seed_len, "khoá bí mật", want)?;
 
-        let ed_key: [u8; ED_SECRET] = ed_bytes
-            .try_into()
-            .map_err(|_| CryptoError::BadKey("Ed25519 phải đúng 32 byte"))?;
+        let ed_key: [u8; ED_SECRET] = ed_bytes.try_into().map_err(|_| CryptoError::BadLength {
+            field: "khoá Ed25519",
+            expected: ED_SECRET,
+            actual: ed_bytes.len(),
+        })?;
         let ed = EdSigningKey::from_bytes(&ed_key);
-        let pq = PqSigningKey::<MlDsa65>::new_from_slice(pq_bytes)
-            .map_err(|_| CryptoError::BadKey("hạt giống ML-DSA sai độ dài"))?;
+        let pq = PqSigningKey::<MlDsa65>::new_from_slice(pq_bytes).map_err(|_| {
+            CryptoError::BadLength {
+                field: "hạt giống ML-DSA",
+                expected: pq_seed_len,
+                actual: pq_bytes.len(),
+            }
+        })?;
 
         let mut out = Vec::new();
         out.extend_from_slice(ed.verifying_key().as_bytes());
@@ -150,12 +157,19 @@ impl SignatureScheme for HybridEd25519MlDsa {
         let ed_bytes = take(secret, 0, ED_SECRET, "khoá bí mật", want)?;
         let pq_bytes = take(secret, ED_SECRET, pq_seed_len, "khoá bí mật", want)?;
 
-        let ed_key: [u8; ED_SECRET] = ed_bytes
-            .try_into()
-            .map_err(|_| CryptoError::BadKey("Ed25519 phải đúng 32 byte"))?;
+        let ed_key: [u8; ED_SECRET] = ed_bytes.try_into().map_err(|_| CryptoError::BadLength {
+            field: "khoá Ed25519",
+            expected: ED_SECRET,
+            actual: ed_bytes.len(),
+        })?;
         let ed = EdSigningKey::from_bytes(&ed_key);
-        let pq = PqSigningKey::<MlDsa65>::new_from_slice(pq_bytes)
-            .map_err(|_| CryptoError::BadKey("hạt giống ML-DSA sai độ dài"))?;
+        let pq = PqSigningKey::<MlDsa65>::new_from_slice(pq_bytes).map_err(|_| {
+            CryptoError::BadLength {
+                field: "hạt giống ML-DSA",
+                expected: pq_seed_len,
+                actual: pq_bytes.len(),
+            }
+        })?;
 
         let mut out = Vec::new();
         out.extend_from_slice(&ed.sign(message).to_bytes());
@@ -186,22 +200,37 @@ impl SignatureScheme for HybridEd25519MlDsa {
         )?;
 
         // ---- Nửa cổ điển ----
-        let ed_pub_arr: [u8; ED_PUBLIC] = ed_pub
-            .try_into()
-            .map_err(|_| CryptoError::BadKey("Ed25519 phải đúng 32 byte"))?;
+        let ed_pub_arr: [u8; ED_PUBLIC] =
+            ed_pub.try_into().map_err(|_| CryptoError::BadLength {
+                field: "khoá công khai Ed25519",
+                expected: ED_PUBLIC,
+                actual: ed_pub.len(),
+            })?;
         let ed_sig_arr: [u8; ED_SIG] = ed_sig
             .try_into()
             .map_err(|_| CryptoError::BadSignature { part: "Ed25519" })?;
+        // ⚠️ ĐÂY LÀ CHỖ DUY NHẤT một khoá đúng độ dài vẫn hỏng: 32 byte có thể
+        // không phải một điểm trên đường cong. `spec/0.1/06-error-codes.md:147`
+        // đã GỠ mã `bad-key` với lý do "thư viện Ed25519 thường kiểm điểm lười,
+        // nên khoá không giải nén được hiện ra thành `bad-signature`" — nhưng
+        // `ed25519-dalek` 3.0 kiểm NGAY tại `from_bytes`, nên bản này bắn ra
+        // `bad-key` cho gói mà bản khác bắn `bad-signature`. Đúng cái bất đồng
+        // mà mã ổn định sinh ra để ngăn. Theo đặc tả.
         let ed_key = EdVerifyingKey::from_bytes(&ed_pub_arr)
-            .map_err(|_| CryptoError::BadKey("khoá công khai Ed25519 không hợp lệ"))?;
+            .map_err(|_| CryptoError::BadSignature { part: "Ed25519" })?;
         ed_key
             .verify(message, &EdSignature::from_bytes(&ed_sig_arr))
             .map_err(|_| CryptoError::BadSignature { part: "Ed25519" })?;
 
         // ---- Nửa hậu lượng tử ----
         // Tới được đây nghĩa là nửa cổ điển đã đạt — nhưng vẫn PHẢI kiểm nốt.
-        let pq_key = PqVerifyingKey::<MlDsa65>::new_from_slice(pq_pub)
-            .map_err(|_| CryptoError::BadKey("khoá công khai ML-DSA sai độ dài"))?;
+        let pq_key = PqVerifyingKey::<MlDsa65>::new_from_slice(pq_pub).map_err(|_| {
+            CryptoError::BadLength {
+                field: "khoá công khai ML-DSA",
+                expected: pq_pub_len,
+                actual: pq_pub.len(),
+            }
+        })?;
         let pq_signature = ml_dsa::Signature::<MlDsa65>::try_from(pq_sig)
             .map_err(|_| CryptoError::BadSignature { part: "ML-DSA-65" })?;
         pq_key
@@ -333,5 +362,43 @@ mod kiem_thu {
         let sig = HybridEd25519MlDsa.sign(&k.secret, b"x").unwrap();
         assert_eq!(k.public.len(), 32 + 1952, "khoá công khai lai");
         assert_eq!(sig.len(), 64 + 3309, "chữ ký lai");
+    }
+
+    /// **Khoá công khai đúng độ dài nhưng KHÔNG phải điểm trên đường cong phải
+    /// ra `bad-signature`, không phải một mã ngoài tiêu chuẩn.**
+    ///
+    /// `spec/0.1/06-error-codes.md:147` liệt kê `bad-key` trong "ba mã đã gỡ vì
+    /// không thể xảy ra", với lý lẽ: thư viện Ed25519 thường kiểm điểm LƯỜI, tới
+    /// lúc verify mới kiểm, nên khoá không giải nén được hiện ra thành
+    /// `bad-signature`.
+    ///
+    /// Lý lẽ ấy KHÔNG đúng với thư viện ta dùng. `ed25519-dalek` 3.0 kiểm ngay
+    /// trong `from_bytes`, nên tới 25/08/2026 bản này bắn ra `bad-key` — một mã
+    /// tiêu chuẩn nói là không tồn tại — cho một gói mà bản triển khai khác bắn
+    /// `bad-signature`. Đúng cái bất đồng mà mã ổn định sinh ra để ngăn.
+    ///
+    /// Tìm ra bằng `cargo-mutants`: đột biến trên `CryptoError::ma` sống sót vì
+    /// `bad-key` không có trong vector nào, và nó không có trong vector nào vì
+    /// tiêu chuẩn bảo nó không thể xảy ra.
+    ///
+    /// 32 byte `0x7f` là mẫu tìm ra bằng thăm dò: `0xff` và `0x01` đều bị chối
+    /// muộn hơn (`bad-signature`), chỉ `0x7f` làm `from_bytes` hỏng sớm.
+    #[test]
+    fn khoa_khong_phai_diem_van_ra_bad_signature() {
+        let (s, k) = bo_ky();
+        let msg = b"chuyen 1000 TCC";
+        let sig = s.sign(&k.secret, msg).unwrap();
+
+        let mut xau = k.public.clone();
+        for b in xau.iter_mut().take(ED_PUBLIC) {
+            *b = 0x7f;
+        }
+
+        let loi = s.verify(&xau, msg, &sig).unwrap_err();
+        assert_eq!(
+            loi.ma(),
+            "bad-signature",
+            "mã ngoài tiêu chuẩn cho khoá hỏng: {loi}"
+        );
     }
 }

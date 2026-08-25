@@ -31,7 +31,7 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh   # 22 luật, chạy trước biên dịch trong CI
+tools/kiem-luat-phu-thuoc.sh   # 23 luật, chạy trước biên dịch trong CI
 cargo test --workspace
 cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không
@@ -84,12 +84,18 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chạy 12 giây, thấy tiến trình còn sống, báo ĐẠT, trong khi nó mới đứng ở hộp
   thoại và chưa tới chỗ sập. Trước khi tin một phép đo, hỏi: **nếu thứ tôi sợ
   xảy ra thật, phép đo này có đổi kết quả không?**
+- **ĐỪNG sửa mã trong lúc một cổng đang chạy.** 25/08/2026: `kiem-theo-co.sh`
+  chạy 10 phút trong khi tôi sửa `tcc-crypto`, và có lúc cây không biên dịch
+  được. Nó báo hỏng 3 lệnh — không phải vì mã hỏng mà vì nó đo một thứ đang
+  động. Cùng hạng lỗi với mọi thứ khác ở đây: phép đo phải đo một thứ đứng yên.
+- **Đừng cho đầu ra của cổng chạy nền qua `| tail`.** Cùng lần ấy, `tail -6`
+  nuốt mất TÊN ba lệnh hỏng, chỉ còn lại con số — phải chạy lại cả 10 phút.
 - **`zsh` KHÔNG tách từ tham số chưa trích dẫn.** `for c in "-p x --features y"; do cargo $c; done`
   truyền cả chuỗi làm MỘT đối số; `cargo` chết vì tên gói sai, và nếu vòng lặp
   chỉ `grep` tìm chữ "FAILED" thì nó báo XANH cho bốn bộ thử **chưa hề chạy**.
   Đo mã thoát, và dùng `"$@"`/`eval` thay vì `$c` trần.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
-  đỏ không phải bằng chứng. Điều này áp cho cả 22 luật kiến trúc.
+  đỏ không phải bằng chứng. Điều này áp cho cả 23 luật kiến trúc.
 
 ## Ranh giới không được vượt
 

@@ -773,16 +773,17 @@ const fn ket_luan(b: bool) -> &'static str {
 
 // ───────────────────────────── Chạy ─────────────────────────────────────────
 
-fn main() -> ExitCode {
-    let chi_tiet = std::env::args().any(|a| a == "--chi-tiet");
-
-    println!(
-        "Bộ kiểm định tuân thủ TCC — đặc tả {}",
-        tcc_spec::SPEC_VERSION
-    );
-    println!();
-
-    let nhom = [
+/// Chín nhóm, theo đúng thứ tự bộ kiểm định in ra.
+///
+/// Tách khỏi `main` ngày 25/08/2026. Trước đó cả bộ kiểm định là một `main.rs`
+/// KHÔNG có `#[test]` nào, nên `cargo test --workspace` chưa bao giờ chạy 153
+/// vector — chúng chỉ chạy khi ai đó gõ `cargo run`. Bộ kiểm định vẫn nằm trong
+/// CI và trong danh sách trước-khi-đẩy, nên nó có chạy; nhưng nó ĐỨNG NGOÀI bộ
+/// thử, và điều đó có hậu quả đo được: `cargo-mutants` lấy `cargo test` làm
+/// trọng tài, nên mọi đột biến mà CHỈ vector bắt được đều bị báo là "sống sót".
+/// Trọng tài không nhìn tới thì bằng chứng không tồn tại.
+fn cac_nhom(chi_tiet: bool) -> Vec<(&'static str, Ket)> {
+    vec![
         ("Dạng chuẩn tắc + băm (interop)", chay_canonical(chi_tiet)),
         ("Chữ ký lai (interop)", chay_signature(chi_tiet)),
         ("Mốc ngoài NIST ACVP (ML-DSA-65)", chay_acvp(chi_tiet)),
@@ -792,7 +793,19 @@ fn main() -> ExitCode {
         ("Tầng gói: đường dẫn", chay_package(chi_tiet)),
         ("Tầng gói: tệp chữ ký", kiem_tep_chu_ky(chi_tiet)),
         ("Kiểm gói đầu-cuối", chay_verify(chi_tiet)),
-    ];
+    ]
+}
+
+fn main() -> ExitCode {
+    let chi_tiet = std::env::args().any(|a| a == "--chi-tiet");
+
+    println!(
+        "Bộ kiểm định tuân thủ TCC — đặc tả {}",
+        tcc_spec::SPEC_VERSION
+    );
+    println!();
+
+    let nhom = cac_nhom(chi_tiet);
 
     let mut tong_dat = 0;
     let mut tong_truot = 0;
@@ -823,4 +836,51 @@ fn main() -> ExitCode {
         }
         ExitCode::FAILURE
     }
+}
+
+#[cfg(test)]
+mod kiem_thu {
+    use super::cac_nhom;
+
+    /// **Bộ kiểm định tuân thủ chạy DƯỚI DẠNG PHÉP THỬ.**
+    ///
+    /// Tới 25/08/2026 tệp này không có `#[test]` nào: 153 vector chỉ chạy khi
+    /// ai đó gõ `cargo run -p tcc-conformance`. Chúng CÓ chạy — trong CI và
+    /// trong danh sách trước-khi-đẩy — nhưng đứng NGOÀI `cargo test`, và điều
+    /// đó có hậu quả đo được: `cargo-mutants` lấy `cargo test` làm trọng tài,
+    /// nên mọi đột biến mà chỉ vector bắt được đều bị báo "sống sót". Đổi
+    /// `SpecError::ma` thành `"xyzzy"` — chính những mã lỗi cả tiêu chuẩn so
+    /// khớp bằng — mà `cargo test --workspace` vẫn XANH.
+    ///
+    /// Phép thử nằm TRONG nhị phân, không phải trong `tests/`: một bộ kiểm
+    /// định tuân thủ không có API công khai, và bày `pub` ra chỉ để phép thử
+    /// gọi được là bịa ra bề mặt — lại còn phạm luật 13 (định danh `pub` phải
+    /// bằng tiếng Anh) cho một thứ chẳng ai ngoài kho này gọi.
+    ///
+    /// MỘT phép thử cho MỖI nhóm: gộp chín nhóm vào một khẳng định thì trượt ở
+    /// đâu cũng chỉ hiện một dòng đỏ, mất đúng thứ đáng giá nhất — nhóm nào.
+    macro_rules! nhom_phai_sach {
+        ($ham:ident, $ten:literal) => {
+            #[test]
+            fn $ham() {
+                let truot = cac_nhom(false)
+                    .into_iter()
+                    .find(|(t, _)| *t == $ten)
+                    .unwrap_or_else(|| panic!("không có nhóm tên {:?}", $ten))
+                    .1
+                    .truot;
+                assert!(truot.is_empty(), "{} trượt: {truot:?}", $ten);
+            }
+        };
+    }
+
+    nhom_phai_sach!(canonical, "Dạng chuẩn tắc + băm (interop)");
+    nhom_phai_sach!(chu_ky_lai, "Chữ ký lai (interop)");
+    nhom_phai_sach!(acvp, "Mốc ngoài NIST ACVP (ML-DSA-65)");
+    nhom_phai_sach!(ban_ke_khai, "Bản kê khai");
+    nhom_phai_sach!(cay_giao_dien, "Cây giao diện");
+    nhom_phai_sach!(quyen_nang, "Quyền năng");
+    nhom_phai_sach!(duong_dan_goi, "Tầng gói: đường dẫn");
+    nhom_phai_sach!(tep_chu_ky, "Tầng gói: tệp chữ ký");
+    nhom_phai_sach!(kiem_goi_dau_cuoi, "Kiểm gói đầu-cuối");
 }

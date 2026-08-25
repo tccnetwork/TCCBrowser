@@ -59,6 +59,8 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B43 | Text the **frame** holds passes the same display-string checks as text from disk | `chu_do_khung_giu_khong_lach_duoc_phep_kiem`, `phim_go_khong_hop_le_bi_tu_choi_ngay` — added 2026-08-23, see §3.13 |
 | B44 | The process creates **exactly one** event loop, whatever screens it shows | `vong_lap_su_kien_dung_mot_lan_cho_ca_tien_trinh` — added 2026-08-24, see §3.14 |
 | B45 | The sentence that carries a **safety fact** is the sentence that carries the warning mark — not merely some sentence on the same screen | `man_hong_noi_ro_khong_luu_gi`, `quyen_vi_ky_duoc_hien_khac_han_quyen_khac`, `cau_chuyen_tien_duoc_ve_khac_di` — added 2026-08-25, see §3.15 |
+| B46 | The bounds the specification states as **inclusive** are the bounds the code enforces, at the exact edge | `ranh_gioi_do_dai_dung_nhu_dac_ta_ghi`, `dung_nguong_dau_chong_thi_van_qua`, `xuong_dong_va_tab_bi_choi_voi_ly_do_rieng` — added 2026-08-25, see §3.17 |
+| B47 | The implementation emits **only** error codes the specification defines — checked in **both** directions | `khoa_khong_phai_diem_van_ra_bad_signature`; rule 10 and rule 10b in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.18 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -889,6 +891,70 @@ below about where GTK comes from.
 
 `fxhash` and `rand 0.7.3` left the tree with the web engine.
 
+### How much `unsafe` is under us, measured (2026-08-25)
+
+§3.5b below traces one crate's chain by hand. That answers *how bad is this
+one*; it does not answer *how much is there*. `tools/dem-unsafe.sh` answers the
+second, and can be re-run.
+
+It builds `tcc-shell` into a clean target directory and reads the `.d`
+dep-info files rustc leaves behind — the exact list of `.rs` files that were
+compiled. Nothing is inferred about `cfg` or about platforms.
+
+**Host `x86_64-apple-darwin`, 1647 source files compiled:**
+
+| | Crates | Places using `unsafe` |
+|---|---|---|
+| Third-party, **in the binary** | 80 (35 with none) | **1597** |
+| Third-party, build-time only (proc macros and their tree) | 12 | 148 — never linked |
+| Our own code | 10 | **0** |
+
+Heaviest in the binary: `bytemuck` 315, `memchr` 241, `memmap2` 93,
+`slotmap` 89, `generic-array` 78, `smallvec` 71, `zmij` 69, `libc` 60,
+`swash` 54, `arrayvec` 52.
+
+On the path a signed package's bytes actually travel:
+
+| Crate | Places | What it does there |
+|---|---|---|
+| `swash` | 54 | Rasterises glyph outlines — **the largest block on this path** |
+| `libm` | 45 | Float math under shaping; receives numbers, not font bytes |
+| `blake3` | 41 | Hashes the package |
+| `fontdb` | 3 | Font enumeration |
+| `cosmic-text` | 1 | Layout |
+| `ttf-parser`, `ed25519-dalek`, `core_maths` | 0 | — |
+
+**This measurement was wrong twice before it was right, in the same direction
+each time: too big, and too confident.**
+
+1. Counting the *word* `unsafe` scores `#![forbid(unsafe_code)]` as unsafe
+   code. It gave `ttf-parser` — a crate that forbids it — a 2. Narrowing to
+   `unsafe {` / `fn` / `impl` / `trait` / `extern` returns 0, agreeing with the
+   by-hand count already in §3.5b.
+2. Counting from `cargo metadata`'s full resolve graph includes dependencies
+   for platforms never built here: **`r-efi`**, UEFI firmware bindings, ranked
+   third-heaviest in a desktop browser.
+3. Filtering by platform but still counting each crate's whole `src` gave
+   `blake3` **227** — and this document, one draft ago, called it *"the largest
+   single block of `unsafe` on the verification path"*. It compiles 11 files
+   here, not the SSE/AVX/NEON/wasm variants sitting behind `cfg`, and its real
+   figure is **41**. `libc` fell 667 → 60 the same way. The honest total fell
+   2829 → 1597. The crate that actually holds the largest block on that path is
+   `swash`, which the inflated count had ranked *below* blake3.
+
+   That draft also measured `aarch64-apple-darwin` while the toolchain here is
+   `x86_64-apple-darwin`. Wrong platform, no symptom.
+
+⚠️ The number is a per-line **upper bound** — two `unsafe` blocks on one line
+count once — and it is a size, not a verdict: it says nothing about whether any
+of it is *wrong*. Our own 0 is the default feature set; the one documented
+exception (macOS `NSView` → AccessKit) sits behind `accesskit-platform` and is
+not in this build.
+
+The script exits non-zero rather than print a total when the build did not run
+or the dep-info lists nothing — a smaller number from *"did not read it"* is
+the failure this document keeps running into.
+
 ### `ttf-parser`, looked at properly (2026-08-23)
 
 The paragraph that stood here flagged this crate for a second look and then did
@@ -1077,7 +1143,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 353.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 367.
 
 Two honest observations. First, most of these defended against a class of attack
 that no longer has a door: there is no parser between an app's bytes and the
@@ -1153,6 +1219,90 @@ present on the screen, and the smoke script deliberately presses **deny** — a
 smoke test that grants permissions teaches that granting is the default — but
 anyone who sets this variable is giving themselves the power to answer for the
 user.
+
+### 3.18 A code the standard says cannot exist, fired by this implementation
+
+`spec/0.1/06-error-codes.md` ends with a section titled *"Three codes were
+removed for being unreachable"*, and states of them: **"none of them can be
+produced by any package"**. One of the three is `bad-key`, removed with this
+reasoning: *Ed25519 libraries commonly validate the point lazily, at
+verification rather than at parse, so an undecodable key surfaces as
+`bad-signature`.*
+
+That reasoning does not hold for the library this implementation uses.
+`ed25519-dalek` 3.0 validates eagerly, inside `VerifyingKey::from_bytes`. A
+public key of 32 bytes of `0x7f` — correct length, not a point on the curve —
+came back as `bad-key`.
+
+So the implementation emitted a code its own standard declares impossible, for
+a package a second implementation would reject as `bad-signature`. The removed-
+codes section names that exact outcome as the reason unreachable codes are not
+harmless: *"two implementations will report different codes for the same
+package, which is exactly what stable codes exist to prevent."*
+
+The mapping now follows the standard: an invalid curve point returns
+`bad-signature`. The other six `BadKey` sites were length failures on slices
+whose length had already been checked — structurally unreachable — and now
+return `bad-length`, which the standard does define. The variant is gone.
+
+**How it surfaced, which matters more than the bug.** `cargo-mutants` flagged
+`CryptoError::ma` as unkillable. It was unkillable because no vector covers
+`bad-key`; no vector covers `bad-key` because the standard says it cannot
+happen. The mutation report did not find the bug — it found the *absence of
+evidence*, and the bug was at the end of that thread.
+
+**The gate that should have caught it did not exist.** Rule 10 checks one
+direction: every code in the specification exists in the source. Nothing
+checked the reverse. Rule 10b now does, and found three more codes this
+implementation emits that the standard never defines: `symlink`,
+`package-too-large`, `bad-scroll` — two of them at the package layer, deciding
+whether a package loads at all. Amending a published specification is not an
+implementation decision (`spec/GOVERNANCE.md` §4 requires a proposal stating who
+breaks and which vectors test it), so those three are written up in
+`docs/de-nghi-ma-loi-thieu.md` and **named out loud by the gate on every run**.
+A silent exemption list would trade "nobody knew" for "nobody looks any more".
+
+⚠️ Removing `bad-key` from the source then made **rule 10 fail** — it had been
+scanning the whole error-code document, including the removed-codes table, and
+so demanded the source contain the very code the specification says was
+withdrawn. The Python half of rule 16 had cut that table off from the start; the
+shell half never did. The bug sat still for as long as the implementation
+happened to contradict the specification in the matching direction.
+
+### 3.17 The conformance suite was not a test
+
+Running `cargo-mutants` over `tcc-spec` and `tcc-crypto` for the first time on
+2026-08-25 returned **34 surviving mutants out of 132**. Reading them split
+into two very different findings.
+
+**Six were real gaps, all on the standard's own boundaries.** `>` became `>=`
+in the host length check (253), the label check (63), the app-id check (128),
+and the combining-mark limit — and nothing went red. `spec/0.1` states those
+ranges as *inclusive*: "1–253 characters, each label 1–63". Every existing test
+used a comfortably short valid name or a badly *shaped* invalid one; none stood
+on the edge. A second implementation reading the specification would accept a
+253-character host and this one would have rejected it, disagreeing exactly
+where the standard is most explicit. Boundary tests added, each verified by
+re-running the mutant that survived.
+
+**The rest exposed a flaw in the method, not the code.** `cargo-mutants` uses
+`cargo test` as its oracle, and `tcc-conformance` was a `main.rs` with **zero**
+`#[test]` functions. The 153 vectors ran only when someone typed `cargo run`.
+They *were* run — by CI, and by the pre-push checklist — but they were invisible
+to the oracle, so every mutation that only a vector catches was reported as
+surviving. Mutating `SpecError::ma` to return `"xyzzy"` — the machine-readable
+error codes the whole standard is compared by — showed **green** under
+`cargo test --workspace`.
+
+The suite is now a library plus a thin CLI, with one test per group in
+`tests/tuan-thu.rs`. `cargo test --workspace` runs the vectors; the same
+mutation is now red. One test per group rather than one for all nine, because a
+single combined assertion loses the one fact worth having when it fails: which
+group.
+
+⚠️ This is the same failure this document keeps recording, in a new place: a
+check that cannot tell *"nobody verified this"* from *"it was verified where I
+was not looking"*. The vectors were never weak. The evidence about them was.
 
 ### 3.16 B24 claimed three things and proved one
 
@@ -1581,12 +1731,12 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 353 tests
+cargo test --workspace                              # 367 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 153 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh                        # 22 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 23 architecture rules
 ```
 
 All of them must be clean. `kiem-luat-phu-thuoc.sh` runs **before** compilation in

@@ -8,3 +8,7 @@ fuzz/corpus/
 fuzz/artifacts/
 fuzz/target/
 .claude/settings.local.json
+
+# cargo-mutants: kết quả một lượt kiểm đột biến, không phải mã nguồn
+mutants.out/
+mutants.out.old/
