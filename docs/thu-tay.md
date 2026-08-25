@@ -130,7 +130,10 @@ chuột. Nay:
 | `Tab` / `Shift+Tab` | đi tới đích kế tiếp / trước đó, **đi vòng** ở hai đầu |
 | `Enter` / `Space` | bấm nút, hoặc gạt công tắc đang chọn |
 | `Escape` | **huỷ** — thoát mà KHÔNG trả lời |
-| `Backspace` | xoá lùi trong ô nhập |
+| `Backspace` | xoá chữ trước con trỏ |
+| `←` `→` | dời con trỏ trong ô nhập |
+| `Home` `End` | về đầu / cuối chuỗi |
+| `Delete` | xoá chữ ngay tại con trỏ |
 
 Đích đang chọn có **viền kẻ bên ngoài**, chừa khe hở — cố ý khác với khung đôi
 của nút mất mát, để "nguy hiểm" và "đang chọn" không lẫn vào nhau.
@@ -145,9 +148,11 @@ của nút mất mát, để "nguy hiểm" và "đang chọn" không lẫn vào 
 - `Escape` trên hộp thoại quyền → thoát, và **không quyền nào được cấp**.
 - `Tab` liên tục quá số mục → phải vòng về đầu, không kẹt.
 
-**Ô nhập đang chọn có dấu nháy** ở cuối chữ. Nháy nằm ở CUỐI vì khung chỉ nhận
-thêm ở cuối — chưa di chuyển được con trỏ vào giữa chuỗi, và vẽ một dấu nháy ở
-chỗ không gõ được thì là nói dối.
+**Ô nhập đang chọn có dấu nháy**, vẽ đúng chỗ con trỏ đang đứng.
+
+**Đáng thử:** gõ `Tiếng Việt có dấu`, dời con trỏ về giữa bằng `←`, gõ chèn
+thêm, rồi `Backspace` một cái ngay sau một chữ có dấu — phải mất **cả chữ**,
+không để lại dấu mồ côi. `ế` là một ký tự nhưng ba byte; xoá sai là chuỗi hỏng.
 
 ## Kéo đổi cỡ cửa sổ (từ 25/08/2026)
 

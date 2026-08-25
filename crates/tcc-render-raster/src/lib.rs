@@ -98,6 +98,11 @@ pub struct RasterRenderer {
     tieu_diem: Option<FocusTarget>,
     /// Đích chuột đang rê qua. Khác `tieu_diem`: cái kia là bàn phím.
     duoi_chuot: Option<FocusTarget>,
+    /// Con trỏ trong ô nhập: (nhãn ô, chữ thứ mấy TÍNH TỪ 0 trong GIÁ TRỊ).
+    ///
+    /// Tính theo CHỮ chứ không theo byte — một chữ tiếng Việt có dấu là nhiều
+    /// byte, và đếm byte là cắt vào giữa một ký tự.
+    con_tro: Option<(String, usize)>,
     /// Chiều rộng ảnh đang dùng.
     ///
     /// Là THUỘC TÍNH chứ không phải hằng, từ 25/08/2026. Trước đó bố cục cố
@@ -142,6 +147,7 @@ impl RasterRenderer {
             published: None,
             tieu_diem: None,
             duoi_chuot: None,
+            con_tro: None,
             rong: WIDTH,
         }
     }
@@ -213,6 +219,16 @@ impl RasterRenderer {
     /// Đặt đích đang được chọn, để lượt vẽ sau kẻ viền quanh nó.
     pub fn set_focus(&mut self, dich: Option<FocusTarget>) {
         self.tieu_diem = dich;
+    }
+
+    /// Đặt vị trí con trỏ trong ô nhập.
+    ///
+    /// Bộ dựng chỉ VẼ; con trỏ ở đâu là việc của khung cửa sổ. Truyền chỉ số
+    /// trong GIÁ TRỊ, không phải trong chuỗi hiện ra: chuỗi hiện ra còn có nhãn
+    /// và dấu hai chấm ở đầu, và ô bí mật thì hiện dấu chấm — cách ghép chúng
+    /// là việc của bộ dựng, nên phép cộng ấy phải nằm ở đây.
+    pub fn set_caret(&mut self, cho: Option<(String, usize)>) {
+        self.con_tro = cho;
     }
 
     /// Đặt đích chuột đang rê qua.
@@ -549,6 +565,16 @@ impl Renderer for RasterRenderer {
 impl RasterRenderer {
     /// Đo một ô chữ với bề rộng cho trước. **Ngắt dòng thật** — bề rộng trả về
     /// là bề rộng dòng dài nhất, chiều cao là số dòng nhân chiều cao dòng.
+    /// Bề rộng nét của một chuỗi, cùng đường tạo hình với lượt đo.
+    fn do_rong(&mut self, chu: &str, co: f32) -> f32 {
+        let b = tao_hinh(&mut self.fonts, chu, co, false, co * CAO_DONG, f32::MAX);
+        let mut rong: f32 = 0.0;
+        for run in b.layout_runs() {
+            rong = rong.max(run.line_w);
+        }
+        rong
+    }
+
     fn do_o(&mut self, chu: &str, co: f32, kieu: KieuO, rong_toi_da: f32) -> O {
         let (dam, khung) = (kieu == KieuO::Dam, kieu == KieuO::Khung);
         let dem = if khung { DEM * 2.0 } else { 0.0 };
@@ -747,17 +773,33 @@ impl RasterRenderer {
         // ── Dấu nháy trong ô nhập đang được chọn ──
         //
         // Một ô nhập không có dấu nháy trông y hệt một ô chữ có khung: người
-        // dùng không biết gõ vào thì chữ đi đâu, hay có đi đâu không. Vẽ ở CUỐI
-        // chữ vì khung chỉ nhận thêm ở cuối — di chuyển con trỏ giữa chuỗi chưa
-        // có, và vẽ một dấu nháy ở chỗ không gõ được là nói dối.
-        if o.nhan.is_some() && self.dang_chon(dat) {
+        // dùng không biết gõ vào thì chữ đi đâu, hay có đi đâu không.
+        //
+        // Vẽ ĐÚNG chỗ con trỏ đang đứng, không phải luôn ở cuối: từ 26/08/2026
+        // con trỏ đi lại được trong chuỗi, và một dấu nháy đứng sai chỗ còn tệ
+        // hơn không có — nó chỉ vào nơi chữ KHÔNG rơi vào.
+        if let Some(nhan) = o.nhan.clone()
+            && self.dang_chon(dat)
+        {
             let dem = DEM;
+            // Chuỗi hiện ra là "nhãn: giá-trị". Con trỏ ở chữ thứ `i` của giá
+            // trị nằm sau `nhãn` + `": "` + `i` chữ đầu của phần hiện ra — dùng
+            // CHÍNH chuỗi đã hiện, nên ô bí mật (dấu chấm) tự khớp.
+            let bo_qua = nhan.chars().count() + 2;
+            let so_chu = match self.con_tro.as_ref() {
+                Some((l, i)) if *l == nhan => bo_qua + *i,
+                _ => o.chu.chars().count(),
+            };
+            let tien_to: String = o.chu.chars().take(so_chu).collect();
+            let rong_truoc = self.do_rong(&tien_to, o.co);
             #[expect(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
                 reason = "toạ độ trong ảnh, luôn dương và nhỏ"
             )]
-            let x = (dat.trai + o.rong - dem).max(0.0) as usize;
+            let x = (dat.trai + dem + rong_truoc)
+                .min(dat.trai + o.rong - dem)
+                .max(0.0) as usize;
             let tren = dat.tren as usize + 2;
             let day = (tren + (o.cao as usize).saturating_sub(4)).min(self.height);
             for hang in tren..day {
@@ -1034,48 +1076,73 @@ mod kiem_thu {
         );
     }
 
-    /// **Ô nhập đang được chọn phải có DẤU NHÁY, đúng chỗ gõ vào.**
+    /// **Ô nhập đang được chọn phải có DẤU NHÁY; ô không được chọn thì KHÔNG.**
     ///
-    /// ⚠️ Bản đầu của phép thử này SO MỰC giữa "chọn ô nhập" và "chọn nút" rồi
-    /// kết luận có nháy. Nó vô nghĩa: hai ô to nhỏ khác nhau nên viền của chúng
-    /// đã khác mực sẵn, chẳng liên quan gì tới dấu nháy — kiểm đột biến bỏ hẳn
-    /// phần vẽ nháy đi mà nó vẫn XANH.
+    /// ⚠️ Bản đầu SO MỰC giữa "chọn ô nhập" và "chọn nút" rồi kết luận có nháy.
+    /// Vô nghĩa: hai ô to nhỏ khác nhau nên viền của chúng đã khác mực sẵn —
+    /// kiểm đột biến bỏ hẳn phần vẽ nháy mà nó vẫn XANH.
     ///
-    /// Bản này soi ĐÚNG CỘT nơi dấu nháy phải nằm: sát mép trong của khung, sau
-    /// chữ. Viền tiêu điểm nằm ngoài khung nên không chạm tới cột ấy, và chữ
-    /// không với tới đó vì bề rộng ô là bề rộng chữ cộng đệm.
+    /// ⚠️ Bản thứ hai dò một CỘT CỐ ĐỊNH tính từ mép phải. Nó đỏ ngay khi con
+    /// trỏ đi lại được, vì vị trí nay tính bằng bề rộng tiền tố và lệch một
+    /// điểm ảnh. Bản này dò theo HÌNH DẠNG: một cột sẫm suốt chiều cao ô.
     #[test]
-    fn o_nhap_dang_chon_co_dau_nhay_dung_cho() {
+    fn o_nhap_dang_chon_co_dau_nhay() {
         let cay = Node::field("Ghi chú", "abc", false).unwrap();
         let o = FocusTarget::Field("Ghi chú".to_owned());
 
-        let cot_co_muc = |chon: Option<FocusTarget>| {
+        let co_nhay = |chon: Option<FocusTarget>| {
             let mut bd = RasterRenderer::new();
             bd.set_focus(chon);
             bd.render(&cay).unwrap();
-            let (trai, tren, rong, cao) = bd.placed_boxes()[0];
+            let (_, tren, _, cao) = bd.placed_boxes()[0];
             #[expect(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
                 reason = "toạ độ trong ảnh, luôn dương và nhỏ"
             )]
-            let x = (trai + rong - DEM) as usize;
-            #[expect(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                reason = "toạ độ trong ảnh, luôn dương và nhỏ"
-            )]
-            let (y0, y1) = (tren as usize + 2, (tren + cao) as usize);
-            (y0..y1.min(bd.height()))
-                .filter(|y| bd.image()[y * bd.width() + x] < 250)
-                .count()
+            let (y0, y1) = (tren as usize + 3, (tren + cao) as usize - 3);
+            (0..bd.width()).any(|x| {
+                (y0..y1.min(bd.height())).all(|y| bd.image()[y * bd.width() + x] <= 60)
+            })
         };
 
-        let khong_chon = cot_co_muc(None);
-        let dang_chon = cot_co_muc(Some(o));
+        assert!(co_nhay(Some(o)), "ô đang chọn mà không có dấu nháy");
+        assert!(!co_nhay(None), "ô KHÔNG được chọn mà vẫn có dấu nháy");
+    }
+
+    /// **Con trỏ vẽ ở ĐÚNG chữ thứ mấy, không phải luôn ở cuối.**
+    ///
+    /// Một dấu nháy đứng sai chỗ còn tệ hơn không có: nó chỉ vào nơi chữ KHÔNG
+    /// rơi vào. Đo bằng cột mực — con trỏ ở giữa chuỗi phải nằm bên TRÁI con
+    /// trỏ ở cuối chuỗi.
+    #[test]
+    fn con_tro_ve_dung_cho_trong_chuoi() {
+        let cay = Node::field("Ghi chú", "abcdefgh", false).unwrap();
+        let o = FocusTarget::Field("Ghi chú".to_owned());
+
+        let cot_nhay = |i: usize| {
+            let mut bd = RasterRenderer::new();
+            bd.set_focus(Some(o.clone()));
+            bd.set_caret(Some(("Ghi chú".to_owned(), i)));
+            bd.render(&cay).unwrap();
+            let (_, tren, _, cao) = bd.placed_boxes()[0];
+            #[expect(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                reason = "toạ độ trong ảnh, luôn dương và nhỏ"
+            )]
+            let (y0, y1) = (tren as usize + 3, (tren + cao) as usize - 3);
+            // Cột nào có mực SẪM (con trỏ vẽ bằng 40, chữ thì nhạt hơn nhiều ở
+            // phần lớn điểm) suốt chiều cao ô — đó là dấu nháy.
+            (0..bd.width())
+                .find(|x| (y0..y1.min(bd.height())).all(|y| bd.image()[y * bd.width() + x] <= 60))
+        };
+
+        let giua = cot_nhay(2).expect("có dấu nháy khi con trỏ ở giữa");
+        let cuoi = cot_nhay(8).expect("có dấu nháy khi con trỏ ở cuối");
         assert!(
-            dang_chon > khong_chon,
-            "cột chỗ dấu nháy không có gì thêm khi ô được chọn: {khong_chon} → {dang_chon}"
+            giua < cuoi,
+            "con trỏ ở chữ thứ 2 không nằm bên trái con trỏ ở cuối: {giua} vs {cuoi}"
         );
     }
 

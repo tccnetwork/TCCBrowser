@@ -67,6 +67,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B51 | Focus is **visible**, and its mark is distinct from the destructive mark of B31 | `vien_tieu_diem_them_muc_that` (measures ink, not the tree) — added 2026-08-25, see §3.21 |
 | B52 | Hover, focus and destructive each have a **distinct shape** — a single-ink renderer cannot say them in colour | `re_chuot_thay_duoc_va_khac_tieu_diem`, `re_chuot_khong_doi_tieu_diem` — added 2026-08-25, see §3.21 |
 | B53 | The **product build with a window always carries the accessibility bridge** — it is not a separate flag someone can forget | rule 24 in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.23 |
+| B54 | Text editing works **at the caret**, and cuts on character boundaries — never on bytes | `chen_xoa_cat_theo_chu_khong_theo_byte`, `xoa_mot_lan_di_het_mot_chu_co_dau`, `con_tro_ve_dung_cho_trong_chuoi` — added 2026-08-26, see §3.24 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1149,7 +1150,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 381.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 382.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1310,6 +1311,37 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.24 Text could only be edited at the end
+
+Typing and `Backspace` acted on the end of the string. There was no caret to
+move, so a mistake in the middle could only be reached by deleting everything
+after it.
+
+The screen where that matters is wallet recovery, which asks for **twenty-four
+words**. A typo in the third word meant retyping twenty-one. A person facing
+that will paste instead — and pasting a recovery phrase is exactly the habit
+this project tells people not to form.
+
+Editing now happens at a caret, with arrows, `Home`, `End` and `Delete`. Three
+things are worth stating because they are where this kind of code goes wrong:
+
+- **Cuts are on characters, not bytes.** `ế` is one character and three bytes.
+  Splitting on bytes leaves a string that is not valid UTF-8; deleting "a mark"
+  to leave `ê` or `e` changes what the user typed. The insert and delete
+  functions are pure and tested directly on Vietnamese text.
+- **Entering a field puts the caret at the end** of what is already there.
+  Starting at the beginning means the next character typed jumps in front of
+  everything — with a recovery phrase, that ruins the whole entry.
+- **The caret is drawn where it actually is.** A caret in the wrong place is
+  worse than none: it points at where the next character will *not* go.
+
+⚠️ The test for this had to be written **three times**, and both failures are
+recorded in its doc comment. The first compared ink between a focused field and
+a focused button — meaningless, since the two boxes differ in size, so their
+focus rings differ in ink; deleting the caret code entirely left it green. The
+second looked at a fixed column, and broke the moment the caret could move. The
+third looks for the shape: a dark column spanning the box height.
 
 ### 3.23 The shipped binary had no accessibility bridge at all
 
@@ -1910,7 +1942,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 381 tests
+cargo test --workspace                              # 382 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

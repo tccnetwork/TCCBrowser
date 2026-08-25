@@ -209,12 +209,12 @@ impl Phien {
         //
         // Từ chối cả cụm vừa nhận chứ không cắt bớt: cắt một chuỗi có dấu là cắt
         // vào giữa một ký tự, và cắt im lặng là đổi thứ người dùng gõ.
-        let mut thu = o.clone();
-        thu.push_str(chu);
+        let thu = chen_tai(o, self.tt.con_tro.min(o.chars().count()), chu);
         if tcc_ui::check_field_value(&thu).is_err() {
             return;
         }
         *o = thu;
+        self.tt.con_tro += chu.chars().count();
         self.ve_lai = true;
     }
 
@@ -224,24 +224,76 @@ impl Phien {
         let Some(nhan) = self.tt.o_dang_chon.clone() else {
             return;
         };
+        let i = self.tt.con_tro;
+        if i == 0 {
+            return;
+        }
         let Some(v) = self.tt.noi_dung_o.get_mut(&nhan) else {
             return;
         };
-        // Xoá theo KÝ TỰ, không theo byte: một chữ có dấu là nhiều byte, và cắt
-        // byte là cắt vào giữa một ký tự.
-        let mut thu = v.clone();
-        thu.pop();
-        // ⚠️ Kiểm cả khi XOÁ, dù xoá chỉ rút ngắn.
-        //
-        // Không phải vì rút ngắn sinh ra chuỗi dài quá, mà vì bất biến cần giữ
-        // là: **`noi_dung_o` LUÔN hợp lệ**. Giữ được nó thì `with_fields` không
-        // bao giờ phải lùi về giá trị cũ, và thứ VẼ RA luôn bằng thứ TRẢ VỀ cho
-        // bên gọi. Để hai thứ ấy lệch nhau là để người dùng xác nhận một chuỗi
-        // họ chưa từng nhìn thấy.
+        // ⚠️ Kiểm cả khi XOÁ, dù xoá chỉ rút ngắn: `check_field_value` xét cả
+        // hình dạng chuỗi, không chỉ độ dài.
+        let thu = xoa_truoc(v, i);
         if tcc_ui::check_field_value(&thu).is_err() {
             return;
         }
         *v = thu;
+        self.tt.con_tro = i - 1;
+        self.ve_lai = true;
+    }
+
+    /// Phím `Delete`: xoá chữ NGAY TẠI con trỏ, con trỏ đứng yên.
+    fn xoa_tai_cho(&mut self) {
+        let Some(nhan) = self.tt.o_dang_chon.clone() else {
+            return;
+        };
+        let i = self.tt.con_tro;
+        let Some(v) = self.tt.noi_dung_o.get_mut(&nhan) else {
+            return;
+        };
+        if i >= v.chars().count() {
+            return;
+        }
+        let thu = xoa_tai(v, i);
+        if tcc_ui::check_field_value(&thu).is_err() {
+            return;
+        }
+        *v = thu;
+        self.ve_lai = true;
+    }
+
+    /// Dời con trỏ. `sang_phai = false` là sang trái.
+    fn doi_con_tro(&mut self, sang_phai: bool) {
+        if self.tt.o_dang_chon.is_none() {
+            return;
+        }
+        self.tt.kep_con_tro();
+        let dai = self
+            .tt
+            .o_dang_chon
+            .as_ref()
+            .and_then(|n| self.tt.noi_dung_o.get(n))
+            .map_or(0, |v| v.chars().count());
+        self.tt.con_tro = if sang_phai {
+            (self.tt.con_tro + 1).min(dai)
+        } else {
+            self.tt.con_tro.saturating_sub(1)
+        };
+        self.ve_lai = true;
+    }
+
+    /// `Home` / `End`.
+    fn con_tro_ve_dau_hoac_cuoi(&mut self, ve_cuoi: bool) {
+        if self.tt.o_dang_chon.is_none() {
+            return;
+        }
+        let dai = self
+            .tt
+            .o_dang_chon
+            .as_ref()
+            .and_then(|n| self.tt.noi_dung_o.get(n))
+            .map_or(0, |v| v.chars().count());
+        self.tt.con_tro = if ve_cuoi { dai } else { 0 };
         self.ve_lai = true;
     }
 
@@ -321,6 +373,16 @@ impl Phien {
     fn doi(&mut self, man: Screen, window: &tao::window::Window) -> Result<(), String> {
         self.man = man;
         self.tt = TrangThai::default();
+        // ⚠️ Xoá tiêu điểm TRONG BỘ DỰNG nữa, không chỉ trong trạng thái.
+        //
+        // `TrangThai::default()` nói "không ai đang được chọn", nhưng bộ dựng
+        // giữ bản sao riêng để vẽ. Không xoá thì màn mới vẽ ra một viền quanh
+        // một ô mà trạng thái khẳng định là không ai chọn — và nếu màn mới tình
+        // cờ có cùng mã hành động, viền ấy rơi vào một nút người dùng chưa hề
+        // chạm tới. Cùng hạng lỗi với `hang_tro_nang` không được dọn khi đổi
+        // màn (F3).
+        self.bo_dung.set_focus(None);
+        self.bo_dung.set_hover(None);
         self.bo_dung
             .render(&self.man.tree)
             .map_err(|e| e.to_string())?;
@@ -656,6 +718,38 @@ fn chay_trong_vong(
                 p.xoa_lui();
             }
 
+            // ── Mũi tên, Home/End, Delete: đi lại trong ô nhập ──
+            //
+            // Không có chúng thì sửa một lỗi đánh máy ở giữa nghĩa là xoá sạch
+            // mọi thứ phía sau nó. Trên màn khôi phục ví — hai mươi bốn chữ —
+            // một lỗi ở chữ thứ ba bắt gõ lại hai mươi mốt chữ.
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event:
+                            tao::event::KeyEvent {
+                                physical_key: phim @ (tao::keyboard::KeyCode::ArrowLeft
+                                | tao::keyboard::KeyCode::ArrowRight
+                                | tao::keyboard::KeyCode::Home
+                                | tao::keyboard::KeyCode::End
+                                | tao::keyboard::KeyCode::Delete),
+                                state: ElementState::Pressed,
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
+                match phim {
+                    tao::keyboard::KeyCode::ArrowLeft => p.doi_con_tro(false),
+                    tao::keyboard::KeyCode::ArrowRight => p.doi_con_tro(true),
+                    tao::keyboard::KeyCode::Home => p.con_tro_ve_dau_hoac_cuoi(false),
+                    tao::keyboard::KeyCode::End => p.con_tro_ve_dau_hoac_cuoi(true),
+                    _ => p.xoa_tai_cho(),
+                }
+                window.request_redraw();
+            }
+
             // ── Tab: đi tới đích kế tiếp ──
             Event::WindowEvent {
                 event:
@@ -755,6 +849,7 @@ fn chay_trong_vong(
                         &p.tt.noi_dung_o,
                         p.tt.tieu_diem.as_ref(),
                         p.tt.duoi_chuot.as_ref(),
+                        p.tt.o_dang_chon.clone().map(|n| (n, p.tt.con_tro)),
                     );
                     // Gạt một công tắc mà không báo lại thì VoiceOver vẫn đọc
                     // trạng thái CŨ — người dùng nghe "tắt" trong khi màn hình
@@ -962,6 +1057,35 @@ struct TrangThai {
     /// Đích chuột đang rê qua. Tách hẳn khỏi `tieu_diem`: rê chuột KHÔNG được
     /// đổi chỗ bàn phím đang đứng.
     duoi_chuot: Option<crate::FocusTarget>,
+    /// Con trỏ trong ô đang chọn — CHỮ THỨ MẤY, tính từ 0.
+    con_tro: usize,
+}
+
+/// Chèn `chu` vào `goc` ở vị trí chữ thứ `i`. **Hàm thuần.**
+///
+/// Cắt theo CHỮ rồi ghép, không cắt theo byte: một chữ tiếng Việt có dấu là
+/// nhiều byte, và cắt byte là cắt vào giữa một ký tự.
+fn chen_tai(goc: &str, i: usize, chu: &str) -> String {
+    let truoc: String = goc.chars().take(i).collect();
+    let sau: String = goc.chars().skip(i).collect();
+    format!("{truoc}{chu}{sau}")
+}
+
+/// Xoá chữ NGAY TRƯỚC vị trí `i`. Trả về chuỗi mới. **Hàm thuần.**
+fn xoa_truoc(goc: &str, i: usize) -> String {
+    if i == 0 {
+        return goc.to_owned();
+    }
+    let truoc: String = goc.chars().take(i - 1).collect();
+    let sau: String = goc.chars().skip(i).collect();
+    format!("{truoc}{sau}")
+}
+
+/// Xoá chữ NGAY TẠI vị trí `i` (phím `Delete`). **Hàm thuần.**
+fn xoa_tai(goc: &str, i: usize) -> String {
+    let truoc: String = goc.chars().take(i).collect();
+    let sau: String = goc.chars().skip(i + 1).collect();
+    format!("{truoc}{sau}")
 }
 
 impl TrangThai {
@@ -975,7 +1099,24 @@ impl TrangThai {
             Some(crate::FocusTarget::Field(nhan)) => Some(nhan.clone()),
             _ => None,
         };
+        // Vào một ô thì con trỏ đứng ở CUỐI chữ đang có — chỗ người ta gõ tiếp.
+        // Đứng ở đầu thì gõ một chữ là chữ ấy nhảy lên trước mọi thứ đã gõ.
+        self.con_tro = self
+            .o_dang_chon
+            .as_ref()
+            .and_then(|n| self.noi_dung_o.get(n))
+            .map_or(0, |v| v.chars().count());
         self.tieu_diem = dich;
+    }
+
+    /// Kẹp con trỏ vào trong chuỗi hiện tại.
+    fn kep_con_tro(&mut self) {
+        let dai = self
+            .o_dang_chon
+            .as_ref()
+            .and_then(|n| self.noi_dung_o.get(n))
+            .map_or(0, |v| v.chars().count());
+        self.con_tro = self.con_tro.min(dai);
     }
 }
 
@@ -994,10 +1135,12 @@ fn ve_lai_man_hinh(
     noi_dung_o: &std::collections::BTreeMap<String, String>,
     tieu_diem: Option<&crate::FocusTarget>,
     duoi_chuot: Option<&crate::FocusTarget>,
+    con_tro: Option<(String, usize)>,
 ) {
     // Đặt TRƯỚC khi vẽ: viền tiêu điểm sinh ra trong chính lượt vẽ ấy.
     bo_dung.set_focus(tieu_diem.cloned());
     bo_dung.set_hover(duoi_chuot.cloned());
+    bo_dung.set_caret(con_tro);
     if let Ok(cay_moi) = tree
         .with_toggles(bat)
         .and_then(|c| c.with_fields(noi_dung_o))
@@ -1928,5 +2071,56 @@ mod kiem_thu {
             dinh(&duoi) > dinh(&dai),
             "cuộn xuống đáy mà thanh vẫn ở nguyên chỗ cũ"
         );
+    }
+
+    /// **Chèn và xoá phải cắt theo CHỮ, không theo byte.**
+    ///
+    /// Một chữ tiếng Việt có dấu là nhiều byte. Cắt theo byte là cắt vào giữa
+    /// một ký tự — và chuỗi kết quả thậm chí không còn là UTF-8 hợp lệ.
+    #[test]
+    fn chen_xoa_cat_theo_chu_khong_theo_byte() {
+        assert_eq!(chen_tai("Tiếng Việt", 5, "!"), "Tiếng! Việt");
+        assert_eq!(chen_tai("", 0, "ế"), "ế");
+        // Chèn quá cuối thì ghép vào cuối, không hoảng loạn.
+        assert_eq!(chen_tai("abc", 99, "d"), "abcd");
+
+        assert_eq!(xoa_truoc("Tiếng", 3), "Ting");
+        assert_eq!(xoa_truoc("Tiếng", 0), "Tiếng", "xoá ở đầu mà đổi chuỗi");
+        assert_eq!(xoa_tai("Tiếng", 2), "Ting");
+        assert_eq!(xoa_tai("Tiếng", 99), "Tiếng", "xoá quá cuối mà đổi chuỗi");
+    }
+
+    /// **Xoá đúng CHỮ có dấu, không để lại dấu mồ côi.**
+    ///
+    /// `ế` là một ký tự Unicode nhưng ba byte. Xoá một byte để lại một chuỗi
+    /// hỏng; xoá "một dấu" để lại `ê` hay `e` là đổi thứ người dùng đã gõ.
+    #[test]
+    fn xoa_mot_lan_di_het_mot_chu_co_dau() {
+        assert_eq!(xoa_truoc("ế", 1), "");
+        assert_eq!("ế".len(), 3, "giả định về số byte đã sai");
+    }
+
+    /// **Vào một ô thì con trỏ đứng ở CUỐI chữ đang có.**
+    ///
+    /// Đứng ở đầu thì gõ một chữ là chữ ấy nhảy lên trước mọi thứ đã gõ — với
+    /// một cụm từ khôi phục hai mươi bốn chữ, đó là hỏng cả cụm.
+    #[test]
+    fn vao_o_thi_con_tro_o_cuoi() {
+        let mut tt = TrangThai::default();
+        tt.noi_dung_o
+            .insert("Ghi chú".to_owned(), "xin chào".to_owned());
+        tt.dat_tieu_diem(Some(crate::FocusTarget::Field("Ghi chú".to_owned())));
+        assert_eq!(tt.con_tro, 8, "con trỏ không ở cuối chuỗi đang có");
+    }
+
+    /// **Con trỏ không đi ra ngoài chuỗi.**
+    #[test]
+    fn con_tro_bi_kep_trong_chuoi() {
+        let mut tt = TrangThai::default();
+        tt.noi_dung_o.insert("Ô".to_owned(), "abc".to_owned());
+        tt.o_dang_chon = Some("Ô".to_owned());
+        tt.con_tro = 99;
+        tt.kep_con_tro();
+        assert_eq!(tt.con_tro, 3);
     }
 }

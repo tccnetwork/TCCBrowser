@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**381 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**382 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -275,6 +275,36 @@ vẽ một dấu nháy ở chỗ không gõ được là nói dối.
 nhập" và "chọn nút", mà hai ô to nhỏ khác nhau nên viền đã khác mực sẵn — kiểm
 đột biến bỏ hẳn phần vẽ nháy mà nó vẫn xanh. Bản sau soi ĐÚNG CỘT nơi nháy phải
 nằm.
+
+**Chữ chỉ sửa được ở CUỐI chuỗi.** Gõ và `Backspace` tác động vào cuối; không
+có con trỏ để dời, nên một lỗi ở giữa chỉ với tới được bằng cách xoá sạch mọi
+thứ phía sau nó.
+
+Màn hình chịu hậu quả nặng nhất là **khôi phục ví — hai mươi bốn chữ**. Một lỗi
+đánh máy ở chữ thứ ba bắt gõ lại hai mươi mốt chữ. Người gặp cảnh ấy sẽ **dán**
+— mà dán cụm từ khôi phục đúng là thói quen dự án này bảo người ta đừng tập.
+
+Nay sửa tại con trỏ, có `←` `→` `Home` `End` `Delete`. Ba điều đáng nói vì đó là
+chỗ loại mã này hay sai:
+
+- **Cắt theo CHỮ, không theo byte.** `ế` là một ký tự và ba byte. Cắt byte để
+  lại chuỗi không còn là UTF-8 hợp lệ; "xoá một dấu" để lại `ê` hay `e` là đổi
+  thứ người dùng đã gõ.
+- **Vào ô thì con trỏ ở CUỐI** chữ đang có. Ở đầu thì chữ gõ tiếp nhảy lên
+  trước mọi thứ — với một cụm từ khôi phục, đó là hỏng cả cụm.
+- **Con trỏ vẽ ĐÚNG chỗ nó đang đứng.** Đứng sai chỗ còn tệ hơn không có: nó
+  chỉ vào nơi chữ KHÔNG rơi vào.
+
+⚠️ Phép thử cho việc này phải viết **ba lần**, và tôi ghi cả hai lần hỏng vào
+chú thích của nó. Lần đầu so mực giữa ô nhập và nút — vô nghĩa, vì hai ô to nhỏ
+khác nhau nên viền của chúng khác mực sẵn; bỏ hẳn phần vẽ nháy mà nó vẫn xanh.
+Lần hai dò một cột cố định, và vỡ ngay khi con trỏ đi lại được.
+
+**Và `doi()` không xoá tiêu điểm trong bộ dựng.** `TrangThai::default()` nói
+"không ai đang được chọn", nhưng bộ dựng giữ bản sao riêng để vẽ. Đổi màn xong,
+viền có thể rơi vào một nút người dùng chưa hề chạm tới — nếu màn mới tình cờ
+có cùng mã hành động. Cùng hạng với F3: hai bản sao của một trạng thái, chỉ một
+bản được dọn.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
