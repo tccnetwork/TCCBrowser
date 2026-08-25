@@ -423,4 +423,30 @@ mod kiem_thu {
             "hơn trần một byte mà không bị chặn"
         );
     }
+
+    /// **`publisher-not-hex` KHÔNG gói nào tạo ra được — ghim lời ấy lại.**
+    ///
+    /// `spec/0.1/06-error-codes.md` gỡ mã này khỏi tiêu chuẩn với lý lẽ: phép
+    /// kiểm hình dạng chối một `publisher` không phải hex bằng `not-hex`, và nó
+    /// chạy TRƯỚC. Lời ấy đúng chừng nào thứ tự trong `verify_package` còn giữ
+    /// nguyên — đổi chỗ hai bước là bản này bắn ra một mã tiêu chuẩn nói là
+    /// không tồn tại.
+    ///
+    /// Ngày 25/08/2026 đúng chuyện ấy đã xảy ra với `bad-key`: lý lẽ khi gỡ nó
+    /// dựa trên giả định về thư viện Ed25519, giả định sai, và không phép thử
+    /// nào canh. Đây là phép thử đáng lẽ phải có từ đầu, cho mã còn lại.
+    #[test]
+    fn goi_co_publisher_khong_phai_hex_ra_ma_not_hex() {
+        let mut g = tao_goi(b"x");
+        let mut ke: serde_json::Value = serde_json::from_slice(&g.0.manifest).unwrap();
+        ke["publisher"] = serde_json::Value::String("khong-phai-hex".to_owned());
+        g.0.manifest = serde_json::to_vec(&ke).unwrap();
+
+        let ma = kiem(&g.0).unwrap_err().ma();
+        assert_eq!(
+            ma, "not-hex",
+            "gói tạo ra được mã `{ma}` — nếu là `publisher-not-hex` thì đặc tả \
+             đang nói sai, y như `bad-key`"
+        );
+    }
 }

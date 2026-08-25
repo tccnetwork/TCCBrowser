@@ -469,8 +469,15 @@ echo "--- Luật 10b: mã lỗi trong MÃ NGUỒN phải có trong đặc tả -
 # — chứ không quét mọi chuỗi trong kho.
 la=$(python3 - <<'PY2'
 import pathlib, re
-doc = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|",
-                     open("spec/0.1/06-error-codes.md").read(), re.M))
+# ⚠️ Cắt TRƯỚC bảng "ba mã đã gỡ" — y như luật 10 và luật 16.
+#
+# Không cắt thì một mã đặc tả tuyên bố đã RÚT vẫn được tính là "có định nghĩa",
+# và luật này im lặng cho nó qua. 26/08/2026: `not-a-container` nằm đúng chỗ ấy.
+# Đây là lần THỨ BA cùng một lỗi trong cùng một tệp — luật 16 cắt đúng từ đầu,
+# luật 10 quên (vá 25/08), luật 10b quên (vá hôm nay, do chính tôi viết ra vài
+# giờ sau khi vá luật 10).
+van = open("spec/0.1/06-error-codes.md").read().split("## Three codes were removed")[0]
+doc = set(re.findall(r"^\| `([a-z][a-z0-9-]+)` \|", van, re.M))
 ra = []
 for p in pathlib.Path("crates").rglob("*.rs"):
     t = p.read_text(errors="replace")
@@ -489,10 +496,33 @@ PY2
 # Cổng vẫn IN TÊN chúng ra mỗi lượt chạy. Một danh sách miễn trừ im lặng chỉ
 # đổi "chưa ai biết" lấy "không ai còn nhìn".
 CHO_QUYET="bad-scroll package-too-large symlink"
+
+# Hai mã dưới đây KHÁC hẳn ba mã trên. Đặc tả đã GỠ chúng với lý lẽ "không gói
+# nào tạo ra được", và lý lẽ ấy nay có PHÉP THỬ đứng sau — không phải một lời
+# hứa. Chúng vẫn nằm trong `UiError`/`ManifestError` vì API Rust gọi tới được,
+# nhưng một GÓI thì không.
+#
+# ⚠️ Đúng lời ấy về `bad-key` hoá ra SAI (25/08/2026), và không gì canh. Nên
+# miễn trừ ở đây KHÔNG phải tha bổng: cổng đòi phép thử phải có mặt.
+DA_CHUNG_MINH="not-a-container publisher-not-hex"
+thieu_chung=""
+grep -rq "goi_co_con_tren_nut_la_ra_ma_bad_json" crates/tcc-ui/src/wire.rs \
+  || thieu_chung="$thieu_chung not-a-container"
+grep -rq "goi_co_publisher_khong_phai_hex_ra_ma_not_hex" crates/tcc-manifest/src/lib.rs \
+  || thieu_chung="$thieu_chung publisher-not-hex"
+if [ -n "$thieu_chung" ]; then
+  bao "mã đã gỡ khỏi đặc tả mà KHÔNG còn phép thử chứng minh gói không tạo ra được:$thieu_chung"
+fi
 la_moi=""; la_cho=""
 for m in $la; do
   ma_ten=${m#*:}
-  if printf '%s\n' $CHO_QUYET | grep -qx "$ma_ten"; then la_cho="$la_cho $m"; else la_moi="$la_moi $m"; fi
+  if printf '%s\n' $DA_CHUNG_MINH | grep -qx "$ma_ten"; then
+    :   # đã gỡ khỏi đặc tả, và có phép thử chứng minh gói không tạo ra được
+  elif printf '%s\n' $CHO_QUYET | grep -qx "$ma_ten"; then
+    la_cho="$la_cho $m"
+  else
+    la_moi="$la_moi $m"
+  fi
 done
 if [ -n "$la_moi" ]; then
   bao "mã lỗi bản này bắn ra nhưng đặc tả KHÔNG định nghĩa:$la_moi"

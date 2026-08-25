@@ -33,6 +33,11 @@ pub const CONTENT_DIR: &str = "content";
 /// mục khổng lồ sẽ ngốn hết bộ nhớ — `canonical_bytes` dựng tất cả trong RAM.
 pub const MAX_CONTENT_BYTES: u64 = 256 * 1024 * 1024;
 
+// Chốt con số, lúc DỰNG. `256 * 1024 * 1024` đổi một dấu `*` thành `+` vẫn biên
+// dịch, vẫn chạy, chỉ ra một trần khác hẳn — và không phép thử nào nhìn tới một
+// biểu thức hằng.
+const _: () = assert!(MAX_CONTENT_BYTES == 268_435_456);
+
 #[derive(Debug)]
 pub enum PackageError {
     Io(String),
@@ -114,11 +119,24 @@ pub fn read_content(goc: &Path) -> Result<FileTree, PackageError> {
     }
     let mut cay = FileTree::new();
     let mut tong: u64 = 0;
-    di_sau(&thu_muc, &thu_muc, &mut cay, &mut tong)?;
+    di_sau(&thu_muc, &thu_muc, &mut cay, &mut tong, MAX_CONTENT_BYTES)?;
     Ok(cay)
 }
 
-fn di_sau(goc: &Path, hien: &Path, cay: &mut FileTree, tong: &mut u64) -> Result<(), PackageError> {
+/// Trần truyền VÀO chứ không đọc hằng ở đây.
+///
+/// Dựng 256 MiB tệp trong một phép thử là không làm được, nên trần cứng ở đây
+/// nghĩa là trần ấy KHÔNG bao giờ được kiểm — và kiểm đột biến 26/08/2026 xác
+/// nhận đúng thế: đổi `>` thành `>=`, đổi `+=` thành `*=`, cả năm đột biến ở
+/// chỗ này đều sống. Một trần chặn tràn bộ nhớ trên dữ liệu CHƯA xác thực mà
+/// chưa ai kiểm thì nó là một lời hứa, không phải một chắn.
+fn di_sau(
+    goc: &Path,
+    hien: &Path,
+    cay: &mut FileTree,
+    tong: &mut u64,
+    tran: u64,
+) -> Result<(), PackageError> {
     let mut muc: Vec<_> = fs::read_dir(hien)?.collect::<Result<_, _>>()?;
     // Sắp xếp để thứ tự duyệt xác định. `FileTree` tự sắp lại khi băm, nhưng
     // duyệt có thứ tự làm thông báo lỗi ổn định giữa các lần chạy.
@@ -134,12 +152,12 @@ fn di_sau(goc: &Path, hien: &Path, cay: &mut FileTree, tong: &mut u64) -> Result
             return Err(PackageError::Symlink(duong.display().to_string()));
         }
         if meta.is_dir() {
-            di_sau(goc, &duong, cay, tong)?;
+            di_sau(goc, &duong, cay, tong, tran)?;
             continue;
         }
 
         *tong += meta.len();
-        if *tong > MAX_CONTENT_BYTES {
+        if *tong > tran {
             return Err(PackageError::TooLarge { total: *tong });
         }
 
@@ -289,5 +307,43 @@ mod kiem_thu_chu_ky_hex {
     fn thieu_tep_ra_dung_ma() {
         let e = PackageError::MissingFile("signature.hex".to_owned());
         assert_eq!(e.ma(), "missing-file");
+    }
+
+    /// **Trần nội dung phải chặn ĐÚNG ở mép, và cộng dồn qua thư mục con.**
+    ///
+    /// Kiểm đột biến 26/08/2026: cả năm đột biến ở chỗ này đều SỐNG — `>` thành
+    /// `>=`, `+=` thành `*=`, và cả hai dấu `*` trong `256 * 1024 * 1024`. Trần
+    /// ấy chặn tràn bộ nhớ khi đọc dữ liệu CHƯA xác thực; chưa ai kiểm thì nó
+    /// là một lời hứa, không phải một chắn.
+    #[test]
+    fn tran_noi_dung_chan_dung_o_mep() {
+        let tam = std::env::temp_dir().join("tcc-kiem-tran-noi-dung");
+        let _ = std::fs::remove_dir_all(&tam);
+        std::fs::create_dir_all(tam.join("con")).unwrap();
+        // 10 byte ở gốc, 10 byte trong thư mục con — tổng 20.
+        std::fs::write(tam.join("a.txt"), vec![b'x'; 10]).unwrap();
+        std::fs::write(tam.join("con").join("b.txt"), vec![b'y'; 10]).unwrap();
+
+        let doc = |tran: u64| {
+            let mut cay = FileTree::new();
+            let mut tong = 0u64;
+            di_sau(&tam, &tam, &mut cay, &mut tong, tran).map(|()| tong)
+        };
+
+        // Đúng bằng trần thì QUA — `>` chứ không phải `>=`.
+        assert_eq!(doc(20).ok(), Some(20), "đúng bằng trần mà bị chặn");
+        // Hơn một byte thì chối.
+        assert!(
+            matches!(doc(19), Err(PackageError::TooLarge { .. })),
+            "vượt trần mà không bị chặn"
+        );
+        // Và phải CỘNG DỒN qua thư mục con: trần 15 lớn hơn từng tệp một, nhưng
+        // nhỏ hơn tổng. `+=` thành `*=` hay quên cộng thì chỗ này lọt.
+        assert!(
+            matches!(doc(15), Err(PackageError::TooLarge { .. })),
+            "không cộng dồn qua thư mục con — mỗi tệp lọt riêng lẻ"
+        );
+
+        let _ = std::fs::remove_dir_all(&tam);
     }
 }

@@ -41,7 +41,7 @@ try to break them. The commands below are the checks.
 
 
 ```bash
-cargo test --workspace              # 382 tests
+cargo test --workspace              # 386 tests
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh        # 24 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 154 conformance vectors

@@ -69,6 +69,8 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B53 | The **product build with a window always carries the accessibility bridge** — it is not a separate flag someone can forget | rule 24 in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.23 |
 | B54 | Text editing works **at the caret**, and cuts on character boundaries — never on bytes | `chen_xoa_cat_theo_chu_khong_theo_byte`, `xoa_mot_lan_di_het_mot_chu_co_dau`, `con_tro_ve_dung_cho_trong_chuoi` — added 2026-08-26, see §3.24 |
 | B55 | Clearing a screen's state is bound to **one named variant** — a screen that merely updates keeps what the user typed, a new screen never inherits it | `xoa_trang_thai_gan_voi_dung_mot_bien_the` — added 2026-08-26, see §3.25 |
+| B56 | The **content size cap** holds at its exact edge and accumulates across subdirectories | `tran_noi_dung_chan_dung_o_mep`; the constant itself is a build-time `const` assertion — added 2026-08-26, see §3.26 |
+| B57 | A code the specification **withdrew** stays unreachable from a package, and a test proves it | `goi_co_publisher_khong_phai_hex_ra_ma_not_hex`, `goi_co_con_tren_nut_la_ra_ma_bad_json`; rule 10b — added 2026-08-26, see §3.26 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1151,7 +1153,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 382.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 386.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1312,6 +1314,51 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.26 The rule I wrote yesterday had yesterday's bug in it
+
+Rule 10b — added 2026-08-25 to ask the reverse of rule 10, *does the
+implementation emit any code the specification does not define* — read the
+whole of `06-error-codes.md`, including the table titled **"Three codes were
+removed for being unreachable"**. So a code the specification explicitly
+**withdrew** still counted as defined, and the rule waved it through.
+
+That is the identical defect fixed in rule 10 the previous day, in the same
+file. Rule 16's Python half cut that table off from the start; rule 10's shell
+half never did (fixed 25/08); rule 10b never did either — and rule 10b was
+written by me, hours after fixing rule 10.
+
+With the cut applied it found two more: `not-a-container` and
+`publisher-not-hex`. Both **are** constructed in the source, exactly like
+`bad-key` was.
+
+The difference is that this time the specification is right, and it now has
+evidence rather than an argument:
+
+- `publisher-not-hex` — shape checking rejects a non-hex publisher as `not-hex`
+  first. Verified, and mutation-checked: **remove `validate_shape()` and a
+  package does emit `publisher-not-hex`.**
+- `not-a-container` — a leaf has no `children` field, so a decoder rejects the
+  JSON as `bad-json` before any tree rule runs. Verified against a real
+  payload.
+
+Both remain in the source because the Rust builder API can reach them; a
+**package** cannot. That distinction is the entire content of the
+specification's claim, so it is now a test. Rule 10b's exemption for them is not
+an amnesty: the gate checks the proving tests still exist, and deleting one
+turns it red.
+
+**And the content cap had never been tested at all.** Mutating `tcc-runtime`
+left five survivors, all in one place: `MAX_CONTENT_BYTES`, the 256 MiB ceiling
+on package content read *before* authentication. `>` to `>=`, `+=` to `*=`, and
+both `*` in `256 * 1024 * 1024` — every one survived.
+
+A ceiling cannot be tested by building 256 MiB of files, so it never was. The
+limit is now a parameter, which a test can set to twenty bytes, and the test
+checks the two things that matter: it holds at the exact edge, and it
+**accumulates across subdirectories** — a per-file check would let any number of
+files through. The constant's own arithmetic is a build-time `const` assertion,
+so changing it fails the build rather than a test.
 
 ### 3.25 Pressing a button erased what you had typed
 
@@ -1966,7 +2013,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 382 tests
+cargo test --workspace                              # 386 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

@@ -1466,15 +1466,44 @@ mod kiem_thu {
     // ---- Chuỗi hiện ra người dùng ----
 
     /// ⚠️ Đòn giả mạo giao diện: nhãn nút chứa ký tự đảo chiều chữ.
+    ///
+    /// Ghim MÃ, không chỉ ghim "có lỗi". `is_err()` cũng xanh nếu nhãn bị chối
+    /// vì một lý do chẳng liên quan — quá dài, mã hành động hỏng — và lúc ấy
+    /// phép thử vẫn xanh trong khi phép chặn giả mạo đã biến mất. Cùng hạng lỗi
+    /// với B45: hỏi câu rộng hơn tên phép thử nói.
     #[test]
     fn nhan_nut_co_ky_tu_dao_chieu_thi_tu_choi() {
-        let ket = Node::button("Huỷ\u{202e}", "huy", Tone::Neutral);
-        assert!(ket.is_err(), "nhãn giả mạo lọt vào nút bấm");
+        let loi = Node::button("Huỷ\u{202e}", "huy", Tone::Neutral)
+            .expect_err("nhãn giả mạo lọt vào nút bấm");
+        assert_eq!(
+            loi.ma(),
+            "unsafe-display-string",
+            "bị chối vì lý do KHÁC: {loi}"
+        );
+    }
+
+    /// **Mã hành động hỏng phải ra ĐÚNG mã `bad-action-id`.**
+    ///
+    /// Mã ấy có vector — nhưng vector kiểm tầng BẢN KÊ KHAI (`SpecError`), còn
+    /// `UiError` là một kiểu khác cùng phát ra một chuỗi mã. Kiểm đột biến
+    /// 26/08/2026: đổi `UiError::BadActionId` sang một mã khác thì KHÔNG phép
+    /// thử nào đỏ. Hai nguồn của một mã, chỉ một nguồn được canh.
+    #[test]
+    fn ma_hanh_dong_hong_ra_dung_ma() {
+        let loi = Node::button("Gửi", "co khoang trang", Tone::Neutral)
+            .expect_err("mã hành động có khoảng trắng mà lọt");
+        assert_eq!(loi.ma(), "bad-action-id", "bị chối vì lý do KHÁC: {loi}");
     }
 
     #[test]
     fn nhan_nut_khong_duoc_xuong_dong_nhung_doan_van_thi_duoc() {
-        assert!(Node::button("Đồng\ný", "ok", Tone::Neutral).is_err());
+        let loi =
+            Node::button("Đồng\ný", "ok", Tone::Neutral).expect_err("nhãn nút xuống dòng mà lọt");
+        assert_eq!(
+            loi.ma(),
+            "unsafe-display-string",
+            "bị chối vì lý do KHÁC: {loi}"
+        );
         assert!(Node::text("Dòng một\nDòng hai").is_ok());
     }
 

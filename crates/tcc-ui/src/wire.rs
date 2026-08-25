@@ -502,4 +502,25 @@ mod kiem_thu {
         let n = decode(br#"{"kind":"group"}"#).expect("nhóm không có `children` phải hợp lệ");
         assert!(n.children().is_empty());
     }
+
+    /// **`not-a-container` KHÔNG gói nào tạo ra được — ghim lời ấy lại.**
+    ///
+    /// `spec/0.1/06-error-codes.md` gỡ mã này với lý lẽ: một nút LÁ không có
+    /// trường `children`, nên bộ giải mã chối `{"kind":"text","children":[…]}`
+    /// bằng `bad-json` TRƯỚC khi luật cây nào chạy tới.
+    ///
+    /// Mã ấy vẫn tồn tại trong `UiError` và vẫn bắn được — nhưng chỉ từ API
+    /// Rust (`Node::child` gọi lên một nút lá), không từ một GÓI. Phân biệt ấy
+    /// là cả nội dung của lời đặc tả nói, nên nó đáng một phép thử: ngày
+    /// 25/08/2026 một lời y hệt về `bad-key` hoá ra sai, và không gì canh.
+    #[test]
+    fn goi_co_con_tren_nut_la_ra_ma_bad_json() {
+        let tho = br#"{"kind":"text","content":"x","children":[]}"#;
+        let ma = decode(tho).expect_err("nút lá có children mà lọt").ma();
+        assert_eq!(
+            ma, "bad-json",
+            "gói tạo ra được mã `{ma}` — nếu là `not-a-container` thì đặc tả \
+             đang nói sai, y như `bad-key`"
+        );
+    }
 }

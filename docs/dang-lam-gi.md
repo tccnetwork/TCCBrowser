@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**382 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**386 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -332,6 +332,38 @@ vẫn phải đi qua đúng phép kiểm của chữ gõ tay.
 ⚠️ Thăm dò đầu tiên cho `tao::clipboard` SAI: tôi đặt nó trong `#[cfg(test)]`
 rồi chạy `cargo build` — mà `cargo build` không biên dịch mô-đun test, nên nó
 chưa hề kiểm gì. Thăm dò một API thì dùng `cargo check --all-targets`.
+
+**Luật tôi viết hôm qua mang đúng lỗi của hôm qua.** Luật 10b — thêm 25/08 để
+hỏi chiều ngược của luật 10 — đọc CẢ bảng "ba mã đã gỡ vì không thể xảy ra",
+nên một mã đặc tả tuyên bố đã RÚT vẫn được tính là có định nghĩa. Đó là **lần
+thứ ba** cùng một lỗi trong cùng một tệp: luật 16 cắt đúng từ đầu, luật 10
+quên (vá 25/08), luật 10b quên — và luật 10b do chính tôi viết ra vài giờ sau
+khi vá luật 10.
+
+Vá xong nó bắt thêm `not-a-container` và `publisher-not-hex`. Cả hai ĐỀU được
+dựng trong mã, y hệt `bad-key`. Khác ở chỗ lần này đặc tả **đúng**, và nay có
+bằng chứng chứ không phải lý lẽ:
+
+- `publisher-not-hex`: kiểm hình dạng chối trước bằng `not-hex`. Kiểm đột biến —
+  **bỏ `validate_shape()` thì gói bắn ra `publisher-not-hex` thật**.
+- `not-a-container`: nút lá không có trường `children` nên bộ giải mã chối bằng
+  `bad-json` trước. Kiểm bằng một tải trọng thật.
+
+Chúng còn trong mã vì API Rust gọi tới được; một GÓI thì không — và phân biệt ấy
+là toàn bộ nội dung lời đặc tả nói, nên nay nó là phép thử. Miễn trừ của luật
+10b **không phải tha bổng**: cổng kiểm hai phép thử ấy còn tồn tại, xoá một cái
+là đỏ.
+
+**Và trần nội dung chưa từng được kiểm.** Đo `tcc-runtime`: 73 mutant, 55 bị
+bắt, 5 sống — cả 5 ở đúng một chỗ, `MAX_CONTENT_BYTES`, trần 256 MiB cho nội
+dung đọc TRƯỚC khi xác thực. `>` thành `>=`, `+=` thành `*=`, và cả hai dấu `*`
+trong `256 * 1024 * 1024`.
+
+Không ai dựng 256 MiB tệp trong một phép thử, nên trần ấy không bao giờ được
+kiểm. Nay trần là THAM SỐ, phép thử đặt nó bằng hai mươi byte, và kiểm hai điều
+đáng: chặn đúng ở mép, và **cộng dồn qua thư mục con** — kiểm từng tệp riêng lẻ
+thì bao nhiêu tệp cũng lọt. Số học của chính hằng ấy là một `const assert`, nên
+đổi nó làm hỏng BẢN DỰNG chứ không phải một phép thử.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
