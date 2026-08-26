@@ -27,6 +27,15 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 
 ## Trước khi đẩy — theo ĐÚNG thứ tự này
 
+> ⚠️ **`kiem-so-lieu.sh` ĐÃ chạy `cargo test --workspace` bên trong nó** (để
+> đếm số phép thử). Chạy `cargo test --workspace` riêng rồi lại chạy nó là chạy
+> cả bộ thử HAI LẦN cho mỗi lượt kiểm — 26/08/2026 tôi làm thế khoảng mười lăm
+> lần trong một phiên. Cần biết đỏ/xanh thì đọc mã thoát của chính cổng ấy.
+>
+> Đừng "tăng tốc" nó bằng `cargo test -- --list`: `--list` đếm CẢ phép thử
+> `#[ignore]`, còn dòng `test result: ok. N` thì không — đổi cách đếm là mở
+> đúng hạng lỗi mà cổng này sinh ra để chặn.
+
 ```bash
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
