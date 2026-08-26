@@ -203,6 +203,15 @@ echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật
 # `cases`, và nhóm ACVP chạy thêm một phép ngoài danh sách. Một phép đếm gần
 # đúng còn tệ hơn không đếm: nó báo động giả rồi bị người ta tắt đi.
 #
+# ⚠️ 26/08/2026: danh sách cụm từ này BỎ SÓT một cách im lặng. `docs/AUDIT.md`
+# — cửa vào của người soát — ghi "the 22 machine-enforced rules" ở dòng 16 và
+# "24 architecture rules" ở dòng 53, tức là TỰ MÂU THUẪN trong cùng một tệp, mà
+# luật này vẫn xanh: nó chỉ bắt cụm "architecture rules". Một từ đồng nghĩa là
+# đủ để con số trôi lọt. Thêm "machine-enforced rules" và "hard rules".
+#
+# Bài học chung: cổng khớp theo CỤM TỪ thì chỉ mạnh bằng danh sách cụm từ, và
+# danh sách ấy không tự dài ra khi người ta viết câu mới.
+#
 # Và quan trọng hơn — số trong VĂN KỂ là sự thật lịch sử ("211 phép
 # thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ, nên cả ba luật chỉ soi những
 # tài liệu và cụm từ nêu đích danh.
@@ -220,7 +229,7 @@ for f in README.md SECURITY.md ARCHITECTURE.md CLAUDE.md docs/ke-hoach.md docs/d
   else
     van=$(cat "$f")
   fi
-  for n in $(printf '%s\n' "$van" | grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules)' | grep -oE '^[0-9]+' | sort -u); do
+  for n in $(printf '%s\n' "$van" | grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules|machine-enforced rules|hard rules)' | grep -oE '^[0-9]+' | sort -u); do
     [ "$n" = "$that" ] || lech="$lech $(basename "$f"):$n"
   done
 done

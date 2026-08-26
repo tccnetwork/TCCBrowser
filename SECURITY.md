@@ -586,8 +586,29 @@ never surfaced. This is why CI runs `clippy -D warnings` **before** the test ste
 
 ## 3. ⚠️ What has NOT been examined — read this section carefully
 
-**A dependency grants camera and microphone to any page, and we cannot stop
-it in code.** wry 0.52.1 hardcodes `WKPermissionDecision::Grant` for
+> ⚠️ **The paragraph below opened this section until 2026-08-26 and no longer
+> applies.** It described a threat from `wry` — a dependency deleted on
+> 2026-08-23 along with the whole web-engine tier (§3.7). There is no `wry`, no
+> tier 2, and no arbitrary web page in this project. It is kept, struck through
+> in words rather than removed, because an auditor who read this document before
+> that date was told this was the single most important thing here.
+>
+> Two things about it survive and are **not** withdrawn: architecture rule 20
+> still forbids device-permission keys in the macOS bundle, now for a reason
+> that stands on its own (a purpose string is a promise to the user, and a build
+> that asks for a camera it never opens has already broken it); and the general
+> shape of the finding — *a dependency deciding a permission question on your
+> behalf, with no way to override it* — is exactly what to look for in the
+> dependencies that remain.
+>
+> **What should be read first instead, on this branch:** no independent security
+> review has happened — one party wrote and reviewed all of it
+> (`spec/GOVERNANCE.md` §1); this branch carries the wallet, and §3.5, §3.28 and
+> §3.29 are the places where it is thinnest; and no mainnet transaction is
+> permitted until that independent review exists, with no deadline overriding it.
+
+~~**A dependency grants camera and microphone to any page, and we cannot stop
+it in code.**~~ wry 0.52.1 hardcoded `WKPermissionDecision::Grant` for
 `requestMediaCapturePermissionForOrigin` on macOS
 (`wkwebview/class/wry_web_view_ui_delegate.rs:74`) and exposes no way to
 override that delegate. At tier 2 — arbitrary web pages — a page calling
@@ -651,7 +672,13 @@ violating string is stopped immediately, even without having read this file. The
 permission dialog also always shows "Unknown publisher / Không rõ nhà phát hành"
 alongside the full two-part warning.
 
-### 3.1b The permission dialog is drawn through WebKit — MEASURED, 2026-08-14
+### 3.1b The permission dialog WAS drawn through WebKit — MEASURED, 2026-08-14
+
+> Past tense since 2026-08-26: the web engine was deleted on 2026-08-23 (§3.7)
+> and the dialog is now drawn to pixels. The measurement below is kept because
+> it is what the debt actually cost while it existed, and because the shape of
+> the reasoning — *measure the debt before writing it down as a worry* — is the
+> part worth reusing.
 
 This debt used to be recorded as a vague worry. It has now been measured, and it
 is **much smaller** than the way it was written down:
@@ -1333,6 +1360,50 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.31 Three things this document could not have told you, 2026-08-26
+
+**The renderer abstraction is enforced but no longer measured.** Rules 1, 2, 5
+and 6 keep `tcc-ui` free of any renderer. Until 2026-08-23 a second renderer
+existed and something could have falsified the claim that the API is genuinely
+abstract. `Renderer` now has **exactly one** production implementation; the
+other three implementors are test doubles inside `tcc-ui`'s own tests. A trait
+with one implementor always fits that implementor, including when it has quietly
+grown to match its internals. The swap did happen once, and no application
+changed a line — that is real evidence, and it is also the last time that
+evidence can be produced. See `ARCHITECTURE.md` §4 for what would restore it.
+
+**The mutation sweep has no per-crate record.** Every crate was measured with
+`cargo-mutants` for the first time in the days before this entry, and most of
+the findings in §3.18–§3.30 came out of it. The per-crate results were never
+written down. So the coverage claim cannot be checked by anyone, including its
+author — and three separate runs that day were later found to be measuring the
+wrong thing (a full disk reported as timeouts, a timeout multiplier scaled from
+the wrong crate's runtime, and a run with feature flags off that never compiled
+the wallet import path at all). A measurement whose record does not exist is a
+story, not a measurement. The next sweep must produce the table.
+
+**Prose does not have a test, and it drifted where it was most expensive.**
+Deleting the web engine turned a number of true sentences into false ones, and
+nothing failed. Found on 2026-08-26, all in documents written for auditors:
+
+| Where | What it said | Why it mattered |
+|---|---|---|
+| This section's opening | A `wry` threat, in the present tense | The first thing an auditor was told to read described a dependency that no longer exists |
+| This document's scope line | Named a deleted crate, **omitted four real ones** — including chain access, wallet keys, and the only code allowed to open a socket | A scope line decides what a reviewer is paid to look at |
+| `ARCHITECTURE.md` §4 | The second renderer "is built and exercised … in CI" | An auditor would take renderer replaceability as demonstrated |
+| `docs/AUDIT.md` | 22 rules on line 16, 24 on line 53 | The entry document contradicted itself |
+| `ARCHITECTURE.md` rule table | 18 rows for 24 enforced rules | Six rules enforced by CI that no document described; a rule nobody can read is a rule nobody can dispute |
+| `docs/ke-hoach.md` | `cargo tree` showing "0 `wry` crates" offered as proof | With `wry` gone from every feature, the check can no longer fail — and a check that cannot fail is not a check |
+
+The count gate that exists for exactly this (rule 17) stayed green through it,
+because it matches on the phrase "architecture rules" and the entry document
+said "machine-enforced rules". **A gate that matches on phrasing is only as
+strong as its list of phrases, and that list does not grow when someone writes a
+new sentence.** Two new gates came out of this — the crate list must match the
+workspace, and rule 17 knows two more phrasings — but neither addresses the
+general case. Nothing mechanical catches a sentence that goes hollow because the
+thing it contrasted against was deleted. That one needs a reader.
 
 ### 3.30 A build with no wallet was still asking about money
 

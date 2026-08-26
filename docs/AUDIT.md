@@ -13,7 +13,7 @@ the rest.
 | 2 | [`../spec/GOVERNANCE.md`](../spec/GOVERNANCE.md) §1 — who wrote this and who has reviewed it. The answer is one party for all of it |
 | 3 | [`../SECURITY.md`](../SECURITY.md) §1 — the 62 invariants, each naming the test that holds it |
 | 4 | [`../spec/0.1/`](../spec/0.1/) — the standard. English is normative |
-| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 22 machine-enforced rules |
+| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 24 machine-enforced rules |
 
 ## The wallet is on another branch
 

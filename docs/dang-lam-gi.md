@@ -130,6 +130,28 @@ Thứ **chưa** có cổng, nói ra để không tưởng là đã xong: không 
 câu văn xuôi hoá rỗng nghĩa vì thứ nó đối chiếu bị xoá. Đó là việc của người
 đọc, và nó chỉ xảy ra khi có ai thật sự đọc lại.
 
+### Sáu luật được cưỡng chế mà không tài liệu nào mô tả
+
+Đọc tiếp `docs/AUDIT.md` — **cửa vào của người soát** — thì ra ba việc nữa:
+
+- Tệp ấy **tự mâu thuẫn với chính nó**: dòng 16 ghi con số **hai mươi hai** kèm
+  cụm "machine-enforced rules", dòng 53 ghi "24 architecture rules". (Viết con
+  số sai bằng CHỮ chứ không bằng số, vì luật 17 vừa nới ra đã bắt ngay chính
+  câu này — nó không phân biệt được trích dẫn với khẳng định. Đây là lần thứ
+  hai trong ngày một cổng đếm số đỏ vì văn xuôi đang NÓI VỀ con số ấy; lần
+  trước là cổng số bất biến. Cái giá phải trả cho một cổng đếm rẻ và chặt.)
+- **Luật 17 sinh ra đúng để canh con số ấy, và nó vẫn xanh.** Nó khớp theo cụm
+  từ, và danh sách cụm chỉ có "architecture rules". Một từ đồng nghĩa —
+  *machine-enforced* — là đủ để con số trôi lọt. Bài học chung: **cổng khớp
+  theo cụm từ chỉ mạnh bằng danh sách cụm từ của nó, và danh sách ấy không tự
+  dài ra khi người ta viết câu mới.** Đã thêm hai cụm; nới xong là nó bắt ngay
+  lỗi thật, nên không phải dựng đột biến giả để thử.
+- **Bảng luật trong `ARCHITECTURE.md` chỉ có 18 hàng trên 24 luật.** Sáu luật —
+  10b, 20, 21, 22, 23, 24 — đang được CI cưỡng chế mà **không tài liệu nào mô
+  tả**. Người soát không soát được luật họ không đọc được ở đâu; và luật không
+  ai đọc thì không ai cãi được, kể cả khi nó sai. Đã viết đủ sáu hàng, kèm ghi
+  chú vì sao **không có luật 19** (số hiệu bỏ trống; đủ 24 là nhờ có `10b`).
+
 ### ⚑ Thứ tự đã chốt: TRÌNH DUYỆT TRƯỚC, VÍ SAU
 
 Chủ dự án chốt 26/08/2026: **vẫn tích hợp ví vào trình duyệt, nhưng làm trình

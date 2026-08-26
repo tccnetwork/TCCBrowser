@@ -96,7 +96,9 @@ replacement boundaries**:
 | `tcc-net` | **The way out of the machine, made visible.** Only `tcc-shell` may depend on it, so reading `Cargo.toml` proves the app loader cannot open a socket. |
 | `tcc-shell` | **Assembly point.** Exactly one place knows which concrete renderer exists. |
 
-The original draft proposed **25 crates**. There are **11**, because creating empty
+The original draft proposed **25 crates**. There are **11** on this branch —
+`main` has **9**, because the two wallet crates live only on `giai-doan-3.1`
+(see [`docs/AUDIT.md`](docs/AUDIT.md) §2) — because creating empty
 crates is not modularity — it is empty directories. Split further only for a
 **real reason**: a new trust boundary, or something that must be replaceable.
 
@@ -126,6 +128,16 @@ Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 | 16 | Every error code in the specification has a conformance vector | Rule 10 proves a code exists in the source; only a vector proves it can ever fire. Four could not |
 | 15 | Conformance vectors use English keys and `conformance/FORMAT.md` exists | The vectors are the only thing that can settle a conformance claim, and their reader does not speak Vietnamese |
 | 14 | The repository has an Apache-2.0 LICENSE and every crate declares it | A public repository with no licence means "all rights reserved" — outsiders may read but not implement, which contradicts the whole point |
+| 10b | Every error code in the **source** appears in the specification | Rule 10 runs one way only. The reverse direction cost us `bad-key`: the code was still returned for a well-formed point off the curve, while the standard listed it among codes **removed as impossible**. Two implementations, two codes, same package |
+| 20 | No device-permission keys in the macOS bundle | The original reason is gone with the web engine, and the rule stays for one that stands alone: a purpose string is a **promise to the user**, and a build that asks for the camera it never opens has already broken it |
+| 21 | Every flag CI `check`s, CI also `test`s | `cargo check` compiles without running a single test. Code behind a check-only flag has tests that compile and never execute — that is not a guard, it is the belief that there is one |
+| 22 | An error code is named only where it is defined | Rule 10 reads the code table, not the prose. An invented code in a paragraph — `action-outside-scope` — passed it. An outsider implementing from that prose emits a code no other implementation knows |
+| 23 | A 0.1 requirement never rests on a document outside 0.1 | `VERSIONING.md` sits outside every versioned directory, so it is **not frozen**. A requirement leaning on it is a requirement editable without a version bump |
+| 24 | A shipping build with a window has the accessibility bridge | Until 2026-08-25 the bridge sat behind a flag `tcc-browser` could not reach, so **every build a user ever ran** was a slab of pixels to a screen reader. It fell out of dependency weight, not a decision |
+
+> Numbering note: there is **no rule 19** — the number is unused. The count is 24
+> because `10b` exists alongside `10`. `tools/kiem-luat-phu-thuoc.sh` is the
+> authority; rule 17 fails the build if any document's count drifts from it.
 
 > **A rule written in a comment gets violated eventually** — usually at 11pm by
 > somebody who just wants it to run. So they are enforced by a machine.
@@ -176,6 +188,10 @@ the replaceability of the renderer as a demonstrated property. It is not one.
 
 What is true now:
 
+- The swap **did happen, once, and it worked**: when the web renderer was
+  deleted on 2026-08-23, **no application changed a line**. That is real
+  evidence and it is not withdrawn here. What it is not is a *standing* check —
+  it happened once and cannot happen again.
 - The project runs on **`tcc-render-raster`** — pixels drawn in Rust, no `wry`,
   no web engine in the user's process. The right-hand box was reached.
 - `Renderer` has **exactly one production implementation**. The other three

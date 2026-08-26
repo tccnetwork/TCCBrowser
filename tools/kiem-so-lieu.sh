@@ -230,6 +230,12 @@ fi
 #
 # Một dòng phạm vi không phải văn xuôi: nó quyết định cái gì được soi. Chép tay
 # thì nó trôi, và trôi im lặng — không phép thử nào đỏ khi một hòm mới sinh ra.
+#
+# ⚠️ Số hòm PHỤ THUỘC NHÁNH: `main` không có ví nên chỉ 9 hòm, nhánh
+# `giai-doan-3.1` có 11. Cổng này so với `crates/` của chính nhánh đang đứng —
+# đó là điều muốn: tài liệu phải mô tả đúng thứ người đọc đang cầm. Nghĩa là
+# con số 9 cũ trong `ARCHITECTURE.md` có thể CHƯA BAO GIỜ sai trên `main`; nó
+# chỉ sai ở đây. Đừng đọc cổng này như lời buộc tội ai đó viết ẩu.
 lech_hom=$(python3 - <<'PY2'
 import re, pathlib
 that = sorted(d.name for d in pathlib.Path("crates").iterdir() if d.is_dir())
