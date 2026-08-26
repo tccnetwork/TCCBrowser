@@ -213,6 +213,18 @@ mod kiem_thu {
     /// Chạy có chủ đích:
     /// `cargo test -p tcc-keystore --features os-keystore -- --ignored`
     ///
+    /// ⚠️ **Lượt chạy bị cắt giữa chừng để lại rác trong chuỗi khoá của bạn.**
+    /// Nó dọn ở ĐẦU và ở CUỐI, nên lượt sau vẫn đúng — nhưng bị giết ở giữa thì
+    /// phần dọn cuối không chạy, và máy còn lại một mục tên
+    /// `tcc-kiem-thu-khoa-khong-bao-ve`. Xoá bằng:
+    ///
+    /// ```text
+    /// security delete-generic-password -s com.tcc.browser.wallet \
+    ///   -a tcc-kiem-thu-khoa-khong-bao-ve
+    /// ```
+    ///
+    /// Đúng chuyện ấy đã xảy ra ngày 26/08/2026 khi tôi giết cổng đang treo.
+    ///
     /// ⚠️ Lời giải ĐÚNG chưa làm: dựng một **Keychain tạm** có mật khẩu biết
     /// trước rồi mở sẵn, thay vì dùng chuỗi khoá đăng nhập. Việc ấy đòi
     /// `MacKeychain` nhận vào một chuỗi khoá thay vì luôn dùng mặc định — xem

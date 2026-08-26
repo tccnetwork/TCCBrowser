@@ -29,6 +29,9 @@ use crate::NetError;
 /// Trần kích thước phản hồi. Một giao dịch chưa ký là vài trăm byte; 1 MiB đã
 /// là rộng rãi gấp nghìn lần, và nó chặn máy chủ thù địch nuốt hết bộ nhớ.
 const MAX_RESPONSE: u64 = 1024 * 1024;
+// Chốt CON SỐ, lúc dựng. Đổi một dấu `*` thành `+` vẫn biên dịch, vẫn chạy, chỉ
+// ra một trần khác hẳn — và không phép thử nào nhìn vào một biểu thức hằng.
+const _: () = assert!(MAX_RESPONSE == 1_048_576);
 
 /// Thời gian chờ. Ngắn hơn `get` của ứng dụng: đây là một lần gọi ta chủ động,
 /// và người dùng đang ngồi chờ trước màn hình.
@@ -38,6 +41,30 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 #[derive(Debug, Clone)]
 pub struct JsonRpc {
     endpoint: String,
+}
+
+/// Đọc thân phản hồi JSON-RPC. **Hàm thuần** — kiểm được không cần máy chủ.
+///
+/// Tách ra vì phần này mang ba quyết định mà một máy chủ thù địch chạm tới
+/// được, và cả ba từng nằm trong một hàm chỉ chạy khi có mạng thật:
+///
+/// * `"error"` KHÔNG rỗng thì đó là lỗi, dù có `result` hay không;
+/// * `"error": null` là chuyện BÌNH THƯỜNG của JSON-RPC, không phải lỗi;
+/// * thiếu `result` thì nói rõ là thiếu, đừng trả một giá trị rỗng.
+///
+/// Kiểm đột biến 26/08/2026: xoá dấu `!` trong `filter(|e| !e.is_null())` thì
+/// MỌI lời gọi thành công đều thành lỗi, và không phép thử nào đỏ — vì không
+/// phép thử nào chạy tới đây.
+fn doc_phan_hoi(chu: &str) -> Result<serde_json::Value, NetError> {
+    let v: serde_json::Value =
+        serde_json::from_str(chu).map_err(|e| NetError::Goi(format!("không phải JSON: {e}")))?;
+
+    if let Some(loi) = v.get("error").filter(|e| !e.is_null()) {
+        return Err(NetError::Goi(format!("máy chủ trả lỗi: {loi}")));
+    }
+    v.get("result")
+        .cloned()
+        .ok_or_else(|| NetError::Goi("phản hồi thiếu trường result".to_owned()))
 }
 
 impl JsonRpc {
@@ -99,15 +126,7 @@ impl JsonRpc {
             .read_to_string()
             .map_err(|e| crate::dich_loi_doc(&e, MAX_RESPONSE))?;
 
-        let v: serde_json::Value = serde_json::from_str(&chu)
-            .map_err(|e| NetError::Goi(format!("không phải JSON: {e}")))?;
-
-        if let Some(loi) = v.get("error").filter(|e| !e.is_null()) {
-            return Err(NetError::Goi(format!("máy chủ trả lỗi: {loi}")));
-        }
-        v.get("result")
-            .cloned()
-            .ok_or_else(|| NetError::Goi("phản hồi thiếu trường result".to_owned()))
+        doc_phan_hoi(&chu)
     }
 }
 
@@ -135,5 +154,36 @@ mod kiem_thu {
         for ma in [301, 302, 303, 307, 308] {
             assert!(crate::check_status(ma).is_err(), "{ma} lọt qua");
         }
+    }
+
+    /// **Ba quyết định của phản hồi JSON-RPC, cả ba máy chủ chạm tới được.**
+    ///
+    /// Trước 26/08/2026 chúng nằm trong một hàm chỉ chạy khi có mạng thật, nên
+    /// không phép thử nào tới. Kiểm đột biến: xoá dấu `!` trong
+    /// `filter(|e| !e.is_null())` thì MỌI lời gọi thành công thành lỗi, mà mọi
+    /// phép thử vẫn xanh.
+    #[test]
+    fn doc_phan_hoi_phan_biet_ba_truong_hop() {
+        // `error: null` là chuyện BÌNH THƯỜNG — không phải lỗi.
+        assert_eq!(
+            doc_phan_hoi(r#"{"result":42,"error":null}"#).unwrap(),
+            serde_json::json!(42),
+            "`error: null` bị coi là lỗi — mọi lời gọi thành công sẽ hỏng"
+        );
+
+        // `error` có thật thì là lỗi, DÙ có `result`.
+        let loi = doc_phan_hoi(r#"{"result":42,"error":{"code":-1}}"#).unwrap_err();
+        assert!(
+            loi.to_string().contains("máy chủ trả lỗi"),
+            "máy chủ báo lỗi mà vẫn nhận `result`: {loi}"
+        );
+
+        // Thiếu `result` thì nói rõ là thiếu, không trả giá trị rỗng.
+        let loi = doc_phan_hoi(r#"{"jsonrpc":"2.0"}"#).unwrap_err();
+        assert!(loi.to_string().contains("thiếu trường result"), "{loi}");
+
+        // Không phải JSON thì nói rõ thế.
+        let loi = doc_phan_hoi("khong-phai-json").unwrap_err();
+        assert!(loi.to_string().contains("không phải JSON"), "{loi}");
     }
 }

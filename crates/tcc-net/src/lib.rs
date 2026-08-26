@@ -63,6 +63,10 @@ pub const MAX_WAIT: Duration = Duration::from_secs(20);
 //
 // `Duration` không so sánh được trong ngữ cảnh `const`, nên so qua `as_secs`.
 const _: () = {
+    // Chốt ĐÚNG con số, không chỉ một khoảng. Kiểm đột biến 26/08/2026: đổi
+    // `8 * 1024 * 1024` thành `8 * 1024 + 1024` vẫn nằm trong khoảng cũ, nên
+    // phép kiểm khoảng cho qua — một trần 9 KiB đội lốt 8 MiB.
+    assert!(MAX_BYTES == 8_388_608);
     assert!(MAX_BYTES > 0 && MAX_BYTES <= 64 * 1024 * 1024);
     assert!(MAX_WAIT.as_secs() > 0 && MAX_WAIT.as_secs() <= 60);
 };

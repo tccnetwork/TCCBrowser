@@ -523,4 +523,28 @@ mod kiem_thu {
              đang nói sai, y như `bad-key`"
         );
     }
+
+    /// **Trần cây giao diện chặn ĐÚNG ở mép — 1 MiB được nhận.**
+    ///
+    /// `spec/0.1/06-error-codes.md:108` ghi "over 1 MiB", nên đúng 1 MiB phải
+    /// QUA. Kiểm đột biến 26/08/2026: `>` thành `>=` mà không phép thử nào đỏ.
+    /// Lần thứ tư cùng hạng ranh giới này trong hai ngày — sau `check_host`
+    /// (253), bản kê khai (64 KiB) và nội dung gói (256 MiB).
+    #[test]
+    fn tran_cay_giao_dien_chan_dung_o_mep() {
+        // Đúng bằng trần: không được chối BẰNG TRẦN. (Nó vẫn hỏng vì không phải
+        // JSON — điều cần phân biệt là chối vì LÝ DO NÀO.)
+        let vua_du = vec![b' '; MAX_UI_BYTES];
+        let ma = decode(&vua_du)
+            .expect_err("toàn khoảng trắng không phải JSON")
+            .ma();
+        assert_ne!(
+            ma, "ui-too-large",
+            "đúng {MAX_UI_BYTES} byte bị chặn bằng trần — đặc tả nói được nhận"
+        );
+
+        // Hơn một byte thì đúng là quá trần.
+        let qua = vec![b' '; MAX_UI_BYTES + 1];
+        assert_eq!(decode(&qua).expect_err("quá trần").ma(), "ui-too-large");
+    }
 }

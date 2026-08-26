@@ -1482,6 +1482,68 @@ mod kiem_thu {
         );
     }
 
+    /// **Phân số của một bề phải là ĐÚNG phân số ấy.**
+    ///
+    /// `Extent::ti_le` dịch một từ trong vốn từ đóng của đặc tả 0.2 thành phần
+    /// của bề cha. Kiểm đột biến 26/08/2026: đổi `1.0 / 3.0` thành `1.0 * 3.0`
+    /// mà không phép thử nào đỏ — một "một phần ba" rộng GẤP BA nhóm cha, và bố
+    /// cục vỡ mà không ai báo.
+    #[test]
+    fn phan_so_cua_be_dung_bang_phan_so_ay() {
+        let gan = |a: Option<f32>, b: f32| {
+            let v = a.expect("bề này là phân số");
+            assert!((v - b).abs() < 1e-6, "chờ {b}, nhận {v}");
+        };
+        gan(Extent::Full.ti_le(), 1.0);
+        gan(Extent::Half.ti_le(), 0.5);
+        gan(Extent::Third.ti_le(), 1.0 / 3.0);
+        gan(Extent::Quarter.ti_le(), 0.25);
+        gan(Extent::TwoThirds.ti_le(), 2.0 / 3.0);
+        gan(Extent::ThreeQuarters.ti_le(), 0.75);
+
+        // Và MỌI phân số phải nằm trong (0, 1] — không có bề nào rộng hơn cha.
+        for e in [
+            Extent::Full,
+            Extent::Half,
+            Extent::Third,
+            Extent::Quarter,
+            Extent::TwoThirds,
+            Extent::ThreeQuarters,
+        ] {
+            let v = e.ti_le().expect("là phân số");
+            assert!(v > 0.0 && v <= 1.0, "{e:?} ra {v} — ngoài khoảng (0, 1]");
+        }
+
+        // Ba từ KHÔNG phải phân số thì không được giả vờ là phân số.
+        for e in [Extent::Content, Extent::Fill, Extent::None] {
+            assert!(e.ti_le().is_none(), "{e:?} không phải phân số mà trả về số");
+        }
+    }
+
+    /// **Bề bị cấm ở một trục phải bị CHỐI, với mã `bad-layout`.**
+    ///
+    /// Kiểm đột biến: thay cả thân `kiem_be` bằng `Ok(())` — tức là bỏ hẳn phép
+    /// kiểm — mà không phép thử nào đỏ. Lời khai bố cục khi ấy nhận mọi thứ.
+    #[test]
+    fn be_bi_cam_thi_bi_choi_voi_ma_bad_layout() {
+        let loi =
+            kiem_be("size.main", Extent::None, &[Extent::None]).expect_err("bề bị cấm mà lọt");
+        assert_eq!(loi.ma(), "bad-layout", "bị chối bằng mã khác: {loi}");
+        assert!(
+            loi.to_string().contains("none"),
+            "không nói rõ bề nào: {loi}"
+        );
+
+        let loi = kiem_be("x", Extent::Fill, &[Extent::Fill]).expect_err("bề bị cấm mà lọt");
+        assert!(
+            loi.to_string().contains("fill"),
+            "không nói rõ bề nào: {loi}"
+        );
+
+        // Bề KHÔNG nằm trong danh sách cấm thì qua.
+        assert!(kiem_be("x", Extent::Half, &[Extent::Fill]).is_ok());
+    }
+
     /// **Mã hành động hỏng phải ra ĐÚNG mã `bad-action-id`.**
     ///
     /// Mã ấy có vector — nhưng vector kiểm tầng BẢN KÊ KHAI (`SpecError`), còn

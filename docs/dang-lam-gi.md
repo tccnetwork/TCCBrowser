@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**388 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**392 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -398,6 +398,33 @@ Lần thứ ba trong hai ngày "chưa chạy tới" được báo thành "phép 
 bộ vector ngoài trọng tài và lượt đĩa đầy. Lần này cái giá của việc tin nhầm sẽ
 là một ngày đi vá hai mươi chỗ không hỏng, ở đúng crate không được phép làm
 hỏng.
+
+**Đo nốt hai crate cuối — `tcc-ui` và `tcc-net`. Cả CHÍN crate nay đã đo ít
+nhất một lần.** 101 mutant, 59 bị bắt, 17 sống, bốn trong số đó là lỗ thật.
+
+- **Một dấu `!` bị xoá làm MỌI lời gọi RPC thành công thành lỗi.**
+  `v.get("error").filter(|e| !e.is_null())` quyết định một phản hồi JSON-RPC có
+  phải lỗi không. Bỏ dấu ấy thì `"error": null` — tình huống BÌNH THƯỜNG — bị
+  coi là lỗi, còn lỗi thật thì bị nuốt. Không ai đỏ vì **không ai chạy tới**: cả
+  khối nằm trong một hàm chỉ chạy khi có mạng thật. Nay là hàm thuần
+  `doc_phan_hoi`. Cùng nước đi với `dich_loi_doc` và `phan_loai`: **kéo phần
+  quyết định ra khỏi phần I/O rồi kiểm phần quyết định.**
+- **Một "một phần ba" có thể rộng GẤP BA nhóm cha.** `1.0 / 3.0` thành
+  `1.0 * 3.0` mà không ai đỏ. Nay ghim cả sáu phân số và bất biến "mọi phân số
+  nằm trong (0, 1]". Kèm `kiem_be` — phép chối một bề đặt sai trục — thay cả
+  thân bằng `Ok(())` vẫn xanh.
+- **Trần cây giao diện 1 MiB**: `>` thành `>=`, không ai thấy.
+
+**Bốn lần cùng một hạng ranh giới trong hai ngày** — 253 ký tự tên máy chủ,
+64 KiB bản kê khai, 256 MiB nội dung gói, 1 MiB cây giao diện. Bốn lần thì
+không còn là sơ suất mà là **chỗ mù có hệ thống**: viết phép thử thì người ta
+tự nhiên chọn một giá trị rõ ràng sai và một giá trị rõ ràng đúng. **Không ai
+tự nhiên chọn đúng con số ở mép** — mà đó là giá trị duy nhất phân biệt được
+`>` với `>=`, và cũng là con số đặc tả gọi tên.
+
+Hai hằng cũng chốt bằng con số chính xác thay vì một khoảng: `8 * 1024 * 1024`
+đổi thành `8 * 1024 + 1024` vẫn nằm trong "lớn hơn 0 và không quá 64 MiB", nên
+phép kiểm khoảng cho qua **một trần 9 KiB đội lốt 8 MiB**.
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

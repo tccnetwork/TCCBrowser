@@ -73,6 +73,8 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B57 | A code the specification **withdrew** stays unreachable from a package, and a test proves it | `goi_co_publisher_khong_phai_hex_ra_ma_not_hex`, `goi_co_con_tren_nut_la_ra_ma_bad_json`; rule 10b — added 2026-08-26, see §3.26 |
 | B58 | A `Debug` that exists to **redact** is tested — it hides the secret **and** still says something | `debug_cua_kieu_giu_khoa_khong_lo_khoa`, `debug_khoa_cong_khai_va_chu_ky_noi_duoc_do_dai` — added 2026-08-26, see §3.27 |
 | B59 | "No key yet", "you pressed cancel" and "the OS failed" stay **three different answers** | `ba_ma_trang_thai_ra_ba_loi_khac_nhau` — added 2026-08-26, see §3.28 |
+| B60 | Layout fractions are **the fractions they name**, and every one lands in (0, 1] | `phan_so_cua_be_dung_bang_phan_so_ay`, `be_bi_cam_thi_bi_choi_voi_ma_bad_layout` — added 2026-08-26, see §3.29 |
+| B61 | A JSON-RPC reply carrying `error: null` is **success**, and one carrying a real error is **not** — decided by a pure function | `doc_phan_hoi_phan_biet_ba_truong_hop` — added 2026-08-26, see §3.29 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1155,7 +1157,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 388.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 392.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1316,6 +1318,48 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.29 Four boundaries, one blind spot
+
+Mutating the last two crates — `tcc-ui` and `tcc-net` — closed the sweep: all
+nine crates have now been measured at least once. Seventeen survivors, four of
+which were real.
+
+**One dropped `!` turned every successful call into a failure.**
+`v.get("error").filter(|e| !e.is_null())` decides whether a JSON-RPC reply is an
+error. Remove the negation and `"error": null` — the *ordinary* success case —
+is treated as a failure, while a genuine error is swallowed. Nothing went red,
+because nothing reached it: the whole block sat inside a function that only runs
+with a live server. It is now a pure function, `doc_phan_hoi`, and the three
+decisions a hostile server can reach are tested without one. Same move as
+`dich_loi_doc` and `phan_loai`: **pull the decision out of the I/O, then test the
+decision.**
+
+**A "third" could have been three times its parent.** `Extent::ti_le` maps the
+0.2 layout vocabulary onto a fraction of the parent. `1.0 / 3.0` mutated to
+`1.0 * 3.0` and no test noticed. Both the six values and the invariant that
+every fraction lands in (0, 1] are now pinned. Alongside it, `kiem_be` — the
+check that refuses an extent on an axis where it is meaningless — could be
+replaced wholesale by `Ok(())` with the suite still green.
+
+**And a fourth inclusive boundary.** `MAX_UI_BYTES`: `>` to `>=`, unnoticed.
+That makes four of the same shape in two days — host length 253, manifest 64
+KiB, package content 256 MiB, interface 1 MiB.
+
+Four instances is not carelessness; it is a **systematic blind spot**. Writing a
+test, one naturally picks a value that is clearly wrong and one that is clearly
+fine. Nobody naturally picks *exactly the number on the edge* — which is the
+only value that distinguishes `>` from `>=`, and the only value the
+specification actually names.
+
+Two constants were also pinned to their exact values rather than a range:
+`8 * 1024 * 1024` mutated to `8 * 1024 + 1024` stays inside "greater than zero
+and at most 64 MiB", so the range assertion waved through a 9 KiB ceiling
+wearing an 8 MiB label.
+
+⚠️ Still unproven, and named rather than implied: `HttpNetwork::get` and
+`JsonRpc::call` can each be replaced by a stub with the suite green. Both need a
+TLS server standing in the test, the same gap §3.16 records for the timeout.
 
 ### 3.28 The macOS keystore is mostly untested, and now says so
 
@@ -2100,7 +2144,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 388 tests
+cargo test --workspace                              # 392 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
