@@ -220,5 +220,48 @@ else
   dat "mọi lệnh cargo trong tài liệu đều trỏ tới gói, cờ và bộ thử có thật"
 fi
 
+# ── Danh sách hòm trong tài liệu phải khớp workspace ─────────────────────────
+#
+# ⚠️ Vì sao có cổng này: tới 26/08/2026 dòng **phạm vi kiểm định** của
+# SECURITY.md vẫn kể tên `tcc-render-webview` — một hòm đã xoá — và BỎ SÓT bốn
+# hòm có thật: `tcc-chain`, `tcc-keystore`, `tcc-net`, `tcc-render-raster`. Tức
+# là mã nói chuyện với chuỗi, mã giữ khoá ví, và mã DUY NHẤT được mở socket đều
+# nằm ngoài phạm vi mà người soát được trả tiền để nhìn.
+#
+# Một dòng phạm vi không phải văn xuôi: nó quyết định cái gì được soi. Chép tay
+# thì nó trôi, và trôi im lặng — không phép thử nào đỏ khi một hòm mới sinh ra.
+lech_hom=$(python3 - <<'PY2'
+import re, pathlib
+that = sorted(d.name for d in pathlib.Path("crates").iterdir() if d.is_dir())
+ra = []
+
+s = open("SECURITY.md", encoding="utf-8").read()
+m = re.search(r"Scope[^\n]*\n(.*?)\n\n", s, re.S)
+if not m:
+    ra.append("SECURITY.md:không-tìm-thấy-dòng-phạm-vi")
+else:
+    # CHỈ đọc chính câu phạm vi, không đọc phần giải thích bên dưới — phần ấy
+    # cố ý nhắc tên hòm đã xoá để nói ra sai lầm cũ.
+    ke = sorted(set(re.findall(r"`(tcc-[a-z0-9-]+)`", m.group(0))))
+    for t in sorted(set(ke) - set(that)):
+        ra.append(f"SECURITY.md:kể-hòm-không-có-{t}")
+    for t in sorted(set(that) - set(ke)):
+        ra.append(f"SECURITY.md:bỏ-sót-hòm-{t}")
+
+a = open("ARCHITECTURE.md", encoding="utf-8").read()
+m = re.search(r"There are \*\*(\d+)\*\*", a)
+if not m:
+    ra.append("ARCHITECTURE.md:không-tìm-thấy-số-hòm")
+elif int(m.group(1)) != len(that):
+    ra.append(f"ARCHITECTURE.md:ghi-{m.group(1)}-hòm-thật-là-{len(that)}")
+print(" ".join(ra))
+PY2
+)
+if [ -n "$lech_hom" ]; then
+  bao "danh sách hòm trong tài liệu đã trôi khỏi workspace:$lech_hom"
+else
+  dat "tài liệu kể đúng $(ls -d crates/*/ | wc -l | tr -d ' ') hòm, không thừa không sót"
+fi
+
 [ "$loi" = 0 ] && echo "════ ĐẠT ════" || echo "════ HỎNG: $loi ════"
 exit "$loi"

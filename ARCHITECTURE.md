@@ -54,7 +54,7 @@ Arrows read "depends on". Their direction **must never be reversed**.
               ┌────────┘        └────────┐
               │                          │
       ┌───────▼────────┐      ┌──────────▼─────────┐
-      │  tcc-runtime   │      │ tcc-render-webview │  scaffolding
+      │  tcc-runtime   │      │ tcc-render-raster  │  pixels, pure Rust
       └───┬────┬───┬───┘      └──────────┬─────────┘
           │    │   │                     │
           │    │   └─────────┐  ┌────────┘
@@ -92,11 +92,11 @@ replacement boundaries**:
 |---|---|
 | `tcc-crypto` | **Trust boundary.** It needs an independent audit, so it must carry the fewest dependencies and be readable on its own. |
 | `tcc-spec` | **Outsiders must be able to read it.** Anyone implementing the TCC standard needs this crate and nothing else — not the whole browser. |
-| `tcc-ui` ⟷ `tcc-render-*` | **Replacement boundary.** WebView today, GPU tomorrow. Apps must never be able to tell. |
+| `tcc-ui` ⟷ `tcc-render-*` | **Replacement boundary.** Raster today, GPU tomorrow. Apps must never be able to tell. **Today it holds only one production renderer — see §4 for what that costs.** |
 | `tcc-net` | **The way out of the machine, made visible.** Only `tcc-shell` may depend on it, so reading `Cargo.toml` proves the app loader cannot open a socket. |
 | `tcc-shell` | **Assembly point.** Exactly one place knows which concrete renderer exists. |
 
-The original draft proposed **25 crates**. There are **9**, because creating empty
+The original draft proposed **25 crates**. There are **11**, because creating empty
 crates is not modularity — it is empty directories. Split further only for a
 **real reason**: a new trust boundary, or something that must be replaceable.
 
@@ -108,12 +108,12 @@ Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 
 | # | Rule | Why |
 |---|---|---|
-| 1 | `tcc-ui` depends on no renderer | Lose this and the escape route from WebView is gone |
+| 1 | `tcc-ui` depends on no renderer | Lose this and apps are welded to whichever renderer ships |
 | 2 | Only `tcc-shell` depends on `tcc-render-*` | Keep the assembly point singular |
 | 3 | `tcc-crypto` is a leaf | A trust boundary must not swell |
 | 4 | `tcc-spec` is a leaf | Outsiders can implement the standard |
 | 5 | `tcc-runtime` knows no renderer | It speaks only through `tcc-ui` |
-| 6 | No DOM/HTML/CSS in the app-facing API | Leak it and apps are welded to WebView |
+| 6 | No DOM/HTML/CSS in the app-facing API | Leak it and apps are welded to a web engine |
 | 7 | Every conformance vector group is present and runnable | A missing group is a part of the standard nobody can check |
 | 8 | Only `tcc-shell` depends on `tcc-net` | The path off the machine stays visible in the dependency tree |
 | 9 | The demo key never leaves `examples/` | Anyone can sign with it; a real package signed by it is forgeable by everyone |
@@ -163,13 +163,39 @@ the building.
 
 Rules 1, 2, 5 and 6 exist **solely** to keep the right-hand box reachable.
 
-The seam is no longer only a plan: `tcc-render-webview` is built and exercised
-on **WebKitGTK under Linux** as well as WKWebView on macOS, in CI. The renderer
-being replaceable was an argument until something else actually ran it.
+### Status, 2026-08-26 — the route was taken, and the proof went with it
 
-A side benefit: the constraint forces `tcc-ui` to be designed properly from the
-start. If it is abstract enough to run on two genuinely different renderers, it
-was designed correctly.
+**The paragraph that stood here until 2026-08-26 was false.** It read: *"The
+seam is no longer only a plan: `tcc-render-webview` is built and exercised on
+WebKitGTK under Linux as well as WKWebView on macOS, in CI. The renderer being
+replaceable was an argument until something else actually ran it."*
+
+That was true when written. `tcc-render-webview` has since been **deleted**, and
+with it the CI job that ran it. An auditor reading the old text would have taken
+the replaceability of the renderer as a demonstrated property. It is not one.
+
+What is true now:
+
+- The project runs on **`tcc-render-raster`** — pixels drawn in Rust, no `wry`,
+  no web engine in the user's process. The right-hand box was reached.
+- `Renderer` has **exactly one production implementation**. The other three
+  implementors are test doubles inside `tcc-ui`'s own test module.
+- So rules 1, 2, 5 and 6 are still **enforced**, but the property they exist to
+  protect — *this API is abstract, not a shape moulded around one renderer* — is
+  no longer **measured** by anything. A trait with one implementor always fits
+  that implementor, including when it has quietly grown to match its internals.
+
+This is stated rather than quietly dropped because "we removed the second
+implementation" and "the abstraction is proven" cannot both be on the page.
+
+**What would restore the proof:** a second renderer that actually runs — the GPU
+backend, or a text-mode renderer complete enough to load a signed package —
+running the sample app with **not one line changed**. Until then, treat rules 1,
+2, 5 and 6 as a discipline that is enforced but unverified.
+
+A side benefit that still holds: the constraint forced `tcc-ui` to be designed
+against something other than itself while a second renderer existed. That
+history is real, and it is why the API is in the shape it is.
 
 ---
 

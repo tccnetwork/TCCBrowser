@@ -186,8 +186,23 @@ thật.
 | 4.3 | Bố cục, hợp thành — ✅ **xong** (17/08): hàng/cột, xuống dòng, ngắt giữa từ, căn giữa dọc, nút cùng hàng rộng bằng nhau, và **bất biến KHÔNG vẽ đè**. "Căn lề" cố ý không vào tiêu chuẩn — [`../docs/vi-thiet-ke.md`](../docs/vi-thiet-ke.md) §23 |
 | 4.4 | Trợ năng qua AccessKit — 🔶 **ánh xạ xong** (17/08), **adapter macOS đã nối** (19/08/2026, cờ `window-tro-nang`). Còn Windows, Linux, và `ActionHandler` (cố ý để trống — xem dưới) |
 
-**Cổng ra:** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không sửa một dòng nào**.
-Đó là lúc chứng minh được đường thoát là thật.
+**Cổng ra (nguyên bản):** ứng dụng mẫu chạy trên **cả hai** bộ dựng, **không
+sửa một dòng nào**. Đó là lúc chứng minh được đường thoát là thật.
+
+❌ **Cổng ra này KHÔNG CÒN CHẠY ĐƯỢC, và cái giá phải nói ra.** Bộ dựng WebView
+đã gỡ hẳn, nên không có bộ dựng thứ hai để chạy cùng ứng dụng mẫu. Trait
+`Renderer` nay có **đúng một** bản cài đặt sản xuất — `RasterRenderer`; ba bản
+còn lại là hàng giả nằm trong bộ thử của `tcc-ui`.
+
+Nghĩa là tính chất *"đường thoát là thật"* hiện **không được gì chứng minh cả**.
+Nó không sai — nó **chưa được đo**. Một trait một bản cài đặt luôn vừa khít bản
+cài đặt ấy, kể cả khi nó đã âm thầm mọc theo hình dáng bên trong của bản ấy;
+không có bản thứ hai thì không có gì bắt được chuyện đó.
+
+Thứ sẽ chứng minh lại: **một bộ dựng thứ hai chạy thật** — bản GPU ở việc 4.1,
+hoặc một bộ dựng ra văn bản đủ dùng — nạp cùng gói đã ký, không sửa một dòng
+nào. Cho tới lúc ấy, đừng ghi giai đoạn 4 là "xong": ghi là **một bộ dựng chạy
+được, đường thoát chưa đo**.
 
 🔶 **Đạt phần vẽ, bấm và GẠT CÔNG TẮC** (19/08/2026). `cargo run -p tcc-shell --features
 window --example man-hinh-raster examples/hello-tcc` mở gói `hello-tcc`
@@ -212,9 +227,17 @@ này — nên nếu chỉ chạy `hello-tcc` thì cổng ra vẫn còn một n�
 Ba luật của hộp thoại giữ nguyên trên bộ dựng mới: mở ra **mọi mục tắt**,
 **đóng cửa sổ không phải đồng ý**, và **gạt công tắc không đóng hộp thoại**.
 
-Cờ `window` **tách khỏi** cờ `window` có chủ ý: `window` kéo theo `wry`
-và cả một máy dựng web. `cargo tree` với `window` cho **0 crate `wry`** —
-cây phụ thuộc tự nói ra rằng đường thoát không tựa vào thứ nó định thoát khỏi.
+⚠️ **Câu cũ ở đây đã rỗng nghĩa, 26/08/2026 gỡ bỏ.** Nguyên văn nó khoe:
+*"`cargo tree` với cờ ra pixel cho 0 crate `wry` — cây phụ thuộc tự nói ra rằng
+đường thoát không tựa vào thứ nó định thoát khỏi."* Câu ấy là bằng chứng thật
+**chừng nào `wry` còn là phụ thuộc của một cờ khác**. Bộ dựng WebView đã gỡ hẳn
+([`bo-webview.md`](bo-webview.md)), nên nay "0 crate `wry`" đúng với **mọi** bản
+dựng, và đúng với mọi dự án Rust chưa từng đụng tới `wry`. Một phép thử không
+thể đỏ thì không phải phép thử.
+
+Đợt đổi tên cờ còn để lại một câu tự mâu thuẫn — *"cờ `window` tách khỏi cờ
+`window`"*, một cờ tách khỏi chính nó — sống sót qua nhiều lượt đọc. Đó là dấu
+hiệu không ai đọc lại đoạn này sau khi gỡ WebView, chỉ đổi tên bằng máy.
 
 🔶 **Trợ năng: đã nối trên macOS** (19/08/2026), cờ `window-tro-nang`.
 `accesskit_macos::SubclassingAdapter` gắn vào `NSView` của cửa sổ **trước khi
@@ -309,6 +332,31 @@ vài mốc để đối chiếu, đừng tự lừa mình:
 Đây chính là lý do kế hoạch này **mượn WebView** và **không bắt đầu bằng bộ dựng
 hình**. Ta không đua với họ ở phần dựng web. Ta đua ở phần chưa ai làm: quyền
 năng, ví trong runtime, chữ ký hậu lượng tử, và một tiêu chuẩn có bộ kiểm định.
+
+> ⚠️ **ĐOẠN TRÊN NÓI VỀ MỘT QUYẾT ĐỊNH ĐÃ BỊ ĐẢO NGƯỢC** (ghi 26/08/2026).
+>
+> Kế hoạch này **không còn mượn WebView** — bộ dựng ấy đã gỡ hẳn
+> ([`bo-webview.md`](bo-webview.md)), và dự án **đang tự viết bộ dựng hình**.
+> Tức là hai vế của lập luận khả thi ở trên, cả hai, đều không còn đúng.
+>
+> Giữ nguyên chữ cũ chứ không xoá, vì bảng Servo / Ladybird / Chromium bên trên
+> **vẫn là những con số đúng** — chỉ có điều nay chúng đọc theo chiều ngược lại:
+> trước đây chúng giải thích vì sao ta *tránh* được cuộc đua ấy; nay chúng là
+> thước đo cuộc đua ta *đã bước vào* ở phần dựng hình.
+>
+> Cái giá cụ thể, không phải cảm tính: **trình duyệt này không mở được trang web
+> bất kỳ, và sẽ không mở được trong tương lai gần.** Ước lượng của chính tài
+> liệu này cho việc viết một máy dựng web là **12–18 tháng (không JS)** hoặc
+> **3–5 năm (có JS)**. Không có mốc thời gian nào trong tài liệu này bao gồm
+> con số ấy.
+>
+> Thứ dự án đổi lấy: một khung ứng dụng **hoàn toàn bằng Rust**, không `wry`,
+> không máy dựng web trong tiến trình người dùng — và ba lợi thế ở đoạn dưới thì
+> **không đổi**, chúng chưa bao giờ tựa vào WebView.
+>
+> Giai đoạn 5 bên trên (**5.1**, **5.2**, **5.4**) đo tầng WebView. Số đo ấy có
+> thật và đã lấy xong, nhưng nó đo một tầng **không còn trong dự án này**. Đọc
+> như hồ sơ lịch sử, đừng đọc như năng lực hiện có.
 
 Ba thứ đầu **Chromium không thêm vào được nữa** — kiến trúc của nó đã khoá lại rồi.
 Đó là lợi thế duy nhất của người đi sau, và là chỗ duy nhất đáng đổ sức.

@@ -5,8 +5,22 @@
 > section matters most — a security document that lists only achievements is a
 > misleading document.
 
-Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
-`tcc-capability`, `tcc-ui`, `tcc-render-webview`, `tcc-runtime`, `tcc-shell`
+Updated: 2026-08-26 · Scope — **every crate in `crates/`**, all eleven:
+`tcc-capability`, `tcc-chain`, `tcc-crypto`, `tcc-keystore`, `tcc-manifest`,
+`tcc-net`, `tcc-render-raster`, `tcc-runtime`, `tcc-shell`, `tcc-spec`,
+`tcc-ui`.
+
+> ⚠️ **This line was wrong until 2026-08-26, and wrong in the direction that
+> matters.** It named `tcc-render-webview`, a crate that had been deleted, and
+> it omitted four crates that exist: `tcc-chain`, `tcc-keystore`, `tcc-net`,
+> `tcc-render-raster` — among them the code that talks to the chain, the code
+> that holds wallet keys, and the only code allowed to open a socket. A scope
+> line is not prose: it decides what an auditor is paid to look at. Silently
+> narrowing it is how the most sensitive code goes unexamined.
+>
+> It is now stated as a rule rather than a list to copy by hand — *every crate
+> in `crates/`* — and `tools/kiem-so-lieu.sh` fails if the names below stop
+> matching the workspace.
 
 ---
 

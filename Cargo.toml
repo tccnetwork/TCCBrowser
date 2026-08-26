@@ -15,7 +15,7 @@ members = [
   "crates/tcc-capability",   # mô hình quyền năng
 
   # ---- Giao diện ----
-  "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào # bộ dựng #1: giàn giáo, sẽ tháo
+  "crates/tcc-ui",           # API component TRỪU TƯỢNG — không biết bộ dựng nào
   # Bộ dựng #2 — KHÔNG phải để đẹp hơn, mà để CHỨNG MINH luật "tcc-ui không
   # biết bộ dựng nào" là thật. Một trait chỉ có một bản cài đặt thì không ai
   # biết nó có thật sự trừu tượng hay không.

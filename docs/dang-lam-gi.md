@@ -14,8 +14,16 @@ Nhánh `giai-doan-3.1`, mọi cổng xanh.
 **394 phép thử · 154 vector · 62 bất biến · 24 luật kiến trúc · 20 lệnh theo cờ
 · bộ kiểm định tuân thủ ĐẠT.**
 
-Phiên này làm **lượt kiểm đột biến đầy đủ đầu tiên của dự án**: cả chín hòm đều
-đã có số đo, chỗ trước đây con số là **không**. Kiểm đột biến trả lời đúng một
+Phiên này làm **lượt kiểm đột biến đầy đủ đầu tiên của dự án**, chỗ trước đây
+con số là **không**.
+
+> ⚠️ Câu này thoạt đầu tôi viết là *"cả **chín** hòm đều đã có số đo"*. Trong
+> `crates/` có **mười một** hòm. Tôi chép lại con số đã trôi trong
+> `ARCHITECTURE.md` mà không đếm. Và tệ hơn: **bảng kết quả theo từng hòm chưa
+> hề được ghi lại**, nên lời khẳng định "đầy đủ" ấy **không kiểm được** — kể cả
+> bởi chính tôi. Một phép đo không có hồ sơ thì không lặp lại được, và không lặp
+> lại được thì nó là một câu chuyện, không phải một phép đo. Lượt sau phải ghi
+> bảng ấy ra. Kiểm đột biến trả lời đúng một
 câu mà "bao nhiêu phép thử" không trả lời được: *sửa mã cho sai đi thì có phép
 thử nào đỏ lên không?* Bộ thử xanh mà không đỏ khi mã hỏng thì nó không đo cái
 nó tưởng nó đo.
@@ -77,6 +85,50 @@ ghi đè mất.
 **Chưa biết vì sao. Đừng coi là đã sửa.** Thứ đã sửa chắc chắn chỉ là việc cổng
 vứt mất bằng chứng — lần sau nó tái diễn thì `/tmp/kiem-theo-co/<số>.txt` sẽ
 còn nguyên đầu ra. Ai gặp lại: giữ tệp ấy lại rồi hẵng chạy lại.
+
+### Tài liệu đã trôi khỏi mã — và trôi ở chỗ đắt nhất
+
+Đổi thứ tự ưu tiên sang "trình duyệt trước" buộc phải đọc lại kế hoạch, và đọc
+lại thì lộ ra một loạt câu **không thể đúng nữa** sau khi gỡ WebView. Chúng
+không sai lúc viết; chúng hoá sai khi thứ chúng đối chiếu bị xoá — và **không
+cổng nào bắt được hạng lỗi ấy**.
+
+- **`SECURITY.md` dòng phạm vi kiểm định** kể tên `tcc-render-webview` (đã xoá)
+  và **bỏ sót bốn hòm có thật**: `tcc-chain`, `tcc-keystore`, `tcc-net`,
+  `tcc-render-raster`. Tức là mã nói chuyện với chuỗi, mã giữ khoá ví, và mã
+  DUY NHẤT được mở socket đều nằm ngoài phạm vi người soát được trả tiền để
+  nhìn. Đây là chỗ đắt nhất trong cả đợt.
+- **`ARCHITECTURE.md` §4 khẳng định ở thì hiện tại** rằng bộ dựng WebView "được
+  dựng và chạy trên WebKitGTK dưới Linux cũng như WKWebView trên macOS, trong
+  CI". Không còn hòm ấy, không còn việc CI ấy. Người soát đọc đoạn đó sẽ tin
+  tính thay-thế-được của bộ dựng **đã được chứng minh**. Nó không được chứng
+  minh: `Renderer` nay có **đúng một** bản cài đặt sản xuất.
+- **`ARCHITECTURE.md` ghi 9 hòm**, thật là 11.
+- **`ke-hoach.md`** khoe `cargo tree` cho "0 crate `wry`" như bằng chứng đường
+  thoát. Bằng chứng ấy nay **rỗng**: `wry` không còn là phụ thuộc của bất kỳ cờ
+  nào, nên câu ấy đúng với mọi dự án Rust chưa từng đụng tới `wry`. Một phép
+  thử không thể đỏ thì không phải phép thử.
+- **`ke-hoach.md` mục "Quy đổi ra thời gian"** vẫn tựa cả lập luận khả thi vào
+  *"kế hoạch này mượn WebView và không bắt đầu bằng bộ dựng hình"* — cả hai vế
+  đều đã đảo ngược. Bảng Servo / Ladybird / Chromium vẫn đúng số, nhưng nay đọc
+  theo chiều ngược lại.
+- Hai xác chết của việc xoá bằng máy: câu *"cờ `window` tách khỏi cờ `window`"*
+  trong kế hoạch, và trong `Cargo.toml` chú thích của dòng WebView **dính sang
+  dòng `tcc-ui`**, khiến `tcc-ui` mang nhãn "bộ dựng #1: giàn giáo, sẽ tháo".
+- `crates/tcc-render-webview/` còn lại một thư mục **rỗng**, đủ để `ls crates/`
+  nói dối. Git không theo dõi thư mục rỗng nên không ai thấy.
+
+Đã sửa hết, và **giữ nguyên văn câu cũ ở mỗi chỗ** thay vì xoá — người soát cần
+thấy tài liệu đã từng nói gì với họ.
+
+**Cổng mới, đã kiểm đột biến năm cách:** `kiem-so-lieu.sh` nay bắt danh sách hòm
+trong `SECURITY.md` và số hòm trong `ARCHITECTURE.md` phải khớp `crates/`. Thử
+bỏ một tên, thêm một tên ma, sai con số, sinh thêm một hòm thật — cả năm đều bị
+bắt, và về nguyên trạng thì im lặng lại.
+
+Thứ **chưa** có cổng, nói ra để không tưởng là đã xong: không gì bắt được một
+câu văn xuôi hoá rỗng nghĩa vì thứ nó đối chiếu bị xoá. Đó là việc của người
+đọc, và nó chỉ xảy ra khi có ai thật sự đọc lại.
 
 ### ⚑ Thứ tự đã chốt: TRÌNH DUYỆT TRƯỚC, VÍ SAU
 
