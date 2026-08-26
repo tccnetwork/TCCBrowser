@@ -374,6 +374,19 @@ pub fn open_and_run_raster(
           -> Result<tcc_runtime::LoadedApp, Box<dyn std::error::Error>> {
         let (a, c) = cho.take().ok_or("đã cấp quyền một lần rồi")?;
         let a = tcc_runtime::grant_verified(a, c, |xin| {
+            // ⚠️ CHẶN Ở ĐÂY, không chỉ ở hộp thoại.
+            //
+            // Hộp thoại đã thôi hỏi về quyền bản dựng không cấp được — nhưng
+            // hỏi không phải đường duy nhất tới đây. `.tcc-quyen.json` ghi từ
+            // một bản dựng CÓ ví, đọc lại trên bản KHÔNG ví, sẽ mang theo câu
+            // "đã đồng ý" và cấp cho một thứ không tồn tại. Trục trợ năng cũng
+            // là một đường vào khác.
+            //
+            // Một câu trả lời do bản dựng khác ghi lại KHÔNG phải câu trả lời
+            // cho bản dựng này.
+            if !permission_dialog::cap_duoc(&xin.scope) {
+                return tcc_capability::Decision::Deny;
+            }
             let qd = nho
                 .as_ref()
                 .and_then(|n| n.lookup(&m_cap, xin))

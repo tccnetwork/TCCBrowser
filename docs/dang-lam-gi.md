@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**392 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**394 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc
@@ -435,6 +435,36 @@ Con số ấy sai nguy hiểm hơn vẻ ngoài: `AUDIT.md` là trang mời ngư�
 soát. Họ đếm được 61 rồi không biết tin con số nào — hoặc tệ hơn, dừng ở cái
 thứ 40 và tưởng đã soát hết. Nay có cổng, và kiểm đột biến: đổi 61 thành 40 là
 đỏ ngay.
+
+**Thứ tự ưu tiên chốt 26/08/2026: vẫn tích hợp ví, nhưng làm TRÌNH DUYỆT
+trước, ví sau.** Bản dựng chính nay là `--features window` — không có ví. Ghi ở
+[`ke-hoach.md`](ke-hoach.md).
+
+**Và ngay khi đổi thứ tự, một lỗ lộ ra.** Bản dựng không có ví VẪN hỏi người
+dùng về quyền ví — kèm câu "việc này chuyển tiền" và một công tắc gạt được. Nó
+vô hình suốt thời gian ai cũng dựng kèm ví.
+
+Hỏi một câu mà không cấp được câu trả lời là **hộp thoại nói dối**. Vá ở HAI
+chỗ, và chỗ thứ hai mới là chỗ đáng:
+
+- Hộp thoại thôi dựng công tắc cho quyền bản dựng không cấp được; nó nói thẳng
+  "bản dựng này không có ví — lời xin bị từ chối".
+- **Đường CẤP cũng từ chối.** Hộp thoại không phải lối vào duy nhất:
+  `.tcc-quyen.json` ghi từ bản CÓ ví mang theo câu "đã đồng ý", và trục trợ
+  năng là lối khác. **Câu trả lời do bản dựng KHÁC ghi lại không phải câu trả
+  lời cho bản dựng này.**
+
+Năm phép thử cũ đỏ theo — đúng như phải thế, vì chúng khẳng định tính chất của
+hàng ví CÓ công tắc. Sửa cho chúng nói đúng sự thật của TỪNG bản dựng, không
+tắt đi: bản có ví thì ghim câu "việc này chuyển tiền", bản không ví thì ghim
+câu từ chối. Bất biến B45 giữ nguyên ở cả hai — hàng ví phải KHÁC HẲN hàng
+mạng; chỉ câu mang dấu là khác.
+
+⚠️ Đặc tả **không có cách nào** để một bản cài đặt nói "tôi không cung cấp
+quyền năng này". `unknown-capability` nghĩa là quyền ấy không có trong tiêu
+chuẩn — một câu khác hẳn. Từ chối như một lần từ chối thường là cách trung thực
+hiện có, nhưng khoảng trống ấy đáng nằm cạnh ba mã lỗi trong
+[`de-nghi-ma-loi-thieu.md`](de-nghi-ma-loi-thieu.md).
 
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm

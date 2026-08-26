@@ -75,6 +75,7 @@ Updated: 2026-08-14 · Scope: `tcc-crypto`, `tcc-spec`, `tcc-manifest`,
 | B59 | "No key yet", "you pressed cancel" and "the OS failed" stay **three different answers** | `ba_ma_trang_thai_ra_ba_loi_khac_nhau` — added 2026-08-26, see §3.28 |
 | B60 | Layout fractions are **the fractions they name**, and every one lands in (0, 1] | `phan_so_cua_be_dung_bang_phan_so_ay`, `be_bi_cam_thi_bi_choi_voi_ma_bad_layout` — added 2026-08-26, see §3.29 |
 | B61 | A JSON-RPC reply carrying `error: null` is **success**, and one carrying a real error is **not** — decided by a pure function | `doc_phan_hoi_phan_biet_ba_truong_hop` — added 2026-08-26, see §3.29 |
+| B62 | A build never **asks** for a capability it cannot grant, and never honours a stored answer for one | `ban_dung_khong_co_vi_thi_khong_hoi_ve_vi`, `cap_duoc_noi_dung_su_that_ve_ban_dung` — added 2026-08-26, see §3.30 |
 
 **B40 — what is signed must be exactly what is checked (2026-08-14).**
 
@@ -1157,7 +1158,7 @@ built, because the threat model still reads as if it were there.
 | The tier-2 address bar, which ran in the frame's own view so a page could not type into it | A page filling in its own address, or answering a permission dialog on the user's behalf | There is no tier 2 and no address to bar |
 | `kiem-cum-tu-sai` — a wrong recovery phrase typed by script into a real window | End-to-end proof that the window stays open and re-shows the error rather than yielding a wallet | Scripted typing needs a script engine. `phrase_step`'s own tests remain and cover the decision; what is lost is the confirmation that the **window** behaves that way |
 
-**56 tests went with it** (393 → 337). Tests added since bring the count to 392.
+**56 tests went with it** (393 → 337). Tests added since bring the count to 394.
 
 **A leftover found two days later (2026-08-25).** `VerifiedApp::copy_content`
 handed out a **clone of the entire signed file tree**, and its own doc comment
@@ -1318,6 +1319,39 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.30 A build with no wallet was still asking about money
+
+The maintainer set the order on 2026-08-26: the wallet stays in the product,
+but the **browser is built first and the wallet integrated later**. The
+wallet-less build therefore becomes the primary one — and the moment it did, a
+defect surfaced that had been invisible while everyone built with the wallet on.
+
+That build still showed the wallet row: *"Access your TCC wallet — can ask you
+to sign transactions, **this moves money**"*, with a switch the user could turn
+on. A person would weigh a decision about money, grant it, and nothing would be
+behind it.
+
+Asking a question you cannot act on is a **dialog that lies**. It is the mirror
+of the rule this document keeps stating from the other side: the dialog must
+show what the runtime enforces. Here the runtime enforced nothing, because there
+was nothing there.
+
+Fixed in **two** places, and the second is the one that matters:
+
+- The dialog no longer renders a switch for a capability this build cannot
+  grant; it renders a plain line saying so.
+- **The grant path refuses it too.** The dialog is not the only route to a
+  decision: `.tcc-quyen.json` written by a wallet-enabled build carries a
+  remembered *yes*, and the accessibility axis is another entrance. **An answer
+  recorded by a different build is not an answer for this one.**
+
+⚠️ The standard has no way for an implementation to say *"I do not provide this
+capability"*. `unknown-capability` means the capability is not in the standard,
+which is a different statement. Refusing it as an ordinary denial is the honest
+behaviour available today — an app must handle denial anyway — but the gap
+belongs on the record next to the three codes in
+`docs/de-nghi-ma-loi-thieu.md`.
 
 ### 3.29 Four boundaries, one blind spot
 
@@ -2144,7 +2178,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ## 4. Reproducing everything
 
 ```bash
-cargo test --workspace                              # 392 tests
+cargo test --workspace                              # 394 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
 cargo run -p tcc-conformance                        # 154 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check

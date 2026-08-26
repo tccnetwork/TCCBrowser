@@ -91,13 +91,29 @@ else
 fi
 
 # Câu cảnh báo là chữ của KHUNG, không phải của gói — nên nó phải có mặt dù gói
-# viết gì. Đọc từ bản dựng KHÔNG cửa sổ, chỗ in cây ra chữ.
-cay=$(CARGO_TARGET_DIR=/tmp/kiem-khoi-cay cargo run -q -p tcc-browser -- \
+# viết gì. Đọc từ bản dựng in cây ra chữ.
+#
+# ⚠️ Dựng CÓ cờ `wallet`. Từ 26/08/2026 bản dựng chính KHÔNG có ví, và bản
+# không ví trả về câu từ chối chứ không phải câu "chuyển tiền" — đúng như thiết
+# kế (§3.30). Kiểm câu ấy trên bản không ví là kiểm một thứ cố ý không có ở đó.
+# ⚠️ KHÔNG kiểm câu "this moves money" ở đây được, và nói rõ vì sao thay vì để
+# lại một phép kiểm luôn đỏ:
+#
+# Cờ `wallet` KÉO THEO `window`, nên bản dựng có ví MỞ CỬA SỔ THẬT thay vì in
+# cây ra chữ — không có gì để `grep`. Bản đầu của phép kiểm này viết đúng thế và
+# nó đỏ mãi, không phải vì hàng ví mất câu cảnh báo mà vì phép kiểm hỏi sai chỗ.
+#
+# Bất biến ấy do `quyen_vi_ky_duoc_hien_khac_han_quyen_khac` giữ, chạy trên
+# CHÍNH bản dựng có ví (`cargo test -p tcc-shell --features wallet`).
+
+# Chiều kiểm được ở đây: bản KHÔNG ví phải NÓI RA rằng nó không có ví, chứ không
+# im lặng bỏ hàng ấy đi — im lặng thì người dùng không biết gói đã xin gì.
+cay_khong=$(CARGO_TARGET_DIR=/tmp/kiem-khoi-cay cargo run -q -p tcc-browser -- \
   hop-thoai examples/vi-du-vi 2>&1 || true)
-if printf '%s' "$cay" | grep -q "this moves money"; then
-  echo "✅ hàng quyền ví mang câu 'this moves money'"
+if printf '%s' "$cay_khong" | grep -q "This build has no wallet"; then
+  echo "✅ bản dựng không ví nói rõ là không có ví"
 else
-  echo "❌ hàng quyền ví KHÔNG mang câu cảnh báo — B45"; loi=1
+  echo "❌ bản không ví im lặng về quyền ví — người dùng không biết gói xin gì"; loi=1
 fi
 
 # ── Luồng VÍ: đường chưa ai chạy bao giờ ────────────────────────────────────

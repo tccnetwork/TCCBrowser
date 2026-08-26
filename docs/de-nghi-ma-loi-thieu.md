@@ -63,6 +63,33 @@ cho đúng.
   trên nói rõ nó vẫn siết thêm ràng buộc, nên quyết định là của người bảo trì,
   không phải của tôi.
 
+---
+
+# Bổ sung 26/08/2026: đặc tả KHÔNG nói được "bản này không cung cấp quyền ấy"
+
+Quyết định "làm trình duyệt trước, ví sau" khiến bản dựng **không có ví** thành
+bản chính. Một gói xin quyền `wallet` chạy trên bản ấy đặt ra một câu hỏi đặc tả
+0.1 không trả lời được:
+
+> Bản cài đặt phải nói gì khi nó **không cung cấp** một quyền năng mà tiêu chuẩn
+> có định nghĩa?
+
+`unknown-capability` là câu **khác**: nó nghĩa là quyền ấy không nằm trong tiêu
+chuẩn. Nói nó ở đây là nói dối theo hướng ngược lại — bảo ứng dụng rằng nó xin
+một thứ không tồn tại, trong khi thứ ấy tồn tại và chỉ là bản này không có.
+
+**Cách xử hiện tại**: từ chối như một lần từ chối thường, và hộp thoại nói rõ
+"bản dựng này không có ví". Trung thực với người dùng, và ứng dụng vốn đã phải
+xử lý được việc bị từ chối. Nhưng ứng dụng **không phân biệt được** "người dùng
+từ chối" với "bản này không có" — mà hai điều ấy dẫn tới hai hành vi khác nhau:
+cái trước nên hỏi lại lần sau, cái sau thì đừng bao giờ hỏi nữa.
+
+Cùng hạng lỗi với `phan_loai` của kho khoá (§3.28): gộp hai lý do khác nhau vào
+một câu trả lời là giao diện — hoặc ứng dụng — không nói được điều đúng.
+
+**Chưa đề nghị mã mới**, vì chưa rõ đây là chuyện của 0.1 hay của 0.2. Ghi ra để
+nó không trôi.
+
 ## Tìm ra thế nào
 
 `cargo-mutants`, 25/08/2026. Đột biến trên `CryptoError::ma` sống sót vì

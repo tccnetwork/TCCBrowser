@@ -112,6 +112,8 @@ pub enum TextKey {
     WebKhongGiuGi,
     ViDuocXinChuKy,
     ViChiDocDiaChi,
+    /// Bản dựng này KHÔNG có ví — lời xin bị từ chối, không phải bị hỏi.
+    ViBanDungKhongCo,
     NguonKhongRo,
     /// ⚠️ Cùng mã ứng dụng nhưng khoá ký đã đổi.
     DoiKhoaKy,
@@ -445,6 +447,12 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
 
         (TextKey::ViChiDocDiaChi, Language::En) => "Read your wallet address only",
         (TextKey::ViChiDocDiaChi, Language::Vi) => "Chỉ đọc địa chỉ ví của bạn",
+        (TextKey::ViBanDungKhongCo, Language::En) => {
+            "This build has no wallet. The request is refused — there is nothing to grant."
+        }
+        (TextKey::ViBanDungKhongCo, Language::Vi) => {
+            "Bản dựng này không có ví. Lời xin bị từ chối — không có gì để cấp."
+        }
 
         (TextKey::NguonKhongRo, Language::En) => "Unknown publisher",
         (TextKey::NguonKhongRo, Language::Vi) => "Không rõ nhà phát hành",

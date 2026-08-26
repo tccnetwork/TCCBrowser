@@ -8,11 +8,22 @@
 ## Dựng một lần
 
 ```bash
+cargo build -p tcc-browser --features window
+```
+
+Đó là **bản dựng chính**, và nó **không có ví** — theo thứ tự ưu tiên chốt
+26/08/2026: làm trình duyệt trước, tích hợp ví sau (xem
+[`ke-hoach.md`](ke-hoach.md)).
+
+Muốn thử phần ví thì dựng riêng:
+
+```bash
 cargo build -p tcc-browser --features wallet
 ```
 
-`wallet` đã bao gồm `window`. Bản dựng **không** có cờ `wallet` thì không có
-mục ví nào — và đó là bản dựng đúng cho tới khi có hồ sơ cấp phép Apple.
+Trên bản **không** ví, một gói xin quyền ví sẽ thấy hàng ấy **không có công
+tắc**, kèm câu "bản dựng này không có ví — lời xin bị từ chối". Đó là chủ đích:
+hỏi một câu mà không cấp được câu trả lời là hộp thoại nói dối.
 
 Nhị phân nằm ở `target/debug/tcc-browser`. Năm đường dưới đây đều đã chạy được
 tính tới 25/08/2026.

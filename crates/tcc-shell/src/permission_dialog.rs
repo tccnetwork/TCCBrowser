@@ -148,9 +148,39 @@ pub fn build_with_signer(
     )
 }
 
+/// Bản dựng này có cấp được quyền năng ấy không.
+///
+/// ⚠️ Hỏi một câu mà không cấp được câu trả lời là hộp thoại NÓI DỐI. Bản dựng
+/// không có ví mà vẫn hiện "cho phép chạm vào ví — việc này chuyển tiền", kèm
+/// một công tắc gạt được, là bắt người dùng quyết định về một thứ không tồn
+/// tại. Lộ ra ngày 26/08/2026 khi ví chuyển thành việc làm SAU, và bản dựng
+/// không ví thành bản chính.
+#[must_use]
+pub fn cap_duoc(scope: &Scope) -> bool {
+    match scope {
+        Scope::Wallet { .. } => cfg!(feature = "wallet"),
+        Scope::Network { .. } | Scope::Storage { .. } => true,
+    }
+}
+
 /// Một mục quyền: tiêu đề, phạm vi cụ thể, và lý do nguyên văn của ứng dụng.
 fn muc_quyen(c: &CapabilityRequest, ngon_ngu: Language) -> Result<Node, UiError> {
     let t = |k: TextKey| label(k, ngon_ngu);
+
+    // Không cấp được thì NÓI RA, và KHÔNG dựng công tắc. Một công tắc gạt được
+    // là một lời hứa rằng gạt xong sẽ có tác dụng.
+    if !cap_duoc(&c.scope) {
+        return Node::group(Flow::Column, Gap::Small)
+            .child(Node::text(match &c.scope {
+                Scope::Wallet { .. } => t(TextKey::QuyenVi).to_owned(),
+                _ => c.name.clone(),
+            })?)?
+            .child(Node::text_with(
+                t(TextKey::ViBanDungKhongCo),
+                Emphasis::Warning,
+            )?)?
+            .child(Node::text_with(&c.reason, Emphasis::Subtle)?);
+    }
 
     let (tieu_de, chi_tiet) = match &c.scope {
         Scope::Network { hosts } => (t(TextKey::QuyenMang), hosts.join(", ")),
@@ -358,6 +388,12 @@ mod kiem_thu {
     /// thấy nó nói rõ điều đó, không phải một chữ "ví" chung chung.
     #[test]
     fn quyen_ky_giao_dich_noi_ro_la_chuyen_tien() {
+        // Bất biến này nói về hàng ví CÓ CÔNG TẮC — chỉ tồn tại khi bản dựng
+        // cấp được quyền ấy. Trên bản không ví, sự thật đúng là câu từ chối, và
+        // `ban_dung_khong_co_vi_thi_khong_hoi_ve_vi` giữ nó.
+        if !cfg!(feature = "wallet") {
+            return;
+        }
         let s = chu_tren_man_hinh(&ke_khai(XIN_VI_KY), Language::En);
         assert!(s.contains("this moves money"), "{s}");
 
@@ -384,18 +420,24 @@ mod kiem_thu {
         // Hỏi "có dấu ở đâu đó không" thì chuyển dấu sang một dòng khác vẫn
         // xanh, và bất biến là "HÀNG NÀY khác hẳn", không phải "màn này có một
         // dấu nào đó".
+        // Bất biến giữ nguyên ở CẢ HAI bản dựng: hàng ví phải KHÁC HẲN hàng
+        // mạng. Chỉ câu mang dấu là khác — bản có ví nói "việc này chuyển
+        // tiền", bản không ví nói "bản dựng này không có ví". Ghim CÂU, không
+        // ghim "có dấu ở đâu đó" (B45).
+        let cau = if cfg!(feature = "wallet") {
+            "this moves money"
+        } else {
+            "This build has no wallet"
+        };
         assert!(
-            crate::do_cay::co_canh_bao(&cay_vi, "this moves money"),
-            "hàng ví không mang dấu cảnh báo:\n{vi}"
+            crate::do_cay::co_canh_bao(&cay_vi, cau),
+            "hàng ví không mang dấu cảnh báo trên câu {cau:?}:\n{vi}"
         );
         assert!(
             !mang.contains("[cảnh-báo]"),
             "hàng quyền mạng cũng mang dấu cảnh báo — vậy thì không còn KHÁC HẲN nữa"
         );
-        assert!(
-            vi.contains("this moves money"),
-            "thiếu câu nói rõ nó chuyển tiền:\n{vi}"
-        );
+        assert!(vi.contains(cau), "thiếu câu {cau:?}:\n{vi}");
     }
 
     #[test]
@@ -403,6 +445,9 @@ mod kiem_thu {
         let chi_doc = r#"[{"name":"wallet",
             "scope":{"kind":"wallet","may_request_signature":false},
             "reason":"hiện số dư"}]"#;
+        if !cfg!(feature = "wallet") {
+            return;
+        }
         let s = chu_tren_man_hinh(&ke_khai(chi_doc), Language::En);
         assert!(s.contains("Read your wallet address only"), "{s}");
         assert!(!s.contains("this moves money"), "doạ nhầm người dùng:\n{s}");
@@ -509,13 +554,22 @@ mod kiem_thu {
             ds.contains(&ACTION_DENY),
             "hằng số từ chối \"{ACTION_DENY}\" không có trên cây: {ds:?}"
         );
-        // Mỗi quyền một công tắc — nếu thiếu thì người dùng không có cách nào
-        // bật nó, và quyền đó vĩnh viễn không cấp được.
-        assert!(
-            ds.contains(&"q-wallet"),
-            "thiếu công tắc cho quyền ví: {ds:?}"
-        );
-        assert_eq!(ds.len(), 3, "số mã hành động không như mong đợi: {ds:?}");
+        // Mỗi quyền CẤP ĐƯỢC phải có một công tắc — thiếu thì người dùng không
+        // có cách nào bật, và quyền đó vĩnh viễn không cấp được. Quyền bản dựng
+        // KHÔNG cấp được thì ngược lại: có công tắc mới là sai.
+        if cfg!(feature = "wallet") {
+            assert!(
+                ds.contains(&"q-wallet"),
+                "thiếu công tắc cho quyền ví: {ds:?}"
+            );
+            assert_eq!(ds.len(), 3, "số mã hành động không như mong đợi: {ds:?}");
+        } else {
+            assert!(
+                !ds.contains(&"q-wallet"),
+                "bản dựng không ví mà vẫn có công tắc ví: {ds:?}"
+            );
+            assert_eq!(ds.len(), 2, "số mã hành động không như mong đợi: {ds:?}");
+        }
     }
 
     /// ⚠️ MỌI công tắc phải MẶC ĐỊNH TẮT trên hộp thoại hỏi quyền.
@@ -532,7 +586,9 @@ mod kiem_thu {
         let cay = build(&ke_khai(nhieu), Language::En).unwrap();
         let mut ds = Vec::new();
         gom_cong_tac(&cay, &mut ds);
-        assert_eq!(ds.len(), 3, "thiếu công tắc cho một quyền nào đó");
+        // Hàng ví chỉ có công tắc khi bản dựng cấp được quyền ấy.
+        let cho_doi = if cfg!(feature = "wallet") { 3 } else { 2 };
+        assert_eq!(ds.len(), cho_doi, "thiếu công tắc cho một quyền nào đó");
         for (ten, on) in ds {
             assert!(!on, "công tắc \"{ten}\" mặc định BẬT");
         }
@@ -613,5 +669,61 @@ mod kiem_thu {
         for c in &a.children {
             dem_nut(c, n);
         }
+    }
+
+    /// **Bản dựng KHÔNG có ví thì không được HỎI về ví.**
+    ///
+    /// Hỏi một câu mà không cấp được câu trả lời là hộp thoại nói dối: người
+    /// dùng cân nhắc một quyết định về tiền, gạt công tắc, và không có gì xảy
+    /// ra — hoặc tệ hơn, họ tin là có.
+    ///
+    /// Lộ ra 26/08/2026 khi ví chuyển thành việc làm SAU và bản dựng không ví
+    /// thành bản chính: nó vẫn hiện "cho phép chạm vào ví — việc này chuyển
+    /// tiền", kèm một công tắc gạt được.
+    #[test]
+    fn ban_dung_khong_co_vi_thi_khong_hoi_ve_vi() {
+        let cay = build(&ke_khai(XIN_VI_KY), Language::En).unwrap();
+        let s = crate::do_cay::chu(&cay);
+
+        if cfg!(feature = "wallet") {
+            assert!(
+                s.contains("công tắc[") || s.contains("switch["),
+                "bản dựng CÓ ví mà không hỏi:\n{s}"
+            );
+        } else {
+            assert!(
+                crate::do_cay::co_canh_bao(&cay, "This build has no wallet"),
+                "bản dựng KHÔNG ví mà không nói ra:\n{s}"
+            );
+            // Và tuyệt đối không có công tắc nào cho hàng ví.
+            let hang_vi = s
+                .lines()
+                .skip_while(|d| !d.contains("Access your TCC wallet"))
+                .take(3)
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                !hang_vi.contains("công tắc[") && !hang_vi.contains("switch["),
+                "bản dựng không ví mà hàng ví VẪN có công tắc gạt được:\n{hang_vi}"
+            );
+        }
+    }
+
+    /// **Không cấp được thì đường CẤP cũng phải từ chối, không chỉ hộp thoại.**
+    ///
+    /// Hộp thoại không phải đường duy nhất tới quyết định: `.tcc-quyen.json`
+    /// ghi từ một bản dựng CÓ ví mang theo câu "đã đồng ý", và trục trợ năng là
+    /// một lối vào khác. Một câu trả lời do bản dựng KHÁC ghi lại không phải
+    /// câu trả lời cho bản dựng này.
+    #[test]
+    fn cap_duoc_noi_dung_su_that_ve_ban_dung() {
+        let vi = Scope::Wallet {
+            may_request_signature: true,
+        };
+        assert_eq!(cap_duoc(&vi), cfg!(feature = "wallet"));
+        assert!(cap_duoc(&Scope::Network {
+            hosts: vec!["a.example".to_owned()]
+        }));
+        assert!(cap_duoc(&Scope::Storage { quota_bytes: 0 }));
     }
 }

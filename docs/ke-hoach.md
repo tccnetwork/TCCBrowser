@@ -8,6 +8,29 @@
 
 ---
 
+
+## ⚑ Thứ tự ưu tiên — CHỐT 26/08/2026
+
+**Vẫn tích hợp ví vào trình duyệt. Nhưng làm TRÌNH DUYỆT trước, ví sau.**
+
+Quyết định của người bảo trì, ghi ở đây để nó không trôi.
+
+Hệ quả cụ thể, không phải khẩu hiệu:
+
+| | |
+|---|---|
+| Bản dựng **chính** | `cargo build -p tcc-browser --features window` — **không** có ví |
+| Bản có ví | `--features wallet`, dựng khi cần làm việc với ví |
+| Công sức | khung cửa sổ, thời gian chạy gói, mô hình quyền năng, giao diện |
+
+Và một hệ quả lộ ra **ngay khi đổi thứ tự**: bản dựng không có ví vẫn **hỏi**
+người dùng về quyền ví — kèm câu "việc này chuyển tiền" và một công tắc gạt
+được. Hỏi một câu mà không cấp được câu trả lời là hộp thoại nói dối. Đã vá ở
+hai chỗ (hộp thoại **và** đường cấp), xem SECURITY.md §3.30.
+
+⚠️ Cổng chặn cứng KHÔNG đổi: **không giao dịch mainnet nào trước kiểm định an
+ninh độc lập.** Thứ tự ưu tiên đổi không ghi đè được nó.
+
 ## Giai đoạn 0 — Đâm thử tính khả thi
 
 **Mục đích:** trả lời ba câu hỏi bằng **mã chạy được**, trước khi cam kết bất cứ
