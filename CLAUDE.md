@@ -117,7 +117,10 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   `cargo test --workspace`, và lệnh ấy không bật cờ nào — nên mã sau một cờ
   KHÔNG được biên dịch, phép thử của nó KHÔNG chạy, và công cụ ghi mọi mutant
   là "sống sót". 26/08/2026: `tcc-chain` báo **45 sống**; bật
-  `--features import-web-wallet,os-keystore` thì con số thật là **25**. Hai
+  `--features import-web-wallet` thì con số thật là **25**. (Câu này ban đầu ghi
+  thêm `os-keystore` — `tcc-chain` KHÔNG có cờ ấy, nó thuộc `tcc-shell` và
+  `tcc-keystore`, nên lệnh chép nguyên văn sẽ lỗi. Sửa 26/08/2026. Dùng
+  `tools/kiem-dot-bien.sh`, nó giữ sẵn cờ đúng cho từng hòm.) Hai
   mươi con số kia là "chưa nhìn tới" đội lốt "không bắt được".
 - **`cargo-mutants`: `TIMEOUT` KHÔNG phải "sống sót".** 25/08/2026 lượt đo lại
   trả về 61 dòng `TIMEOUT`, 0 dòng `MISSED` — trông y hệt một bộ thử vô dụng.
