@@ -2187,6 +2187,80 @@ mod kiem_thu_hop_thanh {
         assert!(bd.hit_test(-5.0, 17.0).is_none());
     }
 
+    /// **BIÊN của `hit_test`** — thứ phép thử ngay trên KHÔNG canh.
+    ///
+    /// Phép thử ấy dò ở x = 700, 1000, −5: cố ý XA biên, vì lỗi sinh ra nó là
+    /// "nút vô hình mà `hit_test` vẫn trả về". Nó canh đúng thứ nó được viết ra
+    /// để canh, và không ai canh cái biên.
+    ///
+    /// Kiểm đột biến 26/08/2026 chỉ đúng chỗ trống. Trong
+    /// `x >= trai && x < trai + rong && y >= tren && y < tren + cao`,
+    /// cả ba lớp đột biến dưới đây đều SỐNG:
+    ///
+    /// * `<` → `<=` ở cạnh phải/dưới — cạnh chung của hai ô kề nhau thuộc về
+    ///   CẢ HAI, và `.rev().find()` trao nó cho ô vẽ sau. Người dùng bấm ô này,
+    ///   hệ thống chạy ô kia: đúng lỗi F1, chỉ khác chỗ nấp.
+    /// * `&&` → `||` — điểm nằm TRONG dải ngang mà NGOÀI dải dọc vẫn trúng.
+    ///   Đó là cú bấm trượt đời thường nhất.
+    /// * `+` → `*` trong `trai + rong` — không điểm dò nào đủ gần biên để phân
+    ///   biệt hai phép tính.
+    #[test]
+    fn hit_test_dung_o_bien() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::button("Cho phép", "cho-phep", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Từ chối", "tu-choi", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let mut da_kiem = 0;
+        for (i, (trai, tren, rong, cao)) in bd.placed_boxes().into_iter().enumerate() {
+            let (tx, ty) = (trai + rong / 2.0, tren + cao / 2.0);
+            let Some(id) = bd.hit_test(tx, ty).map(|h| h.action.to_owned()) else {
+                continue; // ô không bấm được thì không có gì để so
+            };
+            da_kiem += 1;
+            let cua_no =
+                |x: f32, y: f32| bd.hit_test(x, y).is_some_and(|h| h.action == id.as_str());
+
+            // Khoảng NỬA MỞ: cạnh trái và cạnh trên THUỘC về ô.
+            assert!(cua_no(trai, ty), "ô {i}: cạnh trái phải thuộc về chính nó");
+            assert!(cua_no(tx, tren), "ô {i}: cạnh trên phải thuộc về chính nó");
+
+            // Cạnh phải và cạnh dưới thì KHÔNG — nếu thuộc, hai ô kề nhau sẽ
+            // tranh nhau một cột điểm ảnh.
+            assert!(
+                !cua_no(trai + rong, ty),
+                "ô {i}: cạnh phải KHÔNG được thuộc về nó"
+            );
+            assert!(
+                !cua_no(tx, tren + cao),
+                "ô {i}: cạnh dưới KHÔNG được thuộc về nó"
+            );
+
+            // Trong dải này mà ngoài dải kia. Đây là thứ giết `&&` → `||`.
+            assert!(!cua_no(tx, tren - 1.0), "ô {i}: cùng cột, phía TRÊN ô");
+            assert!(
+                !cua_no(tx, tren + cao + 1.0),
+                "ô {i}: cùng cột, phía DƯỚI ô"
+            );
+            assert!(!cua_no(trai - 1.0, ty), "ô {i}: cùng hàng, BÊN TRÁI ô");
+            assert!(
+                !cua_no(trai + rong + 1.0, ty),
+                "ô {i}: cùng hàng, BÊN PHẢI ô"
+            );
+        }
+
+        // Phép thử phải tự chứng minh nó CHẠM được thứ cần chạm. Vòng lặp rỗng
+        // thì mọi khẳng định trên đều đúng một cách vô nghĩa — đúng hạng "xanh
+        // giả". Dưới hai ô bấm được thì không có cạnh chung nào để tranh.
+        assert!(
+            da_kiem >= 2,
+            "phải chạm ít nhất hai ô bấm được, chạm được {da_kiem}"
+        );
+    }
+
     /// Nhưng luật "nút cùng hàng rộng bằng nhau" vẫn giữ KHI NÓ VỪA.
     ///
     /// Bản vá dễ hỏng theo hướng ngược lại: bỏ luôn việc kéo bằng nhau thì hết

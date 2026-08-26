@@ -265,6 +265,75 @@ mod kiem_thu {
         );
     }
 
+    /// Bản ghi KHÔNG giữ cụm từ khôi phục — bỏ đúng trường quyết định.
+    fn mot_khong_cum_tu() -> WebWallet {
+        let khong = MAU.replace("encryptedSeed", "daBoTruongNay");
+        let mut v = read_export(&khong).unwrap();
+        assert_eq!(v.len(), 1);
+        v.remove(0)
+    }
+
+    /// **`Debug` của `ImportedWallet` KHÔNG được lộ khoá hay cụm từ — và phải
+    /// NÓI gì đó.**
+    ///
+    /// Cùng lớp lỗi với `debug_cua_kieu_giu_khoa_khong_lo_khoa` bên `wallet.rs`,
+    /// nhưng trên kiểu giữ NHIỀU bí mật hơn: hạt giống VÀ cụm từ khôi phục được
+    /// cả ví. `SECURITY.md` §3.27 vá lớp lỗi ấy cho `WalletSecret` rồi dừng ở
+    /// đó; lượt kiểm đột biến 26/08/2026 thay cả thân `fmt` ở ĐÂY bằng "in
+    /// chuỗi rỗng" mà mọi phép thử vẫn xanh. Cùng hình dạng với B4 — hiểu đúng
+    /// khuyết điểm, vá đúng một chỗ nó chỉ vào.
+    ///
+    /// Kiểm HAI chiều: không lộ, và không rỗng. Chỉ kiểm "không lộ" thì một bản
+    /// `Debug` in chuỗi rỗng cũng qua, mà lúc ấy nhật ký mất thứ người soát cần.
+    #[test]
+    fn debug_vi_da_nhap_khong_lo_hat_giong_lan_cum_tu() {
+        let vi = mot().unlock(PIN).unwrap();
+        let cum_tu = vi.mnemonic.as_deref().expect("bản ghi mẫu có giữ cụm từ");
+        let chu_dau = cum_tu.split(' ').next().unwrap();
+        let mut hat_hex = String::new();
+        for b in vi.secret.expose_seed() {
+            use core::fmt::Write as _;
+            let _ = write!(hat_hex, "{b:02x}");
+        }
+        let ra = format!("{vi:?}");
+
+        assert!(!ra.contains(cum_tu), "cả cụm từ lọt vào Debug: {ra}");
+        assert!(
+            !ra.contains(chu_dau),
+            "chữ đầu của cụm từ lọt vào Debug: {ra}"
+        );
+        assert!(!ra.contains(&hat_hex), "hạt giống lọt vào Debug: {ra}");
+
+        // Và vẫn nói được nó là cái gì.
+        assert!(
+            ra.contains("ImportedWallet"),
+            "Debug rỗng, nhật ký mất dấu: {ra:?}"
+        );
+        assert!(ra.contains("có"), "Debug phải nói rõ là CÓ cụm từ: {ra}");
+    }
+
+    /// **Nhánh KHÔNG có cụm từ cũng phải chạy.**
+    ///
+    /// `liet_ke_duoc_khong_can_pin` khẳng định `has_mnemonic()` là `true` —
+    /// đúng bằng giá trị mà đột biến "luôn trả `true`" trả về, nên nó không
+    /// phân biệt được hai thứ. Giao diện rẽ theo giá trị này để nói với người
+    /// dùng có hay không có cụm từ khôi phục, và nói nhầm "có" là để người ta
+    /// tin mình khôi phục lại được ví.
+    #[test]
+    fn ban_ghi_khong_cum_tu_thi_bao_khong() {
+        let khong = mot_khong_cum_tu();
+        assert!(
+            !khong.has_mnemonic(),
+            "bản ghi không giữ cụm từ mà vẫn báo là có"
+        );
+        let vi = khong.unlock(PIN).unwrap();
+        assert!(vi.mnemonic.is_none(), "mở khoá ra lại có cụm từ từ đâu?");
+        assert!(
+            format!("{vi:?}").contains("không"),
+            "Debug phải nói rõ là KHÔNG có cụm từ"
+        );
+    }
+
     /// Liệt kê được mà KHÔNG cần PIN — người dùng chọn ví trước, gõ PIN sau.
     #[test]
     fn liet_ke_duoc_khong_can_pin() {

@@ -42,7 +42,10 @@ pip install dilithium-py blake3
 ```
 
 ```bash
-cargo test --workspace                              # 394 tests
+cargo test --workspace                              # 395 tests
+# Three tests were added on 2026-08-26 and only ONE shows up in that number:
+# --workspace enables no features, so the two behind `import-web-wallet` are
+# not built. The flag matrix below is where they run.
 # Feature-gated code is NOT built by --workspace, and a hand-copied list of the
 # flag combinations drifts: by 2026-08-25 the one in CLAUDE.md named a test
 # target deleted with the web engine and omitted four combinations CI still ran.
@@ -236,5 +239,5 @@ Not a public issue. Use GitHub's private vulnerability reporting on this
 repository, or the TCC IT department.
 
 A report that the **design** is wrong is worth more here than a report that the
-code disagrees with the design. The code has 394 tests watching it. The design
+code disagrees with the design. The code has 395 tests watching it. The design
 has had one pair of eyes.

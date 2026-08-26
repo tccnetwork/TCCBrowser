@@ -27,9 +27,9 @@ Tệ hơn: lượt ấy còn để lại một con số sai lan vào tài liệu
 
 ---
 
-## Bảy cái bẫy — cả bảy đều cho ra con số SAI mà trông vẫn hợp lý
+## Tám cái bẫy — cả tám đều cho ra con số SAI mà trông vẫn hợp lý
 
-Đây là phần đáng đọc nhất của tài liệu này. Cả bảy đều đã trả giá thật.
+Đây là phần đáng đọc nhất của tài liệu này. Cả tám đều đã trả giá thật.
 
 ### 1. Hết đĩa giữa chừng đọc y hệt "bộ thử vô dụng"
 
@@ -117,6 +117,39 @@ Nguồn đúng để đếm là bốn tệp `caught.txt` / `missed.txt` / `timeo
 Đây là bẫy 6 mặc áo khác: phép đếm không phân biệt được *"không có gì bị bắt"*
 với *"cái bị bắt không được in ra"*. Cùng một ngày, cùng một người, ba lần.
 
+### 8. Bộ cờ TỐI ĐA giấu đúng những bất biến sống nhờ cờ TẮT
+
+Hai mặt của cùng một cái bẫy, cả hai đều gặp ngày 26/08/2026 ở `tcc-shell`.
+
+**Mặt một — cờ THIẾU thì tệp không được biên dịch.** `wallet_flow` khai sau
+`all(window, import-web-wallet, os-keystore)`. Quét với MỘT cờ thì tệp ấy không
+hề được biên dịch; `cargo-mutants` vẫn sinh đột biến từ nguồn, đột biến không
+có tác dụng, phép thử xanh, và bảng ghi **18 dòng MISSED** không có thật. Quét
+lại với `--features wallet`: 52 kẻ sống co còn **34**, tỷ lệ bắt 60% → **71%**.
+
+**Mặt hai — cờ ĐỦ thì bất biến sống nhờ cờ TẮT trở nên vô hình.**
+`permission_dialog::cap_duoc` là:
+
+```rust
+Scope::Wallet { .. } => cfg!(feature = "wallet"),
+Scope::Network { .. } | Scope::Storage { .. } => true,
+```
+
+Bật `wallet` thì MỌI nhánh trả `true`, nên thay cả hàm bằng `true` là **đột biến
+tương đương** — không phép thử nào phân biệt được, và không nên cố. Nhưng bất
+biến B62 ("bản dựng không có ví thì KHÔNG hỏi người dùng về tiền") sống đúng
+trong cấu hình NGƯỢC LẠI. Đo bằng tay:
+
+| Cấu hình | Đột biến `cap_duoc → true` |
+|---|---|
+| `cargo test -p tcc-shell` (không cờ) | **5 phép thử ĐỎ** |
+| `--features wallet` (lượt quét chạy) | xanh hết — tương đương |
+
+**Chốt:** hòm nào có bất biến sống nhờ một cờ TẮT thì phải quét **nhiều cấu
+hình**, và cấu hình đáng giá thường là cấu hình TỐI THIỂU. Chạy một lượt với bộ
+cờ tối đa rồi tuyên bố "đã phủ" là bỏ sót đúng lớp bất biến mà một bản dựng cắt
+gọn sinh ra để bảo vệ.
+
 ---
 
 ## Đọc bảng cho đúng
@@ -159,7 +192,7 @@ Bảng này dựng bằng `tools/bang-dot-bien.sh`, đọc từ bốn tệp tron
 | `tcc-net` | 19 | 8 | **4** | 0 | 7 | 66% |
 | `tcc-render-raster` | 665 | 392 | **235** | 12 | 26 | 61% |
 | `tcc-runtime` | 49 | 37 | **0** | 0 | 12 | 100% |
-| `tcc-shell` | 158 | 78 | **52** | 0 | 28 | 60% |
+| `tcc-shell` | 158 | 85 | **34** | 0 | 39 | 71% |
 | `tcc-spec` | 98 | 94 | **2** | 0 | 2 | 97% |
 | `tcc-ui` | 83 | 58 | **2** | 0 | 23 | 96% |
 | `tcc-keystore` | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ | **BỎ QUA có lý do** |
@@ -186,9 +219,15 @@ sau khi đọc mã từng chỗ:
 | 1 | **Biên của `hit_test`** (`tcc-render-raster`, 23 kẻ) | `&&`→`\|\|` và `<`→`<=` đều sống: chưa ai thử điểm nằm trong dải ngang mà ngoài dải dọc, cũng chưa ai thử cạnh chung của hai ô kề nhau. Cả mô hình quyền dựa trên việc bấm ĐÚNG một ô |
 | 2 | **Tầng `Phien`** (`tcc-render-raster/window.rs`, 14 kẻ) | Xoá HẲN sáu phương thức mà vẫn xanh. **Năm** thử được ngay (`xoa_lui`, `xoa_tai_cho`, `doi_con_tro`, `con_tro_ve_dau_hoac_cuoi`, `ket_man` — chỉ nhận `&mut self`); ba cái còn lại (`cuon`, `chuot_toi`, `doi`) NHẬN `&tao::window::Window` nên phải tách phần thuần ra trước. Đúng những hành vi `thu-tay.md` đang nhờ NGƯỜI bấm tay |
 | 3 | **`Debug for ImportedWallet`** (`tcc-chain`) | Giữ hạt giống + cụm từ khôi phục; §3.27 vá đúng lớp lỗi này cho `WalletSecret` rồi dừng ở đó |
-| 4 | **Đường HỎNG của kho khoá** (`tcc-shell/wallet_flow.rs`) | Trên bản dựng không có kho khoá, `cat_khoa` LUÔN hỏng — và không ai canh việc luồng xử lý đúng cái hỏng ấy. Nuốt lỗi là người dùng tin ví đã lưu |
+| 4 | **`cat_khoa` / `cat_hat_giong` chưa từng được gọi** (`tcc-shell/wallet_flow.rs`) | Thay cả thân bằng `Ok(())` vẫn xanh — tức *"đã lưu ví của bạn"* trong khi không lưu gì. Đây là khoảng trống §3.28 ĐÃ GHI (đường thật ghi vào Keychain và bật hộp thoại xin quyền), được phép đo xác nhận, **không phải phát hiện mới** |
 | 5 | **`do_net`** (`tcc-render-raster`, 15 kẻ) | Hàm đo biên mực thật của glyph, tồn tại vì bảng số liệu phông nói dối về dấu chồng tiếng Việt. Trả `(0,0)` luôn vẫn xanh — mà "chữ tiếng Việt dựng đúng" là lời hứa đầu bảng của dự án (câu hỏi 0.1) |
 | 6 | **`has_mnemonic`** (`tcc-chain`) | Chỉ nhánh `true` từng chạy; giao diện rẽ theo nó để nói với người dùng có/không có cụm từ khôi phục |
+
+> ⚠️ **Bảng `tcc-shell` ở trên là bản ĐO LẠI.** Lượt đầu chạy với một cờ, nên
+> `wallet_flow.rs` không được biên dịch và 18 "kẻ sống sót" ở đó là hiện vật của
+> phép đo hỏng (bẫy 8, mặt một). Lỗ số 4 tôi báo cáo lần đầu — "đường hỏng của
+> kho khoá không ai canh" — **đã rút lại**: đường ấy không tồn tại trong cấu
+> hình có `wallet` trên macOS. Thứ còn đúng là khoảng trống §3.28 đã ghi sẵn.
 
 ### KHÔNG phải lỗ — và vì sao phải nói ra
 
@@ -197,6 +236,7 @@ sau khi đọc mã từng chỗ:
 | **Giới hạn trọng tài** | `SpecError::ma`, `ContentHasher` | Bộ kiểm định tuân thủ CÓ canh, có chủ đích. `tcc-conformance/src/main.rs:119` so băm theo luồng với băm một phát VÀ với vector — ba chiều |
 | **Xác nhận lời tự khai** | `HttpNetwork::get`, `JsonRpc::call`, `cat_khoa` | Đúng những chỗ `SECURITY.md` §3 đã ghi là chưa chứng minh được. Phép đo độc lập trùng với lời tự nhận — đó là bằng chứng mục §3 không phải văn suông |
 | **Đột biến tương đương** | `mnemonic.rs` `\|` → `^` | §3.27 để sống có chủ đích: sau `bit << 11` hai toán tử đồng nhất |
+| **Tương đương THEO CẤU HÌNH** | `permission_dialog::cap_duoc → true` | Bật `wallet` thì mọi nhánh trả `true` nên không phân biệt được; TẮT `wallet` thì đúng đột biến ấy làm **5 phép thử đỏ**. Bất biến B62 sống trong sự VẮNG MẶT của cờ — xem bẫy 8 |
 | **Toàn vẹn thị giác** | `ve_o`, `khung`, `co_khung` | Hình dạng CÓ phép thử canh (B31, B51, B52); biên chính xác thì không |
 
 > ⚠️ Câu này thoạt đầu tôi viết là *"`Phien` KHÔNG dính cửa sổ nên cả sáu đều

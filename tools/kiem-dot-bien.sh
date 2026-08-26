@@ -74,7 +74,16 @@ HOM=(
   "tcc-net::"
   "tcc-chain:import-web-wallet:"
   "tcc-render-raster:window,accesskit:"
-  "tcc-shell:import-web-wallet:cờ wallet/window MỞ CỬA SỔ nên không quét ở đây"
+  # ⚠️ PHẢI đủ ba cờ. `wallet_flow` khai sau `all(window, import-web-wallet,
+  # os-keystore)`; quét với MỘT cờ thì tệp ấy KHÔNG được biên dịch, đột biến
+  # không có tác dụng gì, phép thử xanh, và công cụ ghi 18 dòng MISSED. Đúng
+  # bẫy 3, và tôi dẫm phải sau khi tự viết nó ra.
+  #
+  # Lý do đặt cờ hẹp lúc đầu — "wallet/window mở cửa sổ" — cũng sai: chính
+  # `kiem-theo-co.sh` chạy `cargo test -p tcc-shell --features wallet` mỗi lượt
+  # và nó xanh trong vài giây. Phép thử không mở cửa sổ nào. Một giả định chưa
+  # bao giờ kiểm, đứng suốt trong kịch bản dưới dạng chú thích nghe hợp lý.
+  "tcc-shell:wallet:"
   "tcc-keystore::BỎ:os-keystore ghi Keychain THẬT và chờ bấm tay — không quét tự động được"
 )
 
