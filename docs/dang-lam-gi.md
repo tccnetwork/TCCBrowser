@@ -5,7 +5,98 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **25/08/2026**.
+> Cập nhật lần cuối: **26/08/2026**.
+
+## Đứng ở đâu — 26/08/2026
+
+Nhánh `giai-doan-3.1`, mọi cổng xanh.
+
+**394 phép thử · 154 vector · 62 bất biến · 24 luật kiến trúc · 20 lệnh theo cờ
+· bộ kiểm định tuân thủ ĐẠT.**
+
+Phiên này làm **lượt kiểm đột biến đầy đủ đầu tiên của dự án**: cả chín hòm đều
+đã có số đo, chỗ trước đây con số là **không**. Kiểm đột biến trả lời đúng một
+câu mà "bao nhiêu phép thử" không trả lời được: *sửa mã cho sai đi thì có phép
+thử nào đỏ lên không?* Bộ thử xanh mà không đỏ khi mã hỏng thì nó không đo cái
+nó tưởng nó đo.
+
+Ra mười bốn bất biến mới (**B45–B62**) và bốn luật kiến trúc mới. Và ra khuyết
+điểm thật, trong đó có mấy cái đáng ngại:
+
+- **Tôi tự tay mở một lỗ dễ uốn chữ ký** khi sửa một câu báo lỗi cho đúng sự
+  thật. Vector tuân thủ `them mot byte thua` bắt được. Nay độ dài chữ ký kiểm
+  **bằng đúng**, không phải "đủ dài", và kiểm TRƯỚC khi cắt lát.
+- **`Debug` che hạt giống ví không có phép thử nào canh.** Ai gỡ nó đi thì hạt
+  giống rơi vào nhật ký, và mọi cổng vẫn xanh.
+- **`bad-key` — một mã lỗi bản đặc tả tuyên bố là không thể xảy ra** — vẫn nằm
+  trong mã. Đã gỡ hẳn: điểm Ed25519 sai giờ ra `bad-signature`, sai độ dài ra
+  `bad-length`.
+- **B4 khẳng định bốn đường thu hồi, chứng minh một.**
+- **Trần nội dung 256 MiB chưa từng được thử.**
+- **Bản nhị phân xuất xưởng KHÔNG có cầu trợ năng** — cờ `window` không kéo theo
+  `window-tro-nang`. Luật 24 canh chỗ này.
+- **Bản dựng KHÔNG có ví vẫn hỏi người dùng về tiền** (B62). Hộp xin quyền vẽ
+  công tắc cho việc mà bản dựng ấy không có cách nào làm. Nay `cap_duoc()` chặn
+  từ gốc: không có khả năng thì không hỏi, và trả `Deny`.
+
+**Ba phép đo hỏng, cả ba đều được chẩn đoán chứ không được tin.** Đây là phần
+đáng nhớ nhất của phiên:
+
+1. `61 TIMEOUT / 0 MISSED` trông y như một bộ thử vô dụng. Nguyên nhân nằm ở
+   **cuối** đầu ra: `No space left on device`. Nay mọi lượt theo dõi có chốt
+   `df`.
+2. `--timeout-multiplier` **đo nhầm thứ**: nhân thời gian bộ thử của riêng
+   `tcc-spec` (~2 giây) rồi áp cho lượt chạy cả không gian làm việc (~70 giây).
+   Thay bằng `--timeout 300` tuyệt đối.
+3. Chạy `cargo-mutants` **không bật cờ** báo 45 kẻ sống sót trong hòm ví — vì
+   `import.rs` nằm sau `import-web-wallet`, không hề được biên dịch. Con số thật
+   khi bật cờ: 25.
+
+Cả ba đều là cùng một hạng lỗi với ba việc của phiên 25/08: **phép đo không đo
+thứ mình tưởng.** Một con số sai còn tệ hơn không có con số, vì nó ngăn người ta
+đi tìm.
+
+**Cổng số bất biến bắt chính người vừa dựng ra nó.** Thêm B62 xong quên sửa con
+số trong `AUDIT.md`; cổng viết cách đó một giờ bắt ngay lần đầu có cơ hội. Đó là
+dấu hiệu tốt nhất một cổng có thể cho — nó không phân biệt ai đang phạm luật.
+
+**`kiem-theo-co.sh` báo đỏ mà không nói được đỏ vì gì.** Cả hai mươi lệnh cùng
+ghi đè một tệp đầu ra, nên khi lệnh thứ mười một đỏ thì chín lệnh sau đã xoá
+mất bằng chứng của nó — mà chạy tay đúng lệnh ấy thì xanh. Nay mỗi lệnh giữ đầu
+ra riêng, và khi đỏ thì in đuôi đầy đủ kèm mã thoát, không lọc `^error` nữa
+(lần này **không có** dòng nào bắt đầu bằng `error`, nên bộ lọc ấy in ra đúng
+con số không).
+
+### ⚠️ Chưa giải thích được — `cargo test -p tcc-shell --features window`
+
+26/08/2026 lệnh này thoát khác 0 **một lần** trong cổng, rồi **xanh năm lần
+liên tiếp** sau đó (một lượt cổng đầy đủ + bốn lượt lặp riêng). Không dòng nào
+bắt đầu bằng `error`, không phép thử nào đỏ, và bằng chứng đã bị các lệnh sau
+ghi đè mất.
+
+**Chưa biết vì sao. Đừng coi là đã sửa.** Thứ đã sửa chắc chắn chỉ là việc cổng
+vứt mất bằng chứng — lần sau nó tái diễn thì `/tmp/kiem-theo-co/<số>.txt` sẽ
+còn nguyên đầu ra. Ai gặp lại: giữ tệp ấy lại rồi hẵng chạy lại.
+
+### ⚑ Thứ tự đã chốt: TRÌNH DUYỆT TRƯỚC, VÍ SAU
+
+Chủ dự án chốt 26/08/2026: **vẫn tích hợp ví vào trình duyệt, nhưng làm trình
+duyệt trước.** Chi tiết ở [`ke-hoach.md`](ke-hoach.md). Việc ví không bị bỏ, chỉ
+bị xếp sau — và ràng buộc an ninh vẫn nguyên: **không một giao dịch mainnet nào
+trước khi qua kiểm định an ninh ĐỘC LẬP.**
+
+### Còn treo — cần NGƯỜI, không phải mã
+
+- Một buổi đọc màn hình thật bằng VoiceOver.
+- Một cuộc kiểm định an ninh độc lập.
+- Một lượt soát `ttf-parser`.
+- Ba mã lỗi chưa được định nghĩa, và khoảng trống "bản dựng này không cung cấp
+  khả năng ấy" trong bản đặc tả — đề nghị nằm ở
+  [`de-nghi-ma-loi-thieu.md`](de-nghi-ma-loi-thieu.md), chờ người bảo trì quyết.
+
+Vẫn **chưa chứng minh được**, và nói to ra ở đây để không ai tưởng là đã xong:
+`HttpNetwork::get` và `JsonRpc::call` (cần một máy chủ TLS trong phép thử), và
+gần hết `tcc-keystore/src/macos.rs` (cần một Keychain tạm).
 
 ## Đứng ở đâu — 25/08/2026
 
