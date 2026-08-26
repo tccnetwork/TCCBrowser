@@ -229,6 +229,31 @@ sau khi đọc mã từng chỗ:
 > kho khoá không ai canh" — **đã rút lại**: đường ấy không tồn tại trong cấu
 > hình có `wallet` trên macOS. Thứ còn đúng là khoảng trống §3.28 đã ghi sẵn.
 
+### Trạng thái vá, 27/08/2026
+
+Năm trên sáu đã vá. **Mỗi bản vá đều tự tay áp lại đúng đột biến nó nhắm và
+chứng minh là ĐỎ được** — một phép thử chưa từng thấy đỏ không phải bằng chứng.
+
+| Lỗ | Đột biến bị giết | Phép thử |
+|---|---|---|
+| 1. biên `hit_test` | 3/3 | `hit_test_dung_o_bien` |
+| 2. tầng `Phien` | 5/5 | `phien_sua_chu_dung_o_muc_ky_tu`, `ket_man_mang_theo_noi_dung_o_nhap` |
+| 3. `Debug for ImportedWallet` | 1/1 | `debug_vi_da_nhap_khong_lo_hat_giong_lan_cum_tu` |
+| 5. `do_net` | **3/4** | `o_chua_duoc_net_that_cua_dau_tieng_viet` |
+| 6. `has_mnemonic` | 1/1 | `ban_ghi_khong_cum_tu_thi_bao_khong` |
+| 4. kho khoá | — | **RÚT LẠI**, xem trên |
+
+⚠️ **Cái 3/4 phải nói ra.** Phép thử `do_net` giết cả chín biến thể "trả về hằng
+số", nhưng KHÔNG giết được đột biến đảo bộ lọc điểm ảnh trong suốt
+(`mau.a() == 0` → `!= 0`). Đã thử một điểm phân biệt không phụ thuộc phông —
+chuỗi toàn khoảng trắng phải đo ra `(0,0)` — và nó không phân biệt được, vì
+`draw` không phát điểm ảnh nào cho khoảng trắng nên cả hai bản đều trả `(0,0)`.
+
+Đảo bộ lọc chỉ nới biên vài điểm ảnh theo viền mềm của glyph: ô phình lên chút,
+không sai đúng-sai. Nhưng "nhỏ" không phải lý do để im. Viết "đã vá `do_net`"
+thì không câu nào sai, mà người sau sẽ tưởng chỗ ấy đã kín — đó đúng là cách
+một hồ sơ kiểm định nói dối mà mọi câu đều đúng.
+
 ### KHÔNG phải lỗ — và vì sao phải nói ra
 
 | Hạng | Ví dụ | |

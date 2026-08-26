@@ -2187,6 +2187,77 @@ mod kiem_thu_hop_thanh {
         assert!(bd.hit_test(-5.0, 17.0).is_none());
     }
 
+    /// **Ô phải chứa ĐƯỢC NÉT THẬT của dấu tiếng Việt.**
+    ///
+    /// `do_net` tồn tại vì bảng số liệu của phông **nói dối** về dấu chồng:
+    /// chú thích trên nó dẫn số đo ngày 23/08/2026 — "lượt đo thấy nét cao
+    /// 12px, lượt vẽ ra 22px, và ô 21px không chứa nổi". Nó đo bằng chính thứ
+    /// sẽ vẽ, không tin bảng phông.
+    ///
+    /// Tới 26/08/2026 KHÔNG phép thử nào đọc đầu ra của nó: kiểm đột biến thay
+    /// cả hàm bằng **chín** hằng số khác nhau — `(0,0)`, `(1,0)`, `(-1,1)`… —
+    /// và cả chín đều sống. Mà "chữ tiếng Việt dựng đúng" là lời hứa đầu bảng
+    /// của dự án, thứ câu hỏi 0.1 của Giai đoạn 0 được trả lời bằng đúng loại
+    /// số đo này.
+    ///
+    /// ⚠️ **Phép thử này giết được lớp "trả về hằng số" — cả chín — nhưng KHÔNG
+    /// giết được đột biến đảo bộ lọc trong suốt** (`mau.a() == 0` thành `!= 0`).
+    /// Đã thử một điểm phân biệt không phụ thuộc phông: chuỗi toàn khoảng trắng
+    /// phải đo ra `(0,0)`. Nó không phân biệt được, vì `draw` không phát điểm
+    /// ảnh nào cho khoảng trắng nên CẢ HAI bản đều trả `(0,0)`.
+    ///
+    /// Đảo bộ lọc chỉ làm biên nới ra vài điểm ảnh theo viền mềm của glyph —
+    /// ô phình lên chút, không sai đúng-sai. Ghi ra đây chứ không im lặng để
+    /// người sau khỏi tưởng chỗ này đã kín.
+    #[test]
+    fn o_chua_duoc_net_that_cua_dau_tieng_viet() {
+        const CO: f32 = 16.0;
+        let mut bd = RasterRenderer::new();
+
+        // Ba chữ hoa có dấu CHỒNG — mũ rồi tới sắc/huyền/ngã.
+        let o = bd.do_o("ẾỒỖ", CO, KieuO::Thuong, 600.0);
+        let (tren, duoi) = o.net;
+
+        assert!(
+            duoi > tren,
+            "nét phải có bề cao thật, đo được {tren}..{duoi}"
+        );
+        assert!(
+            duoi - tren >= CO / 2.0,
+            "nét cao {} px cho cỡ chữ {CO} px — quá nhỏ để là chữ thật, \
+             gần như chắc chắn phép đo đã trả về một hằng số",
+            duoi - tren
+        );
+        assert!(
+            o.cao >= duoi - tren.min(0.0),
+            "ô cao {} không chứa nổi nét {tren}..{duoi} — đúng lỗi 23/08/2026",
+            o.cao
+        );
+
+        // Khoảng trắng KHÔNG phải nét. Điểm ảnh trong suốt bị lọc ra — bỏ lọc
+        // thì viền mềm quanh glyph nới biên ra vài pixel trống và ô phình ra
+        // không vì gì cả. Chuỗi toàn khoảng trắng là chỗ phân biệt sạch nhất,
+        // và nó không phụ thuộc phông nào.
+        let trang = bd.do_o("   ", CO, KieuO::Thuong, 600.0);
+        assert_eq!(
+            trang.net,
+            (0.0, 0.0),
+            "khoảng trắng không được tính là nét, đo ra {:?}",
+            trang.net
+        );
+
+        // Và dấu chồng phải cao HƠN chữ không dấu cùng cỡ. Đây là chỗ một hằng
+        // số trả về không thể giả được: hai lượt đo phải KHÁC nhau.
+        let khong_dau = bd.do_o("EOO", CO, KieuO::Thuong, 600.0);
+        assert!(
+            duoi - tren > khong_dau.net.1 - khong_dau.net.0,
+            "chữ có dấu chồng ({}) phải cao hơn chữ không dấu ({}) — nếu bằng \
+             nhau thì phép đo không đo gì cả",
+            duoi - tren,
+            khong_dau.net.1 - khong_dau.net.0
+        );
+    }
+
     /// **BIÊN của `hit_test`** — thứ phép thử ngay trên KHÔNG canh.
     ///
     /// Phép thử ấy dò ở x = 700, 1000, −5: cố ý XA biên, vì lỗi sinh ra nó là

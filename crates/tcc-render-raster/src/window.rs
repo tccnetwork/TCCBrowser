@@ -1665,6 +1665,97 @@ mod kiem_thu {
 
     /// **Phím gõ vào bị TỪ CHỐI ngay, không đẩy xuống lượt vẽ.**
     ///
+    /// Dựng một phiên có đúng một ô nhập, đã chọn sẵn, nội dung cho trước.
+    fn phien_mot_o(noi_dung: &str) -> Phien {
+        use tcc_ui::{Flow, Gap};
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Ghi chú", "", false).unwrap())
+            .unwrap();
+        let mut p = Phien::moi(Screen {
+            tree: cay,
+            title: "thử".to_owned(),
+            text: ScreenText {
+                destructive_note: "n".to_owned(),
+                destructive_role: "r".to_owned(),
+            },
+        })
+        .expect("dựng được phiên");
+        p.tt.o_dang_chon = Some("Ghi chú".to_owned());
+        p.tt.noi_dung_o
+            .insert("Ghi chú".to_owned(), noi_dung.to_owned());
+        p.tt.con_tro = noi_dung.chars().count();
+        p
+    }
+
+    /// **Tầng `Phien` nối các hàm thuần lại — và tới 26/08/2026 KHÔNG ai canh
+    /// cái dây nối ấy.**
+    ///
+    /// `window.rs` có hơn ba mươi phép thử, và chúng canh đúng những hàm THUẦN
+    /// đã được tách ra cho dễ thử: `chen_tai`, `xoa_truoc`, `xoa_tai`,
+    /// `tieu_diem_ke`, `phim_kich_hoat`. Kiểm đột biến cho thấy xoá HẲN cả
+    /// phương thức của `Phien` mà mọi phép thử vẫn xanh — `xoa_tai_cho`,
+    /// `doi_con_tro`, `con_tro_ve_dau_hoac_cuoi`, `ket_man`.
+    ///
+    /// Việc tách hàm thuần ra làm phép thử dễ viết, và làm phần CHƯA thử trông
+    /// như đã thử. Đây là những hành vi `docs/thu-tay.md` đang nhờ NGƯỜI bấm
+    /// tay kiểm — mà máy kiểm được.
+    ///
+    /// `ế` là MỘT ký tự và BA byte: xoá sai thì còn lại một dấu mồ côi.
+    #[test]
+    fn phien_sua_chu_dung_o_muc_ky_tu() {
+        // Xoá lùi phải mất CẢ chữ có dấu, không để lại dấu mồ côi.
+        let mut p = phien_mot_o("Tiếng Việt");
+        p.xoa_lui();
+        assert_eq!(
+            p.tt.noi_dung_o.get("Ghi chú").map(String::as_str),
+            Some("Tiếng Việ"),
+            "xoá lùi phải bỏ trọn một ký tự"
+        );
+        assert_eq!(p.tt.con_tro, 9, "con trỏ phải lùi đúng một ký tự");
+
+        // Dời con trỏ về đầu rồi `Delete` — xoá chữ TẠI con trỏ, con trỏ đứng yên.
+        let mut p = phien_mot_o("ếch");
+        p.con_tro_ve_dau_hoac_cuoi(false);
+        assert_eq!(p.tt.con_tro, 0);
+        p.xoa_tai_cho();
+        assert_eq!(
+            p.tt.noi_dung_o.get("Ghi chú").map(String::as_str),
+            Some("ch"),
+            "Delete phải bỏ trọn ký tự có dấu ở đầu"
+        );
+        assert_eq!(p.tt.con_tro, 0, "Delete KHÔNG được dời con trỏ");
+
+        // Mũi tên: đi từng KÝ TỰ, và kẹp ở hai đầu.
+        let mut p = phien_mot_o("ếch");
+        p.con_tro_ve_dau_hoac_cuoi(true);
+        assert_eq!(p.tt.con_tro, 3, "về cuối = số KÝ TỰ, không phải số byte");
+        p.doi_con_tro(false);
+        assert_eq!(p.tt.con_tro, 2);
+        p.doi_con_tro(true);
+        assert_eq!(p.tt.con_tro, 3);
+        p.doi_con_tro(true);
+        assert_eq!(p.tt.con_tro, 3, "phải kẹp ở cuối, không chạy quá");
+        p.con_tro_ve_dau_hoac_cuoi(false);
+        p.doi_con_tro(false);
+        assert_eq!(p.tt.con_tro, 0, "phải kẹp ở đầu, không âm");
+    }
+
+    /// **`ket_man` phải mang nội dung ô nhập ra ngoài.**
+    ///
+    /// Đột biến thay cả hàm bằng `Default::default()` sống sót: không ai đọc
+    /// thứ nó trả về. Mà đó là đường DUY NHẤT chữ người dùng gõ đi ra khỏi màn
+    /// hình — mất nó thì ô nhập chỉ là chỗ để gõ cho vui.
+    #[test]
+    fn ket_man_mang_theo_noi_dung_o_nhap() {
+        let mut p = phien_mot_o("xin chào");
+        let ra = p.ket_man();
+        assert_eq!(
+            ra.fields.get("Ghi chú").map(String::as_str),
+            Some("xin chào"),
+            "nội dung ô nhập phải đi ra cùng kết quả màn hình"
+        );
+    }
+
     /// `with_fields` cũng chặn chuỗi hỏng, nhưng chặn ở đó thì lỗi rơi vào
     /// `ve_lai_man_hinh` — nơi không có ai để báo, nên nó nuốt. Người dùng gõ,
     /// màn hình đứng im, họ gõ tiếp. Chặn ở ĐÂY thì ô giữ nguyên giá trị cũ và
