@@ -188,9 +188,37 @@ mod kiem_thu {
     /// Vì đặt `USER_PRESENCE` lúc đọc là một BỘ LỌC, không phải một yêu cầu.
     ///
     /// Phép thử cất một mục KHÔNG kèm bảo vệ rồi đòi `unlock` trả
-    /// `UnprotectedKey`. Nó chạm Keychain thật nhưng **không hỏi người dùng**:
-    /// mục không có điều khiển truy cập thì đọc không cần xác thực.
+    /// `UnprotectedKey`.
+    ///
+    /// ⚠️ **Chú thích cũ ở đây nói SAI, và không ai kiểm lời ấy.** Nó viết:
+    /// "chạm Keychain thật nhưng không hỏi người dùng — mục không có điều khiển
+    /// truy cập thì đọc không cần xác thực". Ngày 26/08/2026 phép thử này làm
+    /// treo cổng `kiem-theo-co.sh` **hơn bốn mươi phút**: macOS bật hộp thoại
+    /// "…muốn dùng thông tin mật trong chuỗi khoá của bạn" và ngồi chờ một cú
+    /// bấm. Lý do không phải điều khiển truy cập mà là **danh sách ứng dụng**
+    /// của mục: nhị phân phép thử dựng lại là một chương trình khác đối với
+    /// Keychain, nên nó phải xin phép.
+    ///
+    /// Cùng khuôn với `bad-key` (SECURITY.md §3.18): một lời giải thích nghe
+    /// hợp lý, chưa ai kiểm, và thực tế bác bỏ.
+    ///
+    /// Nên nó thành `#[ignore]`. Một phép thử đòi người bấm chuột mà nằm trong
+    /// cổng tự động thì hoặc treo cổng, hoặc dạy người ta bỏ qua cổng.
+    ///
+    /// ⚠️ `#[ignore]` chứ KHÔNG phải "trả về sớm khi thiếu biến môi trường".
+    /// Trả về sớm là một phép thử XANH GIẢ: dòng kết quả ghi "ok, 10 passed" y
+    /// hệt lúc nó chạy thật. `#[ignore]` thì cargo ĐẾM RA — "9 passed; 1
+    /// ignored" — nên người đọc thấy ngay là có thứ chưa chạy.
+    ///
+    /// Chạy có chủ đích:
+    /// `cargo test -p tcc-keystore --features os-keystore -- --ignored`
+    ///
+    /// ⚠️ Lời giải ĐÚNG chưa làm: dựng một **Keychain tạm** có mật khẩu biết
+    /// trước rồi mở sẵn, thay vì dùng chuỗi khoá đăng nhập. Việc ấy đòi
+    /// `MacKeychain` nhận vào một chuỗi khoá thay vì luôn dùng mặc định — xem
+    /// SECURITY.md §3.28.
     #[test]
+    #[ignore = "hỏi người dùng qua hộp thoại Keychain — chạy bằng `-- --ignored`"]
     fn khoa_khong_duoc_bao_ve_thi_noi_dung_chuyen_ay() {
         let ten = "tcc-kiem-thu-khoa-khong-bao-ve";
         let k = MacKeychain::new();

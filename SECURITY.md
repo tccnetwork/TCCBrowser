@@ -1338,6 +1338,20 @@ and deleting the `-128` arm left every test green. A user who **cancelled** the
 Keychain prompt would have been told the operating system failed, and would have
 gone looking for a fault on their machine that does not exist.
 
+**The comment on that test asserted the opposite, and nobody checked.** It said,
+in as many words, *"it touches the real Keychain but does not ask the user — an
+item with no access control needs no authentication to read"*. It does ask. The
+reason is not access control but the item's **application list**: a rebuilt test
+binary is a different program as far as the Keychain is concerned, so it must
+request permission. That is the same shape as `bad-key` in §3.18 — a plausible
+explanation, never verified, contradicted by reality.
+
+The test is now `#[ignore]`, run deliberately with `-- --ignored`. It is
+**`#[ignore]` and not an early `return` behind an environment variable**,
+because an early return is a green lie: the summary reads `ok. 10 passed`
+exactly as it would if the test had run. `#[ignore]` makes cargo count it —
+`9 passed; 1 ignored` — so a reader sees that something did not run.
+
 ⚠️ **This gate could hang forever, and did.** The per-flag runner spent over
 forty minutes on `cargo test -p tcc-keystore --features os-keystore`: that test
 writes a real Keychain item and calls `unlock`, macOS raised its authorisation

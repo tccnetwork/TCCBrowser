@@ -95,6 +95,10 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   cho một lượt mà `error: test failed` chính là **phép thử đỏ**. Đếm
   `^error\[E` và `could not compile` cho lỗi biên dịch, `test result: FAILED`
   cho phép thử đỏ; hai con số, không phải một.
+- **Bỏ qua một phép thử thì dùng `#[ignore]`, ĐỪNG trả về sớm.** Trả về sớm khi
+  thiếu một biến môi trường là một phép thử XANH GIẢ — dòng kết quả ghi
+  "ok, 10 passed" y hệt lúc nó chạy thật. `#[ignore]` thì cargo đếm ra
+  "9 passed; 1 ignored", và người đọc thấy ngay có thứ chưa chạy.
 - **Phép thử chạm Keychain THẬT có thể treo cổng vô hạn.** 26/08/2026
   `kiem-theo-co.sh` đứng hơn bốn mươi phút ở `-p tcc-keystore --features
   os-keystore`: phép thử ghi một mục thật rồi gọi `unlock`, macOS bật hộp thoại
