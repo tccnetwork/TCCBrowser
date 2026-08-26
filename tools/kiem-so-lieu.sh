@@ -126,6 +126,33 @@ else
   dat "mọi bằng chứng SECURITY.md trích dẫn đều tồn tại trong mã nguồn"
 fi
 
+# ── Số BẤT BIẾN ghi trong tài liệu phải khớp bảng thật ───────────────────────
+#
+# Có cổng cho số phép thử, số vector, số luật — mà bỏ sót chính bảng bất biến,
+# thứ SECURITY.md dựng nên để nói "điều này được giữ, và đây là phép thử giữ
+# nó". Ngày 26/08/2026 `AUDIT.md` vẫn mời người soát độc lập đọc "40 bất biến"
+# trong khi bảng đã có 61. Người soát đếm được 61 và không biết tin con số nào.
+b_that=$(grep -acE '^\| B[0-9]+ \|' SECURITY.md)
+b_lech=""
+# ⚠️ KHÔNG soi `dang-lam-gi.md`. Nó là NHẬT KÝ, và việc của nó là thuật lại —
+# kể cả thuật lại một con số đã sai. Mục viết hôm nay có câu "AUDIT.md mời
+# người soát đọc *40 bất biến* trong khi bảng đã có 61"; cổng đọc "40 bất biến"
+# thành một khẳng định và làm đỏ chính bản ghi về việc vá nó.
+#
+# Cùng thế tiến thoái với luật 17: một cổng cấm nhật ký nhắc tới con số cũ là
+# một cổng bắt nhật ký nói dối về chuyện đã xảy ra.
+for f in README.md SECURITY.md docs/AUDIT.md ARCHITECTURE.md; do
+  [ -f "$f" ] || continue
+  for n in $(grep -ohE '[0-9]+ (bất biến|invariants)' "$f" | grep -oE '^[0-9]+' | sort -u); do
+    [ "$n" = "$b_that" ] || b_lech="$b_lech $(basename "$f"):$n"
+  done
+done
+if [ -n "$b_lech" ]; then
+  bao "tài liệu ghi sai số bất biến (thật là $b_that):$b_lech"
+else
+  dat "$b_that bất biến, mọi tài liệu nhắc tới đều ghi đúng"
+fi
+
 # ── Con số lệnh-theo-cờ ghi trong CLAUDE.md phải khớp bộ rút ─────────────────
 dem_that=$("$(dirname "$0")/kiem-theo-co.sh" --dem)
 dem_ghi=$(grep -oE 'Bộ rút tìm ra \*\*([0-9]+)\*\* lệnh' CLAUDE.md | grep -oE '[0-9]+')

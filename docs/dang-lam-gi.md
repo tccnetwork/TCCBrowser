@@ -426,6 +426,16 @@ Hai hằng cũng chốt bằng con số chính xác thay vì một khoảng: `8 
 đổi thành `8 * 1024 + 1024` vẫn nằm trong "lớn hơn 0 và không quá 64 MiB", nên
 phép kiểm khoảng cho qua **một trần 9 KiB đội lốt 8 MiB**.
 
+**`AUDIT.md` mời người soát độc lập đọc "40 bất biến" — bảng đã có 61.** Có
+cổng cho số phép thử, số vector, số luật kiến trúc, số lệnh theo cờ — mà bỏ sót
+chính bảng bất biến, thứ `SECURITY.md` dựng nên để nói "điều này được giữ, và
+đây là phép thử giữ nó".
+
+Con số ấy sai nguy hiểm hơn vẻ ngoài: `AUDIT.md` là trang mời người NGOÀI vào
+soát. Họ đếm được 61 rồi không biết tin con số nào — hoặc tệ hơn, dừng ở cái
+thứ 40 và tưởng đã soát hết. Nay có cổng, và kiểm đột biến: đổi 61 thành 40 là
+đỏ ngay.
+
 **Còn cần NGƯỜI, không phải mã:** một buổi thử với trình đọc màn hình thật (sẽ
 cho biết bản vá `Focus` của B42 có thật sự có tác dụng hay chỉ nằm im), kiểm
 định an ninh độc lập, và soát `ttf-parser`.
