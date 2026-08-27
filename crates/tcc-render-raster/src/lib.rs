@@ -2257,6 +2257,155 @@ mod kiem_thu_hop_thanh {
         );
     }
 
+    /// **Thu hẹp cửa sổ rồi bấm: KHÔNG được trúng ô vừa biến mất.**
+    ///
+    /// Mệnh đề chắn ở đầu `hit_test`/`hit_test_field` —
+    /// `x < 0 || y < 0 || x >= rong || y >= height` — mang chú thích "phòng thủ
+    /// theo tầng, không phải một phép kiểm". Kiểm đột biến 27/08/2026: **13 kẻ
+    /// sống**, tất cả ở đúng hai dòng ấy, ở CẢ HAI hàm song sinh.
+    ///
+    /// Thoạt đầu tôi xếp chúng là "tương đương theo bất biến hiện tại": bố cục
+    /// không còn sinh ra ô tràn ra ngoài ảnh (lỗi F1 đã vá), nên mệnh đề chắn không
+    /// đổi được kết quả — điểm ngoài ảnh vẫn bị phép kiểm hình chữ nhật loại.
+    ///
+    /// **Xếp thế là SAI, và sai theo hướng nguy hiểm hơn** (đóng hồ sơ thay vì để
+    /// ngỏ). Tôi chỉ nghĩ tới MỘT đường sinh ra ô-ngoài-ảnh — bố cục hỏng — và bỏ
+    /// sót đường thứ hai: **bề rộng đổi SAU KHI đã đặt chỗ**. `set_width` tồn tại
+    /// chính vì cửa sổ kéo được; giữa lúc đổi bề rộng và lúc vẽ lại, mọi ô đã đặt
+    /// đều có thể nằm ngoài ảnh. Đó không phải lỗi — đó là vận hành bình thường.
+    ///
+    /// "Tôi không nghĩ ra cách kích hoạt" không phải "không thể kích hoạt".
+    #[test]
+    fn thu_hep_cua_so_roi_bam_khong_trung_o_da_bien_mat() {
+        // Sáu nút một hàng. Đo được 27/08/2026: mỗi nút rộng 67px, khe 8px,
+        // nên ô thứ n bắt đầu ở 12 + 75n — cần n ≥ 5 mới vượt MIN_WIDTH.
+        // Bốn nút thì ô cuối kết thúc ở 304, thiếu 16px, và phép thử tự bắt
+        // được điều đó bằng chốt "phải dựng được ít nhất một ô bên phải 320".
+        let mut cay = Node::group(Flow::Row, Gap::Medium);
+        for (nhan, ma) in [
+            ("Nút một", "mot"),
+            ("Nút hai", "hai"),
+            ("Nút ba", "ba"),
+            ("Nút bốn", "bon"),
+            ("Nút năm", "nam"),
+            ("Nút sáu", "sau"),
+        ] {
+            cay = cay
+                .child(Node::button(nhan, ma, Tone::Neutral).unwrap())
+                .unwrap();
+        }
+        // ⚠️ PHẢI có cả Ô NHẬP, không chỉ nút. Bản đầu chỉ dựng nút, nên
+        // `hit_test_field` trả `None` bất kể mệnh đề chắn còn hay mất — phép
+        // thử không hề chạm tới hàm song sinh. `thu-dot-bien.sh` bắt được:
+        // đột biến ở `hit_test_field` VẪN XANH. Đúng lỗi "vá một bản rồi tưởng
+        // kín cả cụm", lần thứ hai trong hai ngày.
+        let mut hang_o = Node::group(Flow::Row, Gap::Medium);
+        for nhan in ["Ô một", "Ô hai", "Ô ba", "Ô bốn", "Ô năm", "Ô sáu"] {
+            hang_o = hang_o.child(Node::field(nhan, "", false).unwrap()).unwrap();
+        }
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(cay)
+            .unwrap()
+            .child(hang_o)
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let hep = MIN_WIDTH; // 320
+        let ngoai: Vec<_> = bd
+            .placed_boxes()
+            .into_iter()
+            .filter(|(trai, _, _, _)| *trai >= hep as f32)
+            .collect();
+        assert!(
+            !ngoai.is_empty(),
+            "phép thử phải dựng được ít nhất một ô nằm bên phải {hep}px, \
+             nếu không thì mọi khẳng định dưới đều đúng một cách vô nghĩa"
+        );
+
+        // Thu hẹp mà CHƯA vẽ lại — đúng khoảnh khắc giữa lúc kéo cạnh cửa sổ và
+        // lúc bố cục chạy lại.
+        bd.set_width(hep);
+
+        for (trai, tren, rong, cao) in ngoai {
+            let (tx, ty) = (trai + rong / 2.0, tren + cao / 2.0);
+            assert!(
+                bd.hit_test(tx, ty).is_none(),
+                "bấm ở x={tx} — ngoài bề rộng {hep} — mà vẫn trúng một nút"
+            );
+            assert!(
+                bd.hit_test_field(tx, ty).is_none(),
+                "bấm ở x={tx} — ngoài bề rộng {hep} — mà vẫn trúng một ô nhập"
+            );
+        }
+    }
+
+    /// **`do_o` phải phân biệt được ba kiểu ô, và phải ĐẾM ĐÚNG số dòng.**
+    ///
+    /// Kiểm đột biến 27/08/2026: 12 kẻ sống trong `do_o`, và mọi phép thử sẵn có
+    /// đều chỉ dùng `KieuO::Thuong` với chuỗi MỘT dòng. Nên cả ba nhánh dưới đây
+    /// chưa ai chạm:
+    ///
+    /// * `kieu == KieuO::Dam` và `== KieuO::Khung` đảo thành `!=` mà vẫn xanh —
+    ///   ô có khung mất đệm, chữ thường bỗng có đệm, không gì đỏ.
+    /// * `DEM * 2.0` đổi thành `+`/`/` — lượng đệm sai, không gì đỏ.
+    /// * `so_dong += 1` đổi thành `*=` — phép đếm dòng đứng ở **0** vĩnh viễn, nên
+    ///   `cao_dong * so_dong` thành 0 và chiều cao ô chỉ còn phần nét. Một ô hai
+    ///   dòng cao bằng ô một dòng: chữ dòng dưới nằm ngoài ô.
+    ///
+    /// Ba khẳng định dưới đây là TÍNH CHẤT, không phải đáp án ghim sẵn — chúng bền
+    /// qua mọi phông, khác với phép thử ghim `(9,17)` cho `do_net`.
+    #[test]
+    fn do_o_phan_biet_kieu_va_dem_dung_so_dong() {
+        const CO: f32 = 16.0;
+        const CHU: &str = "Xin chào";
+        let mut bd = RasterRenderer::new();
+
+        let thuong = bd.do_o(CHU, CO, KieuO::Thuong, 600.0);
+        let khung = bd.do_o(CHU, CO, KieuO::Khung, 600.0);
+        let dam = bd.do_o(CHU, CO, KieuO::Dam, 600.0);
+
+        // Ô có khung phải rộng hơn: nó chừa đệm hai bên cho nét khung.
+        assert!(
+            khung.rong > thuong.rong,
+            "ô có KHUNG ({}) phải rộng hơn ô thường ({}) — đệm hai bên",
+            khung.rong,
+            thuong.rong
+        );
+        // Và cao hơn, vì khung cộng thêm một phần đệm dọc.
+        assert!(
+            khung.cao > thuong.cao,
+            "ô có KHUNG ({}) phải cao hơn ô thường ({})",
+            khung.cao,
+            thuong.cao
+        );
+        // Chữ ĐẬM rộng hơn chữ thường cùng nội dung, cùng cỡ.
+        assert!(
+            dam.rong > thuong.rong,
+            "chữ ĐẬM ({}) phải rộng hơn chữ thường ({})",
+            dam.rong,
+            thuong.rong
+        );
+
+        // Đếm dòng: ép xuống dòng bằng bề rộng hẹp, ô phải CAO HƠN hẳn.
+        let mot_dong = bd.do_o("Xin chào bạn", CO, KieuO::Thuong, 600.0);
+        let nhieu_dong = bd.do_o("Xin chào bạn", CO, KieuO::Thuong, CO * 3.0);
+        assert!(
+            nhieu_dong.cao > mot_dong.cao,
+            "chuỗi bị ép xuống nhiều dòng ({}) phải cao hơn khi nó vừa một dòng ({}) \
+             — nếu bằng nhau thì phép đếm dòng đang đứng ở 0",
+            nhieu_dong.cao,
+            mot_dong.cao
+        );
+        // Và cao ÍT NHẤT hai lần chiều cao một dòng.
+        assert!(
+            nhieu_dong.cao >= nhieu_dong.cao_dong * 2.0,
+            "hai dòng phải cao ít nhất hai lần chiều cao dòng ({} < {} × 2)",
+            nhieu_dong.cao,
+            nhieu_dong.cao_dong
+        );
+    }
+
     /// **Ô phải chứa ĐƯỢC NÉT THẬT của dấu tiếng Việt.**
     ///
     /// `do_net` tồn tại vì bảng số liệu của phông **nói dối** về dấu chồng:
@@ -2312,6 +2461,26 @@ mod kiem_thu_hop_thanh {
             o.cao
         );
 
+        // ĐÁP ÁN GHIM cho phông đóng gói sẵn. Khác hẳn ba khẳng định trên —
+        // chúng là TÍNH CHẤT, bền qua mọi phông. Cái này giòn có chủ đích:
+        // dựng hình phụ thuộc phông, và một lần đổi phông âm thầm là đúng thứ
+        // làm dấu tiếng Việt tràn ô (số đo 23/08: đo 12px, vẽ 22px, ô 21px).
+        //
+        // Nó giết đột biến `y + h` → `y - h` / `y * h`, thứ ba khẳng định kia
+        // quá thô để thấy: bộ gọi lại phát TỪNG ĐIỂM ẢNH nên `h = 1`, và
+        // `y * 1 == y` — đột biến chỉ dịch biên đúng một điểm ảnh.
+        //
+        // Đổi phông thì phép thử này gãy, VÀ ĐÓ LÀ ĐIỀU MONG MUỐN. Cùng lập
+        // luận với mỏ neo blake3 ở `tcc-crypto`: ghim giá trị để ai đó đổi
+        // ngầm thì gãy ngay.
+        let x_don = bd.do_o("x", CO, KieuO::Thuong, 600.0);
+        assert_eq!(
+            x_don.net,
+            (9.0, 17.0),
+            "biên mực của 'x' ở cỡ {CO}px với phông đóng gói sẵn phải là (9,17); \
+             lệch nghĩa là phông đổi, bộ dựng glyph đổi, hoặc phép đo hỏng"
+        );
+
         // Khoảng trắng KHÔNG phải nét. Điểm ảnh trong suốt bị lọc ra — bỏ lọc
         // thì viền mềm quanh glyph nới biên ra vài pixel trống và ô phình ra
         // không vì gì cả. Chuỗi toàn khoảng trắng là chỗ phân biệt sạch nhất,
@@ -2333,6 +2502,57 @@ mod kiem_thu_hop_thanh {
              nhau thì phép đo không đo gì cả",
             duoi - tren,
             khong_dau.net.1 - khong_dau.net.0
+        );
+    }
+
+    /// **Hàng LẪN LỘN không được kéo bằng nhau.**
+    ///
+    /// Luật "nút cùng hàng rộng bằng nhau" chỉ áp cho dòng TOÀN nút — chú thích tại
+    /// `bo_cuc.rs` nói rõ: "một nút cạnh một nhãn thì kéo bằng nhau là vô nghĩa".
+    /// Chắn ấy là `dong.iter().all(|d| d.o.co_khung())`.
+    ///
+    /// Kiểm đột biến 27/08/2026: `O::co_khung -> true` SỐNG. Nghĩa là chưa ai thử
+    /// một hàng lẫn lộn, và nếu ai đó gỡ chắn ấy thì **nhãn chữ bị kéo rộng bằng
+    /// nút** — nhìn như một nút, mà bấm không ra gì. Đúng hạng lỗi F1 soi gương:
+    /// F1 là "bấm trúng thứ không nhìn thấy", đây là "nhìn thấy thứ bấm không được".
+    #[test]
+    fn hang_lan_lon_khong_bi_keo_bang_nhau() {
+        // Một nhãn NGẮN cạnh một nút DÀI: nếu luật bị áp nhầm, nhãn sẽ bị kéo
+        // rộng bằng nút.
+        let cay = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::text("Tên").unwrap())
+            .unwrap()
+            .child(Node::button("Một nút có nhãn rất dài", "gui", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let o = bd.placed_boxes();
+        assert!(o.len() >= 2, "phải đặt được ít nhất hai ô");
+        let hep = o.iter().map(|x| x.2).fold(f32::MAX, f32::min);
+        let rong = o.iter().map(|x| x.2).fold(0.0f32, f32::max);
+        assert!(
+            rong > hep * 1.5,
+            "hàng LẪN LỘN (nhãn + nút) không được kéo bằng nhau — hẹp nhất {hep}, \
+             rộng nhất {rong}; gần bằng nhau nghĩa là chắn `co_khung` đã mất"
+        );
+
+        // Và soi gương: hàng TOÀN nút thì luật VẪN phải áp.
+        let hai_nut = Node::group(Flow::Row, Gap::Medium)
+            .child(Node::button("Ừ", "u", Tone::Neutral).unwrap())
+            .unwrap()
+            .child(Node::button("Một nút có nhãn rất dài", "gui", Tone::Neutral).unwrap())
+            .unwrap();
+        let mut bd2 = RasterRenderer::new();
+        bd2.render(&hai_nut).unwrap();
+        let o2 = bd2.placed_boxes();
+        let hep2 = o2.iter().map(|x| x.2).fold(f32::MAX, f32::min);
+        let rong2 = o2.iter().map(|x| x.2).fold(0.0f32, f32::max);
+        assert!(
+            (rong2 - hep2).abs() < 1.0,
+            "hàng TOÀN NÚT phải rộng bằng nhau — {hep2} vs {rong2}. Vá theo hướng \
+             ngược lại (bỏ luôn việc kéo bằng nhau) thì mất thứ chặn 'một nút to \
+             hơn hẳn nút kia vẫn là một cái hích'"
         );
     }
 
