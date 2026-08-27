@@ -25,7 +25,28 @@ use security_framework::passwords::{
 use crate::{Keystore, KeystoreError, Purpose, SecretKey};
 
 /// Tên dịch vụ trong Keychain. Đổi nó là mọi khoá cũ thành vô hình.
+#[cfg(not(test))]
 const SERVICE: &str = "com.tcc.browser.wallet";
+
+/// Tên dịch vụ RIÊNG khi kiểm thử — Keychain vẫn là Keychain THẬT.
+///
+/// ⚠️ Vì sao tách, 27/08/2026: hòm này là hòm DUY NHẤT bị bỏ khỏi lượt kiểm đột
+/// biến, và lý do ghi trong `tools/kiem-dot-bien.sh` lúc đầu ("treo vì hộp
+/// thoại Keychain") hoá ra đã SAI — phép thử bật hộp thoại là `#[ignore]`, bộ
+/// thử chạy 30 giây.
+///
+/// Lý do THẬT nặng hơn: một lượt quét là hàng trăm lần dựng-chạy, và đột biến
+/// trên `delete` làm nó KHÔNG xoá gì — rác tích lại trong Keychain của người
+/// chạy. Cái giá ấy không được phép trả lén trên máy người khác.
+///
+/// Tách tên dịch vụ thì rác nằm gọn dưới một tên biết trước, và dọn được bằng
+/// `security delete-generic-password -s com.tcc.browser.wallet.KIEM-THU`.
+///
+/// Đổi hằng số theo `cfg(test)` chứ KHÔNG đọc biến môi trường lúc chạy: biến
+/// môi trường là một đường vào mới cho mã sản phẩm, và mở một đường vào chỉ để
+/// tiện kiểm thử là đúng thứ `SECURITY.md` §3 sinh ra để ngăn.
+#[cfg(test)]
+const SERVICE: &str = "com.tcc.browser.wallet.KIEM-THU";
 
 /// Tên mục ĐÁNH DẤU đi kèm một khoá.
 ///

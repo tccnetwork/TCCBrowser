@@ -108,7 +108,18 @@ HOM=(
   #
   # Mở khoá được bằng cách: cho `SERVICE` đọc từ biến môi trường khi kiểm thử,
   # quét dưới một tên dịch vụ RIÊNG, rồi dọn sạch tên ấy sau lượt chạy.
-  "tcc-keystore::BỎ:đột biến trên `delete` để lại rác trong Keychain THẬT — cần tách tên dịch vụ trước"
+  # ⚠️ Quét được TỪ 27/08/2026, sau khi tách tên dịch vụ Keychain cho phép thử
+  # (`crates/tcc-keystore/src/macos.rs`, hằng `SERVICE` theo `cfg(test)`).
+  #
+  # Rác vẫn sinh ra — đột biến trên `delete` làm nó không xoá gì — nhưng nay nó
+  # nằm gọn dưới MỘT tên biết trước. DỌN SAU MỖI LƯỢT:
+  #
+  #   while security delete-generic-password -s com.tcc.browser.wallet.KIEM-THU \
+  #     >/dev/null 2>&1; do :; done
+  #
+  # Phép thử bật hộp thoại Keychain là `#[ignore]`, nên bộ thử chạy 30 giây và
+  # KHÔNG chờ cú bấm nào.
+  "tcc-keystore:os-keystore:"
 )
 
 mot_hom() {

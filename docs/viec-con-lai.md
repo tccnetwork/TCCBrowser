@@ -13,13 +13,15 @@
 - [x] `kiem-dot-bien.sh`: tự loại hiện vật bằng dep-info `.d` — tệp không được biên dịch ở cấu hình đang chạy thì kẻ sống ở đó không phải kẻ sống
 - [x] `do_net`: tìm điểm phân biệt cho đột biến đảo bộ lọc trong suốt (hiện 3/4)
 - [ ] Quét lại `tcc-render-raster` sau khi vá, xem 235 kẻ sống còn bao nhiêu
-- [ ] `tcc-keystore`: cho `SERVICE` đọc từ biến môi trường khi kiểm thử, quét dưới tên dịch vụ RIÊNG, dọn sạch sau. (Lý do cũ "treo vì hộp thoại" đã SAI — phép thử ấy là `#[ignore]`, bộ thử chạy 30 giây. Lý do thật: đột biến trên `delete` để lại rác trong Keychain thật)
+- [x] `tcc-keystore`: ĐÃ tách tên dịch vụ bằng `cfg(test)` (không dùng biến môi trường — biến môi trường là một đường vào mới cho mã sản phẩm). Còn: chạy lượt quét cho hòm này, rồi dọn `com.tcc.browser.wallet.KIEM-THU`. (Lý do cũ "treo vì hộp thoại" đã SAI — phép thử ấy là `#[ignore]`, bộ thử chạy 30 giây. Lý do thật: đột biến trên `delete` để lại rác trong Keychain thật)
 
 - [x] Soát nốt `BUILDING-APPS.md` theo tiêu chí "hứa gì với người ngoài thì phải có phép thử canh" — soát đủ 9 khẳng định: 8 có vector/phép thử canh, 1 (`quota_bytes: 0`) không ai canh và đã vá
-- [ ] **Mệnh đề chắn của `hit_test`/`hit_test_field`: 13 kẻ sống, giết được bằng trạng thái CÓ THẬT.** Vẽ ở 640, gọi `set_width(320)` mà CHƯA vẽ lại → ô ở x>320 nằm ngoài ảnh; lúc ấy mệnh đề chắn là thứ duy nhất chặn cú bấm. Đột biến `||`→`&&` ở vế cuối làm nó không nổ, và phép kiểm hình chữ nhật trả về một ô đã biến mất khỏi màn hình. Tình huống đời thường: THU HẸP CỬA SỔ RỒI BẤM vào vùng vừa mất. Viết cho CẢ HAI hàm song sinh
-- [ ] `do_net`: ghim ĐÁP ÁN CHÍNH XÁC cho phông đóng gói sẵn (`x` → `(9,17)` ở 16px) để giết `:497 + → -/*`. Bộ gọi lại phát từng điểm ảnh nên `h=1`, đột biến chỉ dịch biên MỘT điểm ảnh — khẳng định thô không thấy. Đổi phông thì phép thử gãy, và đó là điều MONG MUỐN. Ghi rõ `:491` và `:499` là tương đương, đừng đuổi
-- [ ] `do_o` 12 kẻ sống — cụm lớn nhất còn lại, chưa phân tích
+- [x] **Mệnh đề chắn của `hit_test`/`hit_test_field`: 13 kẻ sống, giết được bằng trạng thái CÓ THẬT.** Vẽ ở 640, gọi `set_width(320)` mà CHƯA vẽ lại → ô ở x>320 nằm ngoài ảnh; lúc ấy mệnh đề chắn là thứ duy nhất chặn cú bấm. Đột biến `||`→`&&` ở vế cuối làm nó không nổ, và phép kiểm hình chữ nhật trả về một ô đã biến mất khỏi màn hình. Tình huống đời thường: THU HẸP CỬA SỔ RỒI BẤM vào vùng vừa mất. Viết cho CẢ HAI hàm song sinh
+- [x] `do_net`: ghim ĐÁP ÁN CHÍNH XÁC cho phông đóng gói sẵn (`x` → `(9,17)` ở 16px) để giết `:497 + → -/*`. Bộ gọi lại phát từng điểm ảnh nên `h=1`, đột biến chỉ dịch biên MỘT điểm ảnh — khẳng định thô không thấy. Đổi phông thì phép thử gãy, và đó là điều MONG MUỐN. Ghi rõ `:491` và `:499` là tương đương, đừng đuổi
+- [x] `do_o` 12 kẻ sống — cụm lớn nhất còn lại, chưa phân tích
 - [ ] Chạy cổng số liệu đầy đủ sau khi lượt quét xong (số 399 phép thử hiện CHƯA được cổng kiểm)
+
+- [ ] Quét đột biến `tcc-keystore` (đã mở khoá được), rồi dọn tên dịch vụ kiểm thử
 
 ## Cần NGƯỜI, không phải mã
 

@@ -27,9 +27,9 @@ Tệ hơn: lượt ấy còn để lại một con số sai lan vào tài liệu
 
 ---
 
-## Chín cái bẫy — cả chín đều cho ra con số SAI mà trông vẫn hợp lý
+## Mười cái bẫy — chín cái làm con số sai, cái thứ mười làm KẾT LUẬN sai
 
-Đây là phần đáng đọc nhất của tài liệu này. Cả chín đều đã trả giá thật.
+Đây là phần đáng đọc nhất của tài liệu này. Cả mười đều đã trả giá thật.
 
 ### 1. Hết đĩa giữa chừng đọc y hệt "bộ thử vô dụng"
 
@@ -184,6 +184,42 @@ Bẫy 9 đẻ ra một hạng chưa có tên ở mục "Đọc bảng cho đúng
 | **Chưa chạm tới được** | tệp có, nhưng hàm cần cửa sổ/Keychain thật | TÁCH phần thuần ra trước — như đã làm cho tầng `Phien` |
 
 Gộp ba hạng làm một là cách nhanh nhất để vá nhầm chỗ.
+
+### 10. Xếp nhầm vào "tương đương" — sai theo hướng ĐÓNG hồ sơ
+
+Chín bẫy trên đều làm con số SAI. Bẫy này làm con số đúng mà **kết luận** sai,
+và nó nguy hiểm hơn: báo động nhầm thì tốn công kiểm lại, còn xếp nhầm vào
+"tương đương" thì **đóng hồ sơ và không ai mở ra nữa**.
+
+27/08/2026, mệnh đề chắn của `hit_test`:
+`if x < 0 || y < 0 || x >= rong || y >= height { return None; }`
+
+Tôi lập luận: đột biến ở đó không đổi được kết quả, vì điểm ngoài ảnh vẫn bị
+phép kiểm hình chữ nhật loại; nó chỉ đổi kết quả khi có ô **tràn ra ngoài ảnh**,
+mà bố cục không còn sinh ra trạng thái ấy (lỗi F1 đã vá, có phép thử canh).
+
+Từng bước đều đúng. Kết luận sai — vì tôi chỉ nghĩ tới **một** đường sinh ra
+ô-ngoài-ảnh. Đường thứ hai nằm ngay trong tên hàm: **`set_width`**. Nó tồn tại
+chính vì cửa sổ kéo được, và giữa lúc kéo với lúc vẽ lại, **mọi** ô đã đặt đều
+có thể nằm ngoài ảnh. Đó là vận hành bình thường, không phải lỗi.
+
+Phép thử giết được cả 14 kẻ chỉ cần ba dòng: vẽ ở 640, `set_width(320)` mà chưa
+vẽ lại, rồi bấm vào ô cũ ở x > 320.
+
+**Chốt — ba câu hỏi trước khi ghi "tương đương":**
+
+1. Tôi đã liệt kê **mọi** đường sinh ra trạng thái phân biệt được chưa, hay chỉ
+   đường đầu tiên nghĩ ra?
+2. Có **hàm public nào** đưa hệ thống vào trạng thái ấy không? (`set_width` là
+   một hàm `pub`.)
+3. Chứng minh của tôi là **đọc mã** hay là "tôi không nghĩ ra cách"? Chỉ cái đầu
+   mới đủ.
+
+> **"Tôi không nghĩ ra cách kích hoạt" KHÔNG phải "không thể kích hoạt".**
+
+Hai kẻ ở `set_width` thì ngược lại: chứng minh được bằng đọc mã — `<` thành `<=`
+tại đúng biên trả về cùng một giá trị vì nhánh `else` trả về chính `rong`. Đó
+mới là tương đương thật, và nó đã được ghi ngay tại hàm.
 
 ---
 
