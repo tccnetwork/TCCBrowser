@@ -2556,6 +2556,135 @@ mod kiem_thu_hop_thanh {
         );
     }
 
+    /// **Cái VẼ RA phải nằm gọn trong cái ĐẶT CHỖ.**
+    ///
+    /// `lib.rs` đã ghi rủi ro này bằng CHÚ THÍCH từ lâu: *"hai bên trôi khỏi
+    /// nhau, và khi ấy cái vẽ ra không còn khớp cái `hit_test`"*. Một rủi ro
+    /// viết thành chú thích thì không ai canh.
+    ///
+    /// Kiểm đột biến 27/08/2026: `ve_o` có **51** kẻ sống — cụm lớn nhất của
+    /// hòm này, và không bản vá nào từng nhắm tới. Phần lớn là số học toạ độ:
+    /// đổi một dấu thì nét dịch đi, mà không phép thử nào nhìn vào chỗ nét rơi.
+    ///
+    /// Tính chất ở đây mạnh hơn "có vẽ ra gì đó" (`ink()`): **mọi điểm ảnh có
+    /// mực phải nằm trong ít nhất một ô đã đặt chỗ**. Nét rơi ra ngoài mọi ô
+    /// nghĩa là người dùng NHÌN THẤY một thứ mà `hit_test` không biết — đúng
+    /// nửa còn lại của lỗi F1 ("bấm trúng thứ không nhìn thấy").
+    #[test]
+    fn moi_diem_anh_co_muc_deu_nam_trong_mot_o() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::text("Tiêu đề có dấu: Tiếng Việt").unwrap())
+            .unwrap()
+            .child(
+                Node::group(Flow::Row, Gap::Medium)
+                    .child(Node::button("Cho phép", "ok", Tone::Primary).unwrap())
+                    .unwrap()
+                    .child(Node::button("Từ chối", "no", Tone::Danger).unwrap())
+                    .unwrap(),
+            )
+            .unwrap()
+            .child(Node::field("Ghi chú", "", false).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        // ⚠️ Phải chạy tính chất này ở MỌI TRẠNG THÁI, không chỉ trạng thái mặc
+        // định. 27/08/2026 bản đầu chỉ vẽ một lần và bỏ sót toàn bộ nhánh vẽ
+        // TRẠNG THÁI: chép nguyên văn hai đột biến `ve_o` từ `missed.txt`
+        // (`tren + o.cao` → `tren * o.cao`, và bản cột) thì cả hai VẪN XANH —
+        // vì chúng nằm trong nhánh nền-rê-chuột, mà phép thử không đặt chuột
+        // lên đâu cả. Nhánh ấy là MÃ CHẾT trong phép thử.
+        //
+        // Đó cũng là lời giải cho 51 kẻ sống ở `ve_o`: phần lớn là vẽ trạng
+        // thái — rê chuột, tiêu điểm, dấu nháy — và không phép thử nào bật
+        // chúng lên.
+        let dich = bd.focus_order();
+        assert!(!dich.is_empty(), "cây phải có ít nhất một đích tiêu điểm");
+        for (ten, dat) in [
+            ("mặc định", None),
+            ("rê chuột", Some(dich[0].clone())),
+            ("tiêu điểm", Some(dich[0].clone())),
+        ] {
+            match ten {
+                "rê chuột" => {
+                    bd.set_focus(None);
+                    bd.set_hover(dat.clone());
+                }
+                "tiêu điểm" => {
+                    bd.set_hover(None);
+                    bd.set_focus(dat.clone());
+                }
+                _ => {
+                    bd.set_hover(None);
+                    bd.set_focus(None);
+                }
+            }
+            bd.render(&cay).unwrap();
+            // Dung sai ĐO ĐƯỢC 27/08/2026, không phải chọn cho dễ:
+            //   mặc định / rê chuột → mực ngoài ô đúng 245 điểm, CẢ 245 ở
+            //     khoảng cách 1 (khung vẽ trên đường biên, `hit_test` dùng
+            //     khoảng nửa mở nên viền ngoài cùng vẽ ra mà không bấm được);
+            //   tiêu điểm → thêm 114 điểm ở 2 và 116 ở 3, vì B51 quy định viền
+            //     tiêu điểm kẻ BÊN NGOÀI ô, cố ý khác khung đôi của nút mất mát.
+            // Nền rê chuột vẽ BÊN TRONG ô nên không nới thêm gì.
+            let dung_sai = if ten == "tiêu điểm" { 3.0 } else { 1.0 };
+            kiem_muc_nam_trong_o(&bd, ten, dung_sai);
+        }
+    }
+
+    /// Thân của phép thử trên, tách ra để chạy được cho từng trạng thái.
+    fn kiem_muc_nam_trong_o(bd: &RasterRenderer, trang_thai: &str, dung_sai: f32) {
+        let o = bd.placed_boxes();
+        assert!(!o.is_empty(), "phải đặt được ít nhất một ô");
+
+        let rong = bd.rong;
+        // ⚠️ Dung sai MỘT điểm ảnh, và nó là hiện trạng ĐO ĐƯỢC chứ không phải
+        // sự dễ dãi: 27/08/2026 đo thấy đúng 245 điểm ảnh nằm ngoài ô, và **cả
+        // 245 đều cách đúng 1** — không cái nào xa hơn. Khung được vẽ TRÊN
+        // đường biên, tại `trai + rong`, trong khi `hit_test` dùng khoảng NỬA
+        // MỞ (`x < trai + rong`).
+        //
+        // Tức viền ngoài cùng của khung VẼ RA nhưng KHÔNG BẤM ĐƯỢC. Không phải
+        // lỗi người dùng đâm vào — không ai bấm đúng một hàng điểm ảnh ngoài
+        // cùng — nhưng nó chính là hạng lệch mà chú thích "hai bên trôi khỏi
+        // nhau" cảnh báo, ở quy mô một điểm ảnh.
+        //
+        // Ghim ở MỘT: lệch xa hơn thế là nét đã trôi thật, và phép thử đỏ.
+        let mut xa_hon_mot = 0usize;
+        let mut dau_tien = None;
+        for (i, &p) in bd.pixel.iter().enumerate() {
+            if p >= 250 {
+                continue; // không có mực
+            }
+            #[expect(clippy::cast_precision_loss, reason = "toạ độ ảnh, luôn nhỏ")]
+            let (x, y) = ((i % rong) as f32, (i / rong) as f32);
+            let trong = o
+                .iter()
+                .any(|(trai, tren, w, h)| x >= *trai && x < trai + w && y >= *tren && y < tren + h);
+            let trong_ke = o.iter().any(|(trai, tren, w, h)| {
+                x >= trai - dung_sai
+                    && x <= trai + w - 1.0 + dung_sai
+                    && y >= tren - dung_sai
+                    && y <= tren + h - 1.0 + dung_sai
+            });
+            let _ = trong;
+            if !trong_ke {
+                xa_hon_mot += 1;
+                if dau_tien.is_none() {
+                    dau_tien = Some((x, y));
+                }
+            }
+        }
+
+        assert_eq!(
+            xa_hon_mot, 0,
+            "{xa_hon_mot} điểm ảnh có mực nằm cách mọi ô HƠN MỘT điểm ảnh, cái \
+             đầu ở {dau_tien:?}. Người dùng nhìn thấy nét ở đó, mà `hit_test` \
+             không biết ô nào ở đó — đúng nửa còn lại của lỗi F1. Trạng thái: \
+             {trang_thai}."
+        );
+    }
+
     /// **BIÊN của `hit_test`** — thứ phép thử ngay trên KHÔNG canh.
     ///
     /// Phép thử ấy dò ở x = 700, 1000, −5: cố ý XA biên, vì lỗi sinh ra nó là
