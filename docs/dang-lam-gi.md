@@ -5,7 +5,90 @@
 > Anh: [`AUDIT.md`](AUDIT.md) là đường vào, rồi
 > [`../SECURITY.md`](../SECURITY.md) và [`../spec/`](../spec/).
 >
-> Cập nhật lần cuối: **26/08/2026**.
+> Cập nhật lần cuối: **27/08/2026**.
+
+## Đứng ở đâu — 27/08/2026
+
+Nhánh `giai-doan-3.1`, mọi cổng xanh.
+
+**402 phép thử · 160 vector · 62 bất biến · 24 luật kiến trúc · 20 lệnh theo cờ.**
+(Con số phép thử **chưa qua cổng số liệu** — cổng ấy chạy cả bộ thử nên đang
+nhường CPU cho lượt quét đột biến. Ghi ra chứ không giả vờ đã kiểm.)
+
+Hôm nay có hai mạch: **vá theo lượt quét đột biến**, và **mở cửa cho người
+ngoài viết ứng dụng**. Mạch thứ hai hoá ra lại là một cách kiểm định.
+
+### Ứng dụng mẫu và tài liệu cộng đồng
+
+`examples/khoi-dau/` — gói đã ký, vẽ đủ sáu loại thành phần của 0.1, và có một
+nút **cố ý không khai** trong bản kê khai để người ta bấm thử và thấy khung từ
+chối. `docs/BUILDING-APPS.md` — tiếng Anh, có mục *"What you cannot do in 0.1"*
+đặt ngay đầu trang.
+
+**Viết tài liệu cho người ngoài là một phép kiểm định.** Nó buộc phải trả lời
+*"điều này có thật không, và ai canh?"* cho từng câu — và hai lần trong một
+ngày, câu trả lời là **không ai**:
+
+1. Tôi viết *"trình duyệt từ chối và nói ra"*. Tra: `action_refused` KHÔNG có
+   phép thử nào. Trả chuỗi rỗng thì cú bấm không làm gì và **không nói gì** —
+   thất bại im lặng, đúng thứ dự án đặt ra để chặn.
+2. Tôi viết *"`quota_bytes: 0` là hợp lệ"*. Tra: **không vector nào từng chạm**
+   `quota_bytes` hay `may_request_signature`. Thêm sáu vector, và **ca đầu tiên
+   bắt được lỗi thật**: trần `2^53−1` có tài liệu, có lập luận, và chưa bao giờ
+   được cưỡng chế — kiểu là `u64` nên `2^53` lọt thẳng.
+
+### Vá theo lượt quét — và hai lần tôi tự sai
+
+Đã vá và **chứng minh đỏ được** từng bản: biên `hit_test` (cả hai hàm song
+sinh), tầng `Phien`, `Debug for ImportedWallet`, `has_mnemonic`, `do_net`,
+`read_phrase` cắt cụt khoá dài, `action_refused`, mệnh đề chắn, `do_o`,
+`co_khung`.
+
+**Hai lần tôi kết luận sai và tự bắt được:**
+
+- **Vá `hit_test` bỏ sót hàm SONG SINH.** Chứng minh giết được ba đột biến ở
+  `hit_test`, ghi "3/3 đã vá", quét lại thì 11 kẻ sống còn nguyên — tất cả ở
+  `hit_test_field`. Đúng hình dạng B4 "khẳng định bốn đường, chứng minh một" mà
+  chính tôi trích ba lần để nói về chỗ khác. **Một đoạn mã chép hai chỗ KHÔNG
+  tự lây bảo đảm sang bản sao.**
+- **Xếp nhầm mệnh đề chắn vào "tương đương".** Lập luận từng bước đều đúng, kết
+  luận sai, vì tôi chỉ nghĩ tới MỘT đường sinh ra ô-ngoài-ảnh. Đường thứ hai
+  nằm ngay trong tên hàm: `set_width` — cửa sổ kéo hẹp lại thì mọi ô đã đặt đều
+  có thể nằm ngoài ảnh. **"Tôi không nghĩ ra cách kích hoạt" không phải "không
+  thể kích hoạt".**
+
+### Công cụ, và vì sao chúng tồn tại
+
+| Công cụ | Sinh ra vì |
+|---|---|
+| `thu-dot-bien.sh` | tôi viết tay đoạn "áp đột biến rồi chạy phép thử" mười lần và **sai năm lần**. Nay nó chốt bốn thứ và dừng hẳn ở bất kỳ chốt nào không qua |
+| `loc-hien-vat.sh` | 85% "kẻ sống sót" ở cấu hình tối thiểu là hiện vật; nay tách bằng dep-info của ĐÚNG lệnh trọng tài |
+| `bang-dot-bien.sh` | bảng dựng từ bốn tệp kết quả, không từ dòng chảy màn hình |
+| `nhac-viec.sh` | việc nền xong hết mà danh sách chưa hết thì không còn gì đánh thức — nhìn từ ngoài giống hệt "bỏ ngang" |
+
+`thu-dot-bien.sh` trả công **ngay lần đầu dùng**: nó bắt tôi lặp lại đúng lỗi
+hàm-song-sinh, vì phép thử mới của tôi dựng một hàng NÚT nên `hit_test_field`
+trả `None` bất kể mệnh đề chắn còn hay mất.
+
+### Mười cái bẫy trong `kiem-dot-bien.md`
+
+Chín cái làm **con số** sai; cái thứ mười làm **kết luận** sai — và nguy hiểm
+hơn, vì nó ĐÓNG hồ sơ. Bốn trong mười là tôi dẫm phải **sau khi** đã tự viết
+cảnh báo cho những cái kia.
+
+### Ba chú thích "vì sao không làm" hoá sai trong hai ngày
+
+*"cờ wallet mở cửa sổ nên không quét được"* · *"`window_raster` nằm sau cờ nên
+không được biên dịch"* · *"`tcc-keystore` treo vì hộp thoại Keychain"*. Cả ba
+đúng lúc viết, sai lúc đọc lại, và cả ba sống sót vì được viết thành một câu
+**nghe hợp lý**. Một chú thích giải thích vì sao KHÔNG làm là chỗ trú ẩn tốt
+nhất cho một sự thật đã hết hạn — không cổng nào kiểm nó.
+
+### Còn treo
+
+`docs/viec-con-lai.md` — danh sách máy đọc được, `tools/nhac-viec.sh` đọc nó.
+Bốn việc **cần người**: kiểm định an ninh độc lập (cổng mainnet treo vào đó),
+một buổi VoiceOver thật, soát `ttf-parser`, và ba mã lỗi chờ người bảo trì.
 
 ## Đứng ở đâu — 26/08/2026
 
