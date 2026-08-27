@@ -69,6 +69,20 @@ Look `bad-app-id` up in [`../spec/0.1/06-error-codes.md`](../spec/0.1/06-error-c
 The prose around a code may be reworded at any time; **the code will not** —
 that is what other implementations compare against.
 
+`check` also cross-checks the **screen against the manifest** — the mistake
+almost everyone makes first:
+
+```
+⚠ 1 nút/công tắc mang mã hành động KHÔNG có trong bản kê khai:
+    • delete-all
+```
+
+Both directions are **warnings, never errors**, and the exit code stays 0. An
+undeclared action is legal — the starter kit ships one on purpose, so you can
+watch it be refused — and a declared action no screen uses is legal too, since
+another screen may use it. Turning either into an error would be telling you to
+fix something that is not broken.
+
 **`check` validates what you wrote; `verify` validates what you shipped.** Edit
 one byte in a signed package and `verify` fails with `[content-hash-mismatch]`
 while `check` still passes — that is the division of labour, not a bug. Every

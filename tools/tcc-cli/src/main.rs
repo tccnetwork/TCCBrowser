@@ -373,6 +373,52 @@ fn lenh_check(duong_dan: &Path) -> Result<(), String> {
         cay_giao_dien.node_count(),
         cay_giao_dien.depth()
     );
+    // ── Hành động: đối chiếu CÂY với BẢN KÊ KHAI ────────────────────────────
+    //
+    // Đây là lỗi hay gặp nhất của người viết ứng dụng, và hiện chỉ lộ ra LÚC
+    // CHẠY: bấm nút rồi thấy khung từ chối. `check` biết được ngay.
+    //
+    // Cả hai chiều đều CẢNH BÁO, không phải LỖI — và đó là chủ đích:
+    //   • nút không khai là HỢP LỆ (gói mẫu `khoi-dau` cố ý có một cái để dạy
+    //     rằng hành vi ngoài bản kê khai thì không chạy được);
+    //   • hành động khai mà không dùng cũng hợp lệ — có thể màn hình khác dùng.
+    // Biến hai thứ ấy thành lỗi là bắt người ta sửa một thứ không hỏng.
+    let tren_cay: std::collections::BTreeSet<&str> = cay_giao_dien
+        .action_ids()
+        .into_iter()
+        .map(tcc_spec::ActionId::as_str)
+        .collect();
+    let da_khai: std::collections::BTreeSet<&str> =
+        ke_khai.actions.iter().map(|a| a.id.as_str()).collect();
+
+    let thieu: Vec<&&str> = tren_cay.difference(&da_khai).collect();
+    let thua: Vec<&&str> = da_khai.difference(&tren_cay).collect();
+
+    if !thieu.is_empty() {
+        println!();
+        println!(
+            "⚠ {} nút/công tắc mang mã hành động KHÔNG có trong bản kê khai:",
+            thieu.len()
+        );
+        for id in &thieu {
+            println!("    • {id}");
+        }
+        println!("  Bấm vào chúng thì khung TỪ CHỐI và nói ra. Hợp lệ, nhưng hiếm khi");
+        println!("  là điều bạn muốn — thêm vào `actions` nếu chúng phải chạy được.");
+    }
+    if !thua.is_empty() {
+        println!();
+        println!(
+            "⚠ {} hành động đã khai mà KHÔNG nút nào trên màn hình này dùng:",
+            thua.len()
+        );
+        for id in &thua {
+            println!("    • {id}");
+        }
+        println!("  Không sai — nhưng một hành động không ai gọi vẫn nằm trong phạm vi");
+        println!("  chữ ký, và vẫn là thứ người soát phải đọc.");
+    }
+
     println!();
     println!("⚠ CHƯA kiểm chữ ký và băm nội dung — hai thứ ấy do `tcc sign` tạo ra.");
     println!("  Ký xong thì chạy `tcc verify` để kiểm nốt.");
