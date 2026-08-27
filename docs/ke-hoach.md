@@ -51,6 +51,38 @@ người dùng cũng không hay.
 **Bỏ ví khỏi trình duyệt = đẩy hạt giống từ Keychain về đúng chỗ yếu nhất trong
 bảng.** Nghe như "bớt đi thì an toàn hơn", thực tế ngược lại.
 
+### ⚠️ "DPAPI cho Windows" là một bẫy — ghi 27/08/2026
+
+Kế hoạch này (và §3.1 của Giai đoạn 3) ghi *"DPAPI (Windows) chưa"*. Nhưng
+DPAPI **không cho cùng mức bảo đảm** với Keychain + `USER_PRESENCE`:
+
+| Cách trên Windows | Ai giữ | Đòi hiện diện? | Tiến trình khác chạy dưới quyền người dùng |
+|---|---|---|---|
+| **DPAPI** (`CryptProtectData`) | khoá dẫn từ thông tin đăng nhập; blob nằm trong **một tệp** | **không** | **giải mã được** |
+| Credential Manager (`CredWrite`) | kho của Windows | không | đọc được |
+| **Windows Hello** (`KeyCredentialManager`, TPM) | TPM | **có** — PIN/vân tay/khuôn mặt | không |
+
+Làm DPAPI xong thì trên Windows hạt giống rơi về **đúng mức của vault Chrome**
+— thứ mà mục "Ví KHÔNG bỏ được" ngay trên đây bác bỏ: một tệp, giải mã được bởi
+bất cứ thứ gì chạy dưới quyền người dùng, dò ngoại tuyến không giới hạn.
+
+Nó cũng vi phạm luật dự án tự đặt trong `crates/tcc-shell/src/wallet_store.rs`:
+**"cố ý KHÔNG có đường lùi"** — thà không chạy còn hơn cất khoá vào chỗ yếu hơn.
+
+**Thứ tương đương thật là Windows Hello + TPM** (`KeyCredentialManager`), một
+API WinRT, khó hơn nhiều từ Rust. Ba đường đi, phải chọn có ý thức:
+
+1. **Làm Windows Hello** — đúng mức bảo đảm, tốn công nhất.
+2. **Giữ nguyên `NoKeystore`** trên Windows và **nói to ra ở chỗ người dùng
+   nhìn thấy**: "bản Windows chưa có ví". Rẻ, trung thực, và ví vẫn chỉ chạy
+   trên macOS.
+3. **Làm DPAPI và nói rõ nó YẾU HƠN** — bị bác bỏ, vì người dùng không đọc được
+   sự khác nhau giữa hai mức bảo đảm từ một dòng ghi chú, và một cái ví "có
+   chạy" luôn được tin hơn một cái ví "không có".
+
+Chưa chọn. Nhưng **đừng làm DPAPI vì kế hoạch cũ ghi thế** — dòng ấy viết trước
+khi có mục "Ví KHÔNG bỏ được", và hai chỗ mâu thuẫn nhau.
+
 ### Hệ quả: "giữ tốt nhất" là BỐN việc, không phải một khẩu hiệu
 
 1. **Windows (DPAPI) và Linux chưa có kho khoá.** `wallet_store::open()` trả

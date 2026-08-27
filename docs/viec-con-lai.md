@@ -32,7 +32,7 @@
 
 ## Ví — CHỐT 27/08: không bỏ được, phải hoàn thiện
 
-- [ ] Kho khoá cho **Windows (DPAPI)** — hiện `NoKeystore`, ví không dùng được
+- [ ] **Kho khoá Windows — CHỌN ĐƯỜNG TRƯỚC, đừng làm DPAPI theo quán tính.** DPAPI yếu hơn Keychain+`USER_PRESENCE` (không đòi hiện diện, blob nằm trong tệp, mọi tiến trình của người dùng giải mã được). Tương đương thật là Windows Hello + TPM. Ba đường ở `ke-hoach.md`; cần người bảo trì chọn
 - [ ] Kho khoá cho **Linux** — hiện `NoKeystore`
 - [ ] Quét đột biến `tcc-keystore` (đã xếp hàng chạy sau lượt raster)
 - [ ] `SECURITY.md` §3.28: kho khoá macOS gần như chưa kiểm — thu hẹp khoảng trống ấy
