@@ -274,20 +274,29 @@ chứng minh là ĐỎ được** — một phép thử chưa từng thấy đ�
 | 1. biên `hit_test` | 3/3 | `hit_test_dung_o_bien` |
 | 2. tầng `Phien` | 5/5 | `phien_sua_chu_dung_o_muc_ky_tu`, `ket_man_mang_theo_noi_dung_o_nhap` |
 | 3. `Debug for ImportedWallet` | 1/1 | `debug_vi_da_nhap_khong_lo_hat_giong_lan_cum_tu` |
-| 5. `do_net` | **3/4** | `o_chua_duoc_net_that_cua_dau_tieng_viet` |
+| 5. `do_net` | **3 giết + 1 tương đương** | `o_chua_duoc_net_that_cua_dau_tieng_viet` |
 | 6. `has_mnemonic` | 1/1 | `ban_ghi_khong_cum_tu_thi_bao_khong` |
 | 4. kho khoá | — | **RÚT LẠI**, xem trên |
 
-⚠️ **Cái 3/4 phải nói ra.** Phép thử `do_net` giết cả chín biến thể "trả về hằng
-số", nhưng KHÔNG giết được đột biến đảo bộ lọc điểm ảnh trong suốt
-(`mau.a() == 0` → `!= 0`). Đã thử một điểm phân biệt không phụ thuộc phông —
-chuỗi toàn khoảng trắng phải đo ra `(0,0)` — và nó không phân biệt được, vì
-`draw` không phát điểm ảnh nào cho khoảng trắng nên cả hai bản đều trả `(0,0)`.
+**Cái 3/4 đã giải thích được, 27/08/2026 — nó là đột biến TƯƠNG ĐƯƠNG.** Phép
+thử `do_net` giết cả chín biến thể "trả về hằng số"; đột biến đảo bộ lọc điểm
+ảnh trong suốt thì không, và lý do đo được chứ không đoán:
 
-Đảo bộ lọc chỉ nới biên vài điểm ảnh theo viền mềm của glyph: ô phình lên chút,
-không sai đúng-sai. Nhưng "nhỏ" không phải lý do để im. Viết "đã vá `do_net`"
-thì không câu nào sai, mà người sau sẽ tưởng chỗ ấy đã kín — đó đúng là cách
-một hồ sơ kiểm định nói dối mà mọi câu đều đúng.
+- Bộ lọc KHÔNG phải mã chết — đếm được nó chặn **228** điểm ảnh khi đo `x` và
+  `ẾỒỖ`.
+- Nhưng `do_net` chỉ theo dõi **dải hàng** (`tren.min(y)`, `duoi.max(y + h)`),
+  và điểm ảnh trong suốt nằm CÙNG những hàng với điểm ảnh có mực. Đổi bộ lọc là
+  đổi tập điểm ảnh được xét, **không đổi dải hàng**.
+- Đo cả hai bản: `x` → `(9,17)`, `ẾỒỖ` → `(2,17)`, giống nhau từng số.
+
+Nên `do_net` là **4/4 đã xử lý**: ba giết được, một là tương đương có bằng
+chứng. Ghi kèm giới hạn: kết luận này đo trên phông và bộ dựng glyph hiện tại;
+bộ dựng nào phát cả hàng rỗng trên/dưới glyph thì hai bản sẽ khác nhau.
+
+Lần đầu tôi ghi mục này là "3/4, không giết được, chưa giải thích được". Giữ lại
+câu ấy trong lịch sử vì nó đúng lúc viết — và vì khoảng cách giữa "không giết
+được" và "không THỂ giết được" là khoảng cách giữa một khoảng trống và một kết
+luận.
 
 ### KHÔNG phải lỗ — và vì sao phải nói ra
 

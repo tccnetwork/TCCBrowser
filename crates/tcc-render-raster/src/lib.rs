@@ -2200,15 +2200,23 @@ mod kiem_thu_hop_thanh {
     /// của dự án, thứ câu hỏi 0.1 của Giai đoạn 0 được trả lời bằng đúng loại
     /// số đo này.
     ///
-    /// ⚠️ **Phép thử này giết được lớp "trả về hằng số" — cả chín — nhưng KHÔNG
-    /// giết được đột biến đảo bộ lọc trong suốt** (`mau.a() == 0` thành `!= 0`).
-    /// Đã thử một điểm phân biệt không phụ thuộc phông: chuỗi toàn khoảng trắng
-    /// phải đo ra `(0,0)`. Nó không phân biệt được, vì `draw` không phát điểm
-    /// ảnh nào cho khoảng trắng nên CẢ HAI bản đều trả `(0,0)`.
+    /// ⚠️ **Phép thử này giết cả chín biến thể "trả về hằng số". Đột biến đảo bộ
+    /// lọc trong suốt (`mau.a() == 0` → `!= 0`) thì KHÔNG — và 27/08/2026 đo ra
+    /// lý do: nó là đột biến TƯƠNG ĐƯƠNG trên đầu ra của hàm này.**
     ///
-    /// Đảo bộ lọc chỉ làm biên nới ra vài điểm ảnh theo viền mềm của glyph —
-    /// ô phình lên chút, không sai đúng-sai. Ghi ra đây chứ không im lặng để
-    /// người sau khỏi tưởng chỗ này đã kín.
+    /// Bộ lọc không phải mã chết: đếm được nó chặn **228** điểm ảnh khi đo `x`
+    /// và `ẾỒỖ`. Nhưng `do_net` chỉ theo dõi DẢI HÀNG — `tren.min(y)` và
+    /// `duoi.max(y + h)` — còn điểm ảnh trong suốt nằm CÙNG những hàng với điểm
+    /// ảnh có mực, ở hai đầu mỗi hàng. Đổi bộ lọc là đổi tập điểm ảnh được xét,
+    /// không đổi dải hàng. Đo cả hai bản: `x` ra `(9,17)`, `ẾỒỖ` ra `(2,17)`,
+    /// giống nhau từng số.
+    ///
+    /// Nên không viết phép thử cho nó, và **không nên** cố: một đột biến không
+    /// đổi đầu ra thì không phép thử nào phân biệt được.
+    ///
+    /// Giới hạn của kết luận này: đo trên phông và bộ dựng glyph HIỆN TẠI. Bộ
+    /// dựng nào phát cả những hàng rỗng phía trên/dưới glyph thì hai bản sẽ
+    /// khác nhau, và lúc ấy bộ lọc trở lại thành thứ đáng canh.
     #[test]
     fn o_chua_duoc_net_that_cua_dau_tieng_viet() {
         const CO: f32 = 16.0;
