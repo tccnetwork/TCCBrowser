@@ -8,7 +8,7 @@
 
 - [x] **`tcc check <thư-mục>`** — kiểm bản kê khai + `ui.json` mà KHÔNG ký. Vòng phản hồi nhanh nhất cho người viết ứng dụng: hiện đang phải `sign` rồi mới biết sai, mà `sign` đụng khoá. `check` chỉ đọc, trả đúng mã lỗi của đặc tả
 - [x] `tcc new` sinh khung nghèo (chỉ text) — thêm mẫu dựng đủ sáu loại thành phần, để người ta thấy được cái gì có sẵn
-- [ ] Thông báo lỗi của `tcc` có kèm **mã lỗi đặc tả** không? Người viết ứng dụng cần tra được `06-error-codes.md`
+- [x] Thông báo lỗi của `tcc` có kèm **mã lỗi đặc tả** không? Người viết ứng dụng cần tra được `06-error-codes.md`
 - [x] `BUILDING-APPS.md`: thêm mục "vòng làm việc" — sửa `ui.json` xong PHẢI ký lại, nếu không gói không nạp được. Đây là vấp đầu tiên của mọi người mới
 
 ## Giao diện

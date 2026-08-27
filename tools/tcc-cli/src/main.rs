@@ -92,7 +92,9 @@ fn main() -> ExitCode {
 
 fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
     // Kiểm mã ứng dụng TRƯỚC khi tạo thư mục — tạo rồi mới báo lỗi thì để lại rác.
-    let app_id = AppId::parse(id).map_err(|e| e.to_string())?;
+    // Mã ứng dụng sai là lỗi ĐẶC TẢ — in kèm mã để người viết tra được
+    // `spec/0.1/06-error-codes.md`, y như `tcc check`.
+    let app_id = AppId::parse(id).map_err(|e| format!("[{}] {e}", e.ma()))?;
 
     if duong_dan.exists() {
         return Err(format!(
@@ -382,13 +384,13 @@ fn lenh_verify(duong_dan: &Path) -> Result<(), String> {
     let chu_ky = package::read_signature(duong_dan).map_err(|e| e.to_string())?;
     let cay = package::read_content(duong_dan).map_err(|e| e.to_string())?;
 
-    let app =
-        verify_package(&ke_khai, &chu_ky, &cay, &HybridEd25519MlDsa).map_err(|e| e.to_string())?;
+    let app = verify_package(&ke_khai, &chu_ky, &cay, &HybridEd25519MlDsa)
+        .map_err(|e| format!("[{}] {e}", e.ma()))?;
     let m = app.manifest();
     // Chữ ký hợp lệ chưa đủ: điểm vào phải tồn tại thật. Không kiểm ở đây thì
     // runtime nạp xong mới chết, và người dùng gặp lỗi ở chỗ khó lần ra hơn.
     m.validate_against_content(&cay)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("[{}] {e}", e.ma()))?;
 
     // Chữ ký hợp lệ mà cây giao diện hỏng thì gói vẫn không chạy được. Bắt ở
     // đây, lúc người viết ứng dụng còn ngồi trước máy — chứ không phải lúc

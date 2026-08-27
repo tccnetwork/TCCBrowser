@@ -69,6 +69,12 @@ Look `bad-app-id` up in [`../spec/0.1/06-error-codes.md`](../spec/0.1/06-error-c
 The prose around a code may be reworded at any time; **the code will not** —
 that is what other implementations compare against.
 
+**`check` validates what you wrote; `verify` validates what you shipped.** Edit
+one byte in a signed package and `verify` fails with `[content-hash-mismatch]`
+while `check` still passes — that is the division of labour, not a bug. Every
+`tcc` command reports the standard's codes this way, so a failure anywhere is
+something you can look up.
+
 It deliberately does **not** check two things, and says so on every run: the
 signature, and `content_hash` — both are produced by `sign`. On a package fresh
 out of `new`, those two fields are empty; `check` substitutes placeholders and
