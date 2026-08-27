@@ -164,7 +164,7 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   chỉ `grep` tìm chữ "FAILED" thì nó báo XANH cho bốn bộ thử **chưa hề chạy**.
   Đo mã thoát, và dùng `"$@"`/`eval` thay vì `$c` trần.
 - **Thêm phép kiểm mới thì phải KIỂM ĐỘT BIẾN nó.** Một phép thử chưa từng thấy
-  đỏ không phải bằng chứng. Điều này áp cho cả 24 luật kiến trúc.
+  đỏ không phải bằng chứng. Điều này áp cho cả 25 luật kiến trúc.
 
 ## Ranh giới không được vượt
 

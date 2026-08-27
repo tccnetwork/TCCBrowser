@@ -11,7 +11,7 @@
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**402 phép thử · 160 vector · 62 bất biến · 24 luật kiến trúc · 20 lệnh theo cờ.**
+**402 phép thử · 160 vector · 62 bất biến · 25 luật kiến trúc · 20 lệnh theo cờ.**
 (Con số phép thử **chưa qua cổng số liệu** — cổng ấy chạy cả bộ thử nên đang
 nhường CPU cho lượt quét đột biến. Ghi ra chứ không giả vờ đã kiểm.)
 
@@ -94,7 +94,7 @@ một buổi VoiceOver thật, soát `ttf-parser`, và ba mã lỗi chờ ngư�
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**394 phép thử · 154 vector · 62 bất biến · 24 luật kiến trúc · 20 lệnh theo cờ
+**394 phép thử · 154 vector · 62 bất biến · 25 luật kiến trúc · 20 lệnh theo cờ
 · bộ kiểm định tuân thủ ĐẠT.**
 
 Phiên này làm **lượt kiểm đột biến đầy đủ đầu tiên của dự án**, chỗ trước đây
@@ -218,7 +218,7 @@ câu văn xuôi hoá rỗng nghĩa vì thứ nó đối chiếu bị xoá. Đó 
 Đọc tiếp `docs/AUDIT.md` — **cửa vào của người soát** — thì ra ba việc nữa:
 
 - Tệp ấy **tự mâu thuẫn với chính nó**: dòng 16 ghi con số **hai mươi hai** kèm
-  cụm "machine-enforced rules", dòng 53 ghi "24 architecture rules". (Viết con
+  cụm "machine-enforced rules", dòng 53 ghi "25 architecture rules". (Viết con
   số sai bằng CHỮ chứ không bằng số, vì luật 17 vừa nới ra đã bắt ngay chính
   câu này — nó không phân biệt được trích dẫn với khẳng định. Đây là lần thứ
   hai trong ngày một cổng đếm số đỏ vì văn xuôi đang NÓI VỀ con số ấy; lần
@@ -259,7 +259,7 @@ gần hết `tcc-keystore/src/macos.rs` (cần một Keychain tạm).
 
 Nhánh `giai-doan-3.1`, mọi cổng xanh.
 
-**394 phép thử · 154 vector · 24 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
+**394 phép thử · 154 vector · 25 luật kiến trúc · 20 lệnh theo cờ · bộ kiểm định
 tuân thủ ĐẠT.**
 
 Phiên này đi soát lại ~20 phép thử màn hình đã viết lại lúc gỡ WebView. Ba việc

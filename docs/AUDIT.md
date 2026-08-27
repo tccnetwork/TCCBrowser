@@ -13,7 +13,7 @@ the rest.
 | 2 | [`../spec/GOVERNANCE.md`](../spec/GOVERNANCE.md) §1 — who wrote this and who has reviewed it. The answer is one party for all of it |
 | 3 | [`../SECURITY.md`](../SECURITY.md) §1 — the 62 invariants, each naming the test that holds it |
 | 4 | [`../spec/0.1/`](../spec/0.1/) — the standard. English is normative |
-| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 24 machine-enforced rules |
+| 5 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) — layering, and the 25 machine-enforced rules |
 
 ## The wallet is on another branch
 
@@ -53,7 +53,7 @@ cargo test --workspace                              # 402 tests
 tools/kiem-theo-co.sh
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
-tools/kiem-luat-phu-thuoc.sh                        # 24 architecture rules
+tools/kiem-luat-phu-thuoc.sh                        # 25 architecture rules
 cargo run -p tcc-conformance                        # 160 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer

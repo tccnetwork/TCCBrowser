@@ -135,6 +135,8 @@ Run `tools/kiem-luat-phu-thuoc.sh`. CI runs it **before compiling**.
 | 23 | A 0.1 requirement never rests on a document outside 0.1 | `VERSIONING.md` sits outside every versioned directory, so it is **not frozen**. A requirement leaning on it is a requirement editable without a version bump |
 | 24 | A shipping build with a window has the accessibility bridge | Until 2026-08-25 the bridge sat behind a flag `tcc-browser` could not reach, so **every build a user ever ran** was a slab of pixels to a screen reader. It fell out of dependency weight, not a decision |
 
+| 25 | Every text key is in the bilingual-check list | `label()` is an exhaustive match, so the compiler already forces both languages to exist. It does **not** force either to be non-empty, nor to differ — and the test that does reads a **hand-copied list**. On 2026-08-27 that list held 34 of 99 keys: 65 strings could have been empty, or had the Vietnamese pasted into the English slot, and both the compiler and the tests would have passed |
+
 > Numbering note: there is **no rule 19** — the number is unused. The count is 24
 > because `10b` exists alongside `10`. `tools/kiem-luat-phu-thuoc.sh` is the
 > authority; rule 17 fails the build if any document's count drifts from it.

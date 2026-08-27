@@ -240,6 +240,29 @@ else
 fi
 
 echo
+echo "--- Luật 25: MỌI khoá chữ phải nằm trong danh sách canh song ngữ ---"
+# `label()` khớp VÉT CẠN nên trình biên dịch đã bắt buộc mỗi khoá có đủ hai
+# ngôn ngữ. Nhưng nó KHÔNG canh ba thứ mà phép thử `hai_ngon_ngu_deu_co_chu_va
+# _khac_nhau` canh: bản Anh không rỗng, bản Việt không rỗng, và HAI BẢN KHÔNG
+# TRÙNG NHAU — trùng nhau gần như luôn nghĩa là quên dịch một bên.
+#
+# ⚠️ Phép thử ấy chỉ soi những khoá có trong `MOI_KHOA`, một danh sách CHÉP TAY.
+# 27/08/2026 đo được: 99 biến thể `TextKey`, 34 trong danh sách. Tức 65 khoá có
+# thể để chuỗi rỗng hoặc chép nguyên tiếng Việt sang ô tiếng Anh mà biên dịch
+# qua, phép thử qua.
+#
+# Cùng hạng với ba danh sách chép tay đã trôi trong dự án này: lệnh theo cờ,
+# số luật, số hòm. Danh sách chép tay thì trôi; đếm từ nguồn thì không.
+tep_chu=crates/tcc-shell/src/text.rs
+bien_the=$(awk '/^pub enum TextKey/,/^}/' "$tep_chu" | grep -cE '^    [A-Z][A-Za-z]+,')
+trong_ds=$(awk '/const MOI_KHOA/,/\];/' "$tep_chu" | grep -c 'TextKey::')
+if [ "$bien_the" != "$trong_ds" ]; then
+  bao "MOI_KHOA thiếu $((bien_the - trong_ds)) khoá: $bien_the biến thể TextKey, $trong_ds trong danh sách"
+else
+  dat "$bien_the khoá chữ, tất cả đều được canh song ngữ"
+fi
+
+echo
 echo "--- Luật 16: mọi mã lỗi trong đặc tả phải có VECTOR ---"
 # Luật 10 kiểm mã có TỒN TẠI trong mã nguồn. Nó không kiểm được mã đó có bao giờ
 # NỔ hay không — và bốn mã trong danh sách hoá ra không chạm tới được: bộ đọc
