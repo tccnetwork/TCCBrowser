@@ -26,6 +26,13 @@
 
 - [ ] Quét đột biến `tcc-keystore` (đã mở khoá được), rồi dọn tên dịch vụ kiểm thử
 
+## Ví — CHỐT 27/08: không bỏ được, phải hoàn thiện
+
+- [ ] Kho khoá cho **Windows (DPAPI)** — hiện `NoKeystore`, ví không dùng được
+- [ ] Kho khoá cho **Linux** — hiện `NoKeystore`
+- [ ] Quét đột biến `tcc-keystore` (đã xếp hàng chạy sau lượt raster)
+- [ ] `SECURITY.md` §3.28: kho khoá macOS gần như chưa kiểm — thu hẹp khoảng trống ấy
+
 ## Cần NGƯỜI, không phải mã
 
 - [ ] @NGƯỜI Một buổi đọc màn hình thật bằng VoiceOver

@@ -31,6 +31,44 @@ hai chỗ (hộp thoại **và** đường cấp), xem SECURITY.md §3.30.
 ⚠️ Cổng chặn cứng KHÔNG đổi: **không giao dịch mainnet nào trước kiểm định an
 ninh độc lập.** Thứ tự ưu tiên đổi không ghi đè được nó.
 
+## ⚑ Ví KHÔNG bỏ được — CHỐT 27/08/2026
+
+Đã cân nhắc bỏ ví khỏi trình duyệt và đẩy hết về ví web đã hoàn thiện. **Bác
+bỏ**, vì lý do đo được chứ không phải cảm tính:
+
+| Hạt giống nằm đâu | Ai canh |
+|---|---|
+| Thiết bị cứng | không bao giờ rời thiết bị |
+| **Keychain của macOS + `USER_PRESENCE`** ← v2 đang làm | hệ điều hành, và mỗi lần dùng phải có mặt người |
+| Chrome + ví web / ví tiện ích | **một tệp trong hồ sơ trình duyệt**; một mật khẩu, dò ngoại tuyến không giới hạn |
+
+Ví web cất blob mã hoá trong `localStorage`/IndexedDB — trên đĩa là một tệp
+thường trong hồ sơ Chrome. Bất cứ thứ gì chạy dưới quyền người dùng đều đọc
+được, mang đi, rồi dò mật khẩu ngoại tuyến. Nó còn thêm một điểm yếu nữa: mã
+JavaScript do máy chủ gửi lại **mỗi lần tải trang**, nên phần mật mã đổi lúc nào
+người dùng cũng không hay.
+
+**Bỏ ví khỏi trình duyệt = đẩy hạt giống từ Keychain về đúng chỗ yếu nhất trong
+bảng.** Nghe như "bớt đi thì an toàn hơn", thực tế ngược lại.
+
+### Hệ quả: "giữ tốt nhất" là BỐN việc, không phải một khẩu hiệu
+
+1. **Windows (DPAPI) và Linux chưa có kho khoá.** `wallet_store::open()` trả
+   `NoKeystore`, cố ý KHÔNG có đường lùi sang chỗ yếu hơn — nên ví hiện chỉ
+   dùng được trên macOS.
+2. **Kho khoá macOS gần như chưa được kiểm** (`SECURITY.md` §3.28).
+3. **Secure Enclave KHÔNG giữ được khoá TCC** (nó chỉ làm P-256). Ghi ở đầu
+   `crates/tcc-keystore/src/macos.rs`, và đó là lý do **không bao giờ** được
+   nói "khoá được phần cứng bảo vệ".
+4. **Cổng chặn mainnet càng quan trọng hơn, không nhẹ đi.** Giữ khoá nghĩa là
+   trình duyệt trở thành nơi **giữ hộ tài sản** — kiểm định độc lập là bắt
+   buộc, không phải tuỳ chọn.
+
+⚠️ Thứ tự ưu tiên 26/08 **không đổi**: trình duyệt trước, ví sau. "Không bỏ
+được" nói về ĐÍCH ĐẾN, không nói về thứ tự.
+
+---
+
 ## Giai đoạn 0 — Đâm thử tính khả thi
 
 **Mục đích:** trả lời ba câu hỏi bằng **mã chạy được**, trước khi cam kết bất cứ
