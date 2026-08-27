@@ -130,7 +130,29 @@ Phép kiểm rẻ nhất là phép bắt được nó.
   hạng lỗi với mọi thứ khác ở đây, chỉ đảo chiều: lần này "chưa chạy tới"
   trông giống "phép thử không bắt được".
   Trước khi tin một lượt `cargo-mutants`: xem `df -h`, và đọc đuôi đầu ra.
-  Cây tạm KHÔNG tự dọn khi lượt chạy bị cắt — `rm -rf /Volumes/DATA/.tmp/cargo-mutants-*`.
+  Cây tạm KHÔNG tự dọn khi lượt chạy bị cắt. 27/08/2026 hai lượt tôi tự dừng để
+  lại 3,7 GB xác, và đĩa tụt tới 9 GB giữa lượt thứ ba — suýt phải giết nó ở
+  phút thứ 403.
+
+  ⚠️ **Đừng `rm -rf /Volumes/DATA/.tmp/cargo-mutants-*` khi còn lượt đang
+  chạy** — bản đang dùng cũng nằm trong đó. Phân biệt bằng HAI tín hiệu, và
+  chúng KHÔNG nói cùng một điều:
+
+  | Dấu hiệu | Kết quả hôm ấy |
+  |---|---|
+  | thời gian sửa cuối (`find -newermt`) | cả ba bản đều "im >3 phút" — **không phân biệt được gì** |
+  | `lsof +D <thư mục>` | bản đang chạy có 4 tệp mở, hai bản kia có 0 — **dứt khoát** |
+
+  Tin dấu hiệu đầu — cái tự nhiên nghĩ tới trước — là xoá đúng bản đang chạy.
+  Luật chung: **khi hai tín hiệu bất đồng, tin cái ĐO TRẠNG THÁI THẬT (tệp đang
+  mở), không tin cái SUY RA (im lặng = chết).**
+
+  Dọn an toàn:
+  ```bash
+  for d in /Volumes/DATA/.tmp/cargo-mutants-*; do
+    [ "$(lsof +D "$d" 2>/dev/null | wc -l)" -eq 0 ] && rm -rf "$d"
+  done
+  ```
 - **ĐỪNG sửa mã trong lúc một cổng đang chạy.** 25/08/2026: `kiem-theo-co.sh`
   chạy 10 phút trong khi tôi sửa `tcc-crypto`, và có lúc cây không biên dịch
   được. Nó báo hỏng 3 lệnh — không phải vì mã hỏng mà vì nó đo một thứ đang
