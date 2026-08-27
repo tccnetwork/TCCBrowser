@@ -62,7 +62,22 @@ mot_dong() {
     tong=$(grep -aoE "Found [0-9]+ mutants" "$(dirname "$m")".txt 2>/dev/null | grep -oE "[0-9]+" | head -1)
     [ -z "$tong" ] && continue
     [ "$xong" -ge "$tong" ] && continue
-    quet=" · quét ~$(( xong / 100 * 100 ))/$tong"
+    # ⚠️ Chỉ báo tiến độ khi có lượt THẬT đang chạy. 27/08/2026 phiên trước
+    # thoát và kéo theo lượt quét ở 619/665; tệp kết quả còn nguyên, nên dòng
+    # nhắc vẫn báo "quét ~600/665" như thể nó đang chạy. Lại đúng hạng lỗi cả
+    # tài liệu này đi phê bình: không phân biệt được ĐANG CHẠY DỞ với CHẾT Ở
+    # GIỮA CHỪNG. Thư mục khoá là dấu hiệu đo được — nó chỉ tồn tại khi có lượt
+    # đang chạy, và biến mất theo `trap EXIT`.
+    # Khoá là của cả LƯỢT CHẠY, không phải của từng hòm — dùng nó thì xác của
+    # hòm này bị tính là "đang chạy" chỉ vì hòm khác đang quét trong cùng thư
+    # mục. Dấu hiệu đúng phải theo TỪNG HÒM: có tiến trình `cargo-mutants -p
+    # <hòm>` hay không.
+    local ten_hom; ten_hom=$(basename "$(dirname "$m")")
+    if pgrep -f "cargo-mutants.*-p $ten_hom" >/dev/null 2>&1; then
+      quet=" · quét ~$(( xong / 100 * 100 ))/$tong"
+    else
+      quet=" · ⚠️ $ten_hom CHẾT ở $xong/$tong"
+    fi
   done
 
   # Việc nền còn chạy không. Mẫu phải khớp TÊN THẬT: `cargo-mutants` có GẠCH

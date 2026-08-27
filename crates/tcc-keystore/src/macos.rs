@@ -280,6 +280,54 @@ mod kiem_thu {
     ///
     /// Phép thử này chạm Keychain thật nhưng KHÔNG hỏi người dùng, vì mục
     /// không tồn tại thì hệ điều hành trả về trước khi cần xác thực.
+    /// **`store` PHẢI thật sự gọi hệ điều hành — kiểm được, không cần ký gói.**
+    ///
+    /// Lượt kiểm đột biến đầu tiên của hòm này (27/08/2026) cho thấy `store`
+    /// thay bằng `Ok(())` mà mọi cổng vẫn xanh: *"đã cất khoá"* trong khi không
+    /// cất gì, ở đúng hòm giữ hạt giống ví. Nguyên nhân: phép thử DUY NHẤT gọi
+    /// `.store()` là cái `#[ignore]` bên trên.
+    ///
+    /// Vòng "cất → có mặt → xoá" thì KHÔNG viết được ở đây, và lý do đáng ghi:
+    /// cất kèm `USER_PRESENCE` đòi **entitlement**, mà chỉ gói `.app` ĐÃ KÝ mới
+    /// có (xem `docs/vi-thiet-ke.md` §19b). Nhị phân `cargo test` không ký, nên
+    /// `store` LUÔN hỏng với `"A required entitlement isn't present."`
+    ///
+    /// Nhưng chính điều đó ghim được, và ghim nó đã đủ giết đột biến: nó chứng
+    /// minh `store` THẬT SỰ gọi xuống hệ điều hành và lỗi được phân loại thành
+    /// `Os`, chứ không bị nuốt.
+    ///
+    /// ⚠️ Phép thử này khẳng định hành vi của **nhị phân KHÔNG ký**. Ngày nào
+    /// bộ thử chạy trong một gói đã ký thì nó sẽ đỏ — và lúc ấy hãy đổi nó
+    /// thành vòng cất-đọc-xoá đầy đủ, đừng xoá nó đi.
+    #[test]
+    fn store_that_su_goi_he_dieu_hanh() {
+        let ten = "tcc-kiem-thu-store-goi-that";
+        let mut k = MacKeychain::new();
+        let _ = k.delete(ten);
+
+        let loi = k
+            .store(ten, SecretKey::new(vec![7u8; 32]))
+            .expect_err("nhị phân kiểm thử KHÔNG ký thì cất phải hỏng");
+
+        match &loi {
+            KeystoreError::Os(m) => assert!(
+                m.contains("entitlement"),
+                "cất hỏng vì lý do KHÁC entitlement — đọc kỹ trước khi đổi phép \
+                 thử: {m}"
+            ),
+            khac => panic!(
+                "lỗi cất phải được phân loại thành `Os`, gặp {khac:?} — nuốt lỗi \
+                 ở đây nghĩa là người dùng tưởng ví đã lưu"
+            ),
+        }
+
+        // Và không để lại gì trong Keychain kiểm thử.
+        assert!(
+            !k.contains(ten),
+            "cất hỏng mà vẫn để lại mục trong Keychain"
+        );
+    }
+
     #[test]
     fn khoa_khong_ton_tai_ra_dung_loai_loi() {
         let k = MacKeychain::new();
