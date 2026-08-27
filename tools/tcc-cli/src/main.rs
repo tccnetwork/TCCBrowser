@@ -110,13 +110,30 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
     // dựng, mọi ứng dụng phải viết lại — và lúc đó không ai dám đổi nữa.
     fs::write(
         noi_dung.join(TEP_GIAO_DIEN),
+        // Khung này cố ý cho thấy CẢ MÔ HÌNH, không chỉ hai dòng chữ:
+        // một ô nhập, một nút CÓ khai hành vi, và một nút KHÔNG khai. Chạy thử
+        // là thấy ngay hộp thoại hỏi quyền, rồi thấy nút không khai bị từ chối.
+        //
+        // Bản trước chỉ sinh hai `text`. Nó chạy được, và người mới chạy xong
+        // không thấy được gì về quyền năng, hành vi, hay lý do gói phải ký —
+        // tức là bỏ lỡ đúng những thứ làm TCC khác một trang HTML.
         r#"{
   "kind": "group",
   "flow": "column",
   "gap": "medium",
   "children": [
     { "kind": "text", "content": "Xin chào từ TCC", "emphasis": "title" },
-    { "kind": "text", "content": "Sửa tệp này để đổi giao diện." }
+    { "kind": "text", "content": "Sửa tệp này để đổi giao diện. Sáu loại thành phần của 0.1: text, button, field, toggle, image, group." },
+
+    { "kind": "field", "label": "Gõ thử", "value": "" },
+
+    { "kind": "group", "flow": "row", "gap": "medium", "children": [
+      { "kind": "button", "label": "Tải trang mẫu", "action": "tai-trang", "tone": "primary" },
+      { "kind": "button", "label": "Chưa khai", "action": "chua-khai", "tone": "danger" }
+    ]},
+
+    { "kind": "text", "emphasis": "subtle",
+      "content": "Nút \"Chưa khai\" KHÔNG có trong bản kê khai đã ký. Bấm thử: khung từ chối và nói ra. Hành vi không nằm trong bản kê khai thì không có đường nào chạy." }
   ]
 }
 "#,
@@ -135,7 +152,16 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
   "scheme": "{}",
   "content_hash": "",
   "entry": "{TEP_GIAO_DIEN}",
-  "capabilities": []
+  "capabilities": [
+    {{
+      "name": "network",
+      "scope": {{ "kind": "network", "hosts": ["example.com"] }},
+      "reason": "Tải một trang mẫu — sửa hoặc xoá mục này khi bạn không cần mạng"
+    }}
+  ],
+  "actions": [
+    {{ "id": "tai-trang", "effect": {{ "kind": "fetch", "host": "example.com", "path": "/" }} }}
+  ]
 }}
 "#,
         app_id.as_str(),
@@ -146,6 +172,7 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
     println!("✓ Đã tạo {}", duong_dan.display());
     println!();
     println!("Bước tiếp theo:");
+    println!("  tcc check {}   # kiểm ngay, KHÔNG cần khoá", duong_dan.display());
     println!("  tcc key --ra tcc-key.hex");
     println!("  tcc sign {} --khoa tcc-key.hex", duong_dan.display());
     println!("  tcc verify {}", duong_dan.display());
