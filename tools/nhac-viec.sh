@@ -42,7 +42,8 @@ mot_dong() {
   if [ -f "$VIEC" ]; then
     # Bỏ tiêu đề, dòng trống, và việc đã đánh dấu `x `.
     con=$(grep -cE '^- \[ \]' "$VIEC" || true)
-    next=$(grep -m1 -E '^- \[ \]' "$VIEC" | sed 's/^- \[ \] //')
+    next=$(grep -m1 -E '^- \[ \] (?!@)' "$VIEC" 2>/dev/null | sed 's/^- \[ \] //')
+    [ -z "$next" ] && next=$(grep -m1 -E '^- \[ \]' "$VIEC" | grep -v '@NGƯỜI' | sed 's/^- \[ \] //')
   else
     con=0; next="(không có $VIEC)"
   fi
@@ -52,10 +53,18 @@ mot_dong() {
   # chạy chồng lên, hỏng bản ghi của cả hai lượt.
   chay=$(pgrep -f 'cargo-mutants|cargo test|cargo build|kiem-' 2>/dev/null | wc -l | tr -d ' ')
 
+  # Việc cần NGƯỜI thì trợ lý KHÔNG đẩy được milimet nào — nêu riêng, vì nêu
+  # chung vào "còn N việc" là giấu mất chỗ đang thật sự tắc.
+  local nguoi
+  nguoi=$(grep -cE '^- \[ \] @NGƯỜI' "$VIEC" 2>/dev/null || echo 0)
+  local may=$((con - nguoi))
+
   if [ "$con" -eq 0 ]; then
     echo "NHẮC: hết việc trong $VIEC · $chay tiến trình nền"
+  elif [ "$may" -eq 0 ]; then
+    echo "NHẮC: HẾT việc làm được bằng máy. Còn $nguoi việc CẦN NGƯỜI: $(grep -m1 -E '^- \[ \] @NGƯỜI' "$VIEC" | sed 's/^- \[ \] @NGƯỜI //')"
   else
-    echo "NHẮC: còn $con việc · kế tiếp: $next · $chay tiến trình nền"
+    echo "NHẮC: còn $may việc máy + $nguoi việc CẦN NGƯỜI · kế tiếp: $next · $chay tiến trình nền"
   fi
 }
 
