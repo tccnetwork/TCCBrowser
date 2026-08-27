@@ -35,6 +35,7 @@
 - [ ] **Kho khoá Windows — CHỌN ĐƯỜNG TRƯỚC, đừng làm DPAPI theo quán tính.** DPAPI yếu hơn Keychain+`USER_PRESENCE` (không đòi hiện diện, blob nằm trong tệp, mọi tiến trình của người dùng giải mã được). Tương đương thật là Windows Hello + TPM. Ba đường ở `ke-hoach.md`; cần người bảo trì chọn
 - [ ] Kho khoá cho **Linux** — hiện `NoKeystore`
 - [ ] Quét đột biến `tcc-keystore` (đã xếp hàng chạy sau lượt raster)
+- [ ] **Lớp vỏ dòng lệnh của ví là tiếng Việt CỨNG** — `apps/tcc-browser/src/main.rs:148-176`. Màn hình trong cửa sổ CÓ song ngữ (nhận tham số `ngon_ngu`); chỉ mấy dòng `println!`/`eprintln!` quanh chúng thì không: "✓ đã khôi phục ví", "⚠ Bản cũ ở ví web VẪN CÒN", và `✗ {e}`. Trên Windows/Linux, dòng cuối ấy là TOÀN BỘ những gì người dùng đọc được về ví — và nó chỉ có tiếng Việt, trong khi luật là song ngữ mặc định tiếng Anh
 - [ ] `SECURITY.md` §3.28: kho khoá macOS gần như chưa kiểm — thu hẹp khoảng trống ấy
 
 ## Cần NGƯỜI, không phải mã
