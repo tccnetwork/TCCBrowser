@@ -279,6 +279,41 @@ pub enum PhraseError {
 mod kiem_thu {
     use super::*;
 
+    /// **Chuỗi toàn hex nhưng SAI độ dài phải bị TỪ CHỐI, không cắt cụt.**
+    ///
+    /// Phép kiểm là `goc.len() == 64 && mọi ký tự là hex`. Kiểm đột biến
+    /// 27/08/2026 ở cấu hình TỐI THIỂU: đổi `&&` thành `||` SỐNG — và nó KHÔNG
+    /// tương đương.
+    ///
+    /// Với `||`, một chuỗi toàn hex dài 128 ký tự lọt vào nhánh hạt giống thô.
+    /// Vòng lặp đọc đúng 32 byte đầu, mọi `get(i*2..i*2+2)` đều thành công, và
+    /// hàm trả `Ok` — **một ví dựng từ 64 ký tự ĐẦU, phần còn lại bỏ im lặng**.
+    /// Người dùng dán nhầm một khoá dài gấp đôi thì nhận một ví KHÁC, không
+    /// cảnh báo gì, rồi gửi tiền vào đó.
+    ///
+    /// Thử ba độ dài chứ không chỉ 128, vì bản vá dễ hỏng theo hướng ngược lại:
+    /// siết quá tay thành chối luôn chuỗi 64 ký tự hợp lệ.
+    #[test]
+    fn hex_sai_do_dai_bi_tu_choi_chu_khong_cat_cut() {
+        let dung = "ab".repeat(32); // 64 ký tự
+        assert!(
+            read_phrase(&dung).is_ok(),
+            "64 ký tự hex phải nhận được — vế này hỏng thì mọi vế dưới vô nghĩa"
+        );
+
+        for so in [63_usize, 65, 128] {
+            let sai = "a".repeat(so);
+            assert!(
+                read_phrase(&sai).is_err(),
+                "{so} ký tự hex phải bị TỪ CHỐI, không được cắt cụt thành ví khác"
+            );
+        }
+        assert!(
+            read_phrase(&format!("0x{}", "ab".repeat(64))).is_err(),
+            "có tiền tố 0x cũng vậy"
+        );
+    }
+
     const ABANDON: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
     /// Neo tới `tcc-keygen` của đội chuỗi — xem `tcc-chain/src/wallet.rs`.
     const DIA_CHI: &str = "0x11b22b300e195c44c910d71cdb1515c4617e852393cde5e80c860906b8a2d549";

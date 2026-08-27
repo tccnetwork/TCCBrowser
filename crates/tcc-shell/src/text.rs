@@ -583,6 +583,43 @@ pub fn raster_text(n: Language) -> tcc_render_raster::window::ScreenText {
 mod kiem_thu {
     use super::*;
 
+    /// **Câu báo hành động KHÔNG được rỗng, và hai câu phải KHÁC nhau.**
+    ///
+    /// Kiểm đột biến 27/08/2026: `action_done` và `action_refused` trả `""`
+    /// hoặc `"xyzzy"` đều sống — không phép thử nào trong cả kho chạm tới chúng.
+    ///
+    /// `action_refused` là câu khung NÓI RA khi người dùng bấm một hành động
+    /// không có trong bản kê khai đã ký. Trả chuỗi rỗng thì cú bấm không làm gì
+    /// và không nói gì: thất bại im lặng. Và `docs/BUILDING-APPS.md` đã HỨA
+    /// hành vi ấy với người viết ứng dụng bên ngoài.
+    ///
+    /// Kiểm BA chiều, vì một chuỗi rỗng qua được hai chiều đầu: không rỗng, có
+    /// mã hành động, và hai câu không được đọc giống nhau — "đã xong" trùng
+    /// "bị từ chối" thì cổng quyền năng trở nên vô hình.
+    #[test]
+    fn cau_bao_hanh_dong_noi_duoc_va_khac_nhau() {
+        for n in [Language::En, Language::Vi] {
+            let xong = action_done("tai-trang", 42, n);
+            let choi = action_refused("tai-trang", n);
+
+            assert!(!xong.is_empty(), "câu 'đã xong' rỗng ({n:?})");
+            assert!(!choi.is_empty(), "câu 'bị từ chối' rỗng ({n:?})");
+            assert!(
+                xong.contains("tai-trang"),
+                "không nói hành động nào: {xong}"
+            );
+            assert!(
+                choi.contains("tai-trang"),
+                "không nói hành động nào: {choi}"
+            );
+            assert!(xong.contains("42"), "không nói nhận bao nhiêu: {xong}");
+            assert_ne!(
+                xong, choi,
+                "'đã xong' và 'bị từ chối' KHÔNG được đọc giống nhau ({n:?})"
+            );
+        }
+    }
+
     const MOI_KHOA: &[TextKey] = &[
         TextKey::QuyenTieuDe,
         TextKey::QuyenNutChoPhep,

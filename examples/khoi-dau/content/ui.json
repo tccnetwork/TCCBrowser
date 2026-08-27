@@ -1,0 +1,33 @@
+{
+  "kind": "group",
+  "flow": "column",
+  "gap": "large",
+  "children": [
+    { "kind": "text", "content": "TCC Starter Kit", "emphasis": "title" },
+
+    { "kind": "image", "source": "img/logo.png",
+      "alt": { "kind": "text", "text": "The TCC mark: a letter T on an orange ground" } },
+
+    { "kind": "text",
+      "content": "This package carries no code. It declares what is on screen and what it may do; the browser decides how to draw it and whether to allow it. Copy this directory to start your own app." },
+
+    { "kind": "text", "emphasis": "subtle",
+      "content": "Every component kind in spec 0.1 appears below, so you can see each one rendered before you use it." },
+
+    { "kind": "text", "emphasis": "warning",
+      "content": "This app is signed by the DEMO key, which is published in this repository. Anyone can forge a package signed by it. A signature proves the bytes were not changed — it does not prove who wrote them." },
+
+    { "kind": "field", "label": "A text field", "value": "" },
+
+    { "kind": "toggle", "label": "Receive news updates", "action": "get-news" },
+
+    { "kind": "group", "flow": "row", "gap": "medium", "children": [
+      { "kind": "button", "label": "Load page", "action": "load-page", "tone": "primary" },
+      { "kind": "button", "label": "Do nothing", "action": "load-page", "tone": "neutral" },
+      { "kind": "button", "label": "Delete everything", "action": "delete-all", "tone": "danger" }
+    ]},
+
+    { "kind": "text", "emphasis": "subtle",
+      "content": "\"Delete everything\" is deliberately NOT declared in the manifest. Press it: the browser refuses and says so. An action that is not in the signed manifest cannot run, which is what stops a tampered screen from inventing one." }
+  ]
+}

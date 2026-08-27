@@ -1,3 +1,8 @@
+> **Writing your own app?** Start at
+> [`../docs/BUILDING-APPS.md`](../docs/BUILDING-APPS.md), then copy
+> [`khoi-dau/`](khoi-dau/) — it renders every component kind in 0.1 and includes
+> one action deliberately left undeclared so you can watch it be refused.
+
 # Examples
 
 Two signed packages, committed to the repository. Verifiable immediately, with

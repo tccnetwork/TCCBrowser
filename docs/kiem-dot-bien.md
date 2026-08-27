@@ -27,9 +27,9 @@ Tệ hơn: lượt ấy còn để lại một con số sai lan vào tài liệu
 
 ---
 
-## Tám cái bẫy — cả tám đều cho ra con số SAI mà trông vẫn hợp lý
+## Chín cái bẫy — cả chín đều cho ra con số SAI mà trông vẫn hợp lý
 
-Đây là phần đáng đọc nhất của tài liệu này. Cả tám đều đã trả giá thật.
+Đây là phần đáng đọc nhất của tài liệu này. Cả chín đều đã trả giá thật.
 
 ### 1. Hết đĩa giữa chừng đọc y hệt "bộ thử vô dụng"
 
@@ -149,6 +149,41 @@ trong cấu hình NGƯỢC LẠI. Đo bằng tay:
 hình**, và cấu hình đáng giá thường là cấu hình TỐI THIỂU. Chạy một lượt với bộ
 cờ tối đa rồi tuyên bố "đã phủ" là bỏ sót đúng lớp bất biến mà một bản dựng cắt
 gọn sinh ra để bảo vệ.
+
+### 9. Suy từ `#[cfg]` không thay thế được phép ĐO
+
+Bảy bẫy trên đều là công cụ đo sai. Bẫy này thì công cụ không sai — **tôi không
+dùng công cụ**.
+
+27/08/2026, phân loại kẻ sống sót của lượt tối thiểu, tôi nhìn dòng
+`#[cfg(feature = "window")]` trên `window_raster.rs` rồi kết luận "không được
+biên dịch, nên 25 kẻ sống ở đó là hiện vật", và ghi **53/62 là hiện vật** vào hồ
+sơ như một phép đo. Đo thật thì:
+
+| | Hiện vật | Thật |
+|---|---|---|
+| Suy từ `#[cfg]` | 53 | 9 |
+| Đọc dep-info | **28** | **34** |
+
+`cargo build -p tcc-shell` KHÔNG kéo `window_raster.rs` vào, nhưng
+`cargo test --no-run -p tcc-shell` **CÓ** — lượt dựng phép thử kéo nhiều hơn
+lượt dựng thường, và trọng tài chính là lượt phép thử.
+
+**Chốt:** `tools/loc-hien-vat.sh` dựng bằng ĐÚNG lệnh trọng tài dùng
+(`cargo test --no-run`) rồi đọc dep-info `.d`. Đúng theo cấu tạo, không đúng nhờ
+may.
+
+### Ba hạng, ba cách xử lý khác nhau
+
+Bẫy 9 đẻ ra một hạng chưa có tên ở mục "Đọc bảng cho đúng" bên dưới:
+
+| Hạng | Dấu hiệu | Làm gì |
+|---|---|---|
+| **Hiện vật** | tệp KHÔNG có trong dep-info của lượt ấy | sửa CÔNG CỤ (bật cờ, đổi cấu hình) |
+| **Phép thử yếu** | tệp có, phép thử có, mà đột biến vẫn sống | VIẾT phép thử |
+| **Chưa chạm tới được** | tệp có, nhưng hàm cần cửa sổ/Keychain thật | TÁCH phần thuần ra trước — như đã làm cho tầng `Phien` |
+
+Gộp ba hạng làm một là cách nhanh nhất để vá nhầm chỗ.
 
 ---
 

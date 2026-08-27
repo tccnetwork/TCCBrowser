@@ -29,6 +29,7 @@ implementation **must not** display "verified publisher".
 | [docs/AUDIT.md](docs/AUDIT.md) | **Reviewing this?** Start there — it points at the weak parts, not the strong ones |
 | [spec/](spec/) | **The standard.** English is normative; a Vietnamese translation lives in `spec/0.1/vi/` |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Three layers, the dependency tree, the hard rules, the escape route from WebView |
+| [docs/BUILDING-APPS.md](docs/BUILDING-APPS.md) | **Writing an app.** The component vocabulary, capabilities, and a blunt list of what 0.1 cannot do |
 | [SECURITY.md](SECURITY.md) | Threat model, what is proven and what is merely assumed |
 | [conformance/](conformance/) | 135 vectors — what turns a specification into a standard |
 | [examples/hello-tcc/](examples/) | A signed package, committed, verifiable in one command |
@@ -41,7 +42,7 @@ try to break them. The commands below are the checks.
 
 
 ```bash
-cargo test --workspace              # 396 tests
+cargo test --workspace              # 398 tests
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh        # 24 architecture rules — MUST report 0 violations
 cargo run -p tcc-conformance        # 154 conformance vectors
