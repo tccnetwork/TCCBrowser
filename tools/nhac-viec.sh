@@ -48,6 +48,23 @@ mot_dong() {
     con=0; next="(không có $VIEC)"
   fi
 
+  # Tiến độ lượt quét đột biến, LÀM TRÒN tới trăm. Làm tròn có chủ đích: dòng
+  # nhắc chỉ nên đổi khi có gì đáng đánh thức. Số chính xác thì đổi mỗi nhịp,
+  # và một lần thức dậy để đọc "131 thay vì 130" là một lượt bỏ phí.
+  local quet=""
+  local m
+  for m in /tmp/dot-bien*/*/mutants.out; do
+    [ -d "$m" ] || continue
+    local xong tong
+    xong=$(( $(wc -l < "$m/caught.txt" 2>/dev/null || echo 0) \
+           + $(wc -l < "$m/missed.txt" 2>/dev/null || echo 0) \
+           + $(wc -l < "$m/unviable.txt" 2>/dev/null || echo 0) ))
+    tong=$(grep -aoE "Found [0-9]+ mutants" "$(dirname "$m")".txt 2>/dev/null | grep -oE "[0-9]+" | head -1)
+    [ -z "$tong" ] && continue
+    [ "$xong" -ge "$tong" ] && continue
+    quet=" · quét ~$(( xong / 100 * 100 ))/$tong"
+  done
+
   # Việc nền còn chạy không. Mẫu phải khớp TÊN THẬT: `cargo-mutants` có GẠCH
   # NỐI. 26/08/2026 đếm bằng mẫu có dấu cách nên tưởng lượt quét đã chết rồi
   # chạy chồng lên, hỏng bản ghi của cả hai lượt.
@@ -64,15 +81,27 @@ mot_dong() {
   elif [ "$may" -eq 0 ]; then
     echo "NHẮC: HẾT việc làm được bằng máy. Còn $nguoi việc CẦN NGƯỜI: $(grep -m1 -E '^- \[ \] @NGƯỜI' "$VIEC" | sed 's/^- \[ \] @NGƯỜI //')"
   else
-    echo "NHẮC: còn $may việc máy + $nguoi việc CẦN NGƯỜI · kế tiếp: $next · $chay tiến trình nền"
+    echo "NHẮC: còn $may việc máy + $nguoi việc CẦN NGƯỜI$quet · kế tiếp: $next · $chay tiến trình nền"
   fi
 }
 
 if [ "$lap" -eq 0 ]; then
   mot_dong
 else
+  # In khi dòng ĐỔI. Cứ 6 nhịp im thì in lại một lần, để "im lặng" không lẫn
+  # với "đã chết" — đúng hạng lỗi mà tài liệu này đi phê bình: một phép đo
+  # không phân biệt được hai thứ ấy thì không phải một phép đo.
+  truoc=""
+  im=0
   while true; do
-    mot_dong
+    nay=$(mot_dong)
+    if [ "$nay" != "$truoc" ] || [ "$im" -ge 6 ]; then
+      printf '%s\n' "$nay"
+      truoc=$nay
+      im=0
+    else
+      im=$((im + 1))
+    fi
     sleep "$lap"
   done
 fi

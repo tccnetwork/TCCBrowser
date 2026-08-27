@@ -19,6 +19,7 @@
 - [x] **Mệnh đề chắn của `hit_test`/`hit_test_field`: 13 kẻ sống, giết được bằng trạng thái CÓ THẬT.** Vẽ ở 640, gọi `set_width(320)` mà CHƯA vẽ lại → ô ở x>320 nằm ngoài ảnh; lúc ấy mệnh đề chắn là thứ duy nhất chặn cú bấm. Đột biến `||`→`&&` ở vế cuối làm nó không nổ, và phép kiểm hình chữ nhật trả về một ô đã biến mất khỏi màn hình. Tình huống đời thường: THU HẸP CỬA SỔ RỒI BẤM vào vùng vừa mất. Viết cho CẢ HAI hàm song sinh
 - [x] `do_net`: ghim ĐÁP ÁN CHÍNH XÁC cho phông đóng gói sẵn (`x` → `(9,17)` ở 16px) để giết `:497 + → -/*`. Bộ gọi lại phát từng điểm ảnh nên `h=1`, đột biến chỉ dịch biên MỘT điểm ảnh — khẳng định thô không thấy. Đổi phông thì phép thử gãy, và đó là điều MONG MUỐN. Ghi rõ `:491` và `:499` là tương đương, đừng đuổi
 - [x] `do_o` 12 kẻ sống — cụm lớn nhất còn lại, chưa phân tích
+- [ ] **Ghim bất biến "ô không bao giờ có toạ độ ÂM"** — `khong_o_nao_troi_ra_ngoai_anh` chỉ chặn biên TRÊN. Hai kẻ sống ở `hit_test_field:256` (`x < 0.0` → `==`, và `||` → `&&` vế đầu) chỉ đổi kết quả với toạ độ âm, và lập luận "tương đương" của tôi tựa vào giả định `trai ≥ 0` mà KHÔNG ai kiểm. Bẫy 10: kiểm được thì phải kiểm, đừng ghi "tương đương" dựa trên giả định
 - [ ] Chạy cổng số liệu đầy đủ sau khi lượt quét xong (số 399 phép thử hiện CHƯA được cổng kiểm)
 
 - [ ] Quét đột biến `tcc-keystore` (đã mở khoá được), rồi dọn tên dịch vụ kiểm thử
