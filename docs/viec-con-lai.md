@@ -25,6 +25,7 @@
 - [ ] **`rong_bang_nhau` 9 kẻ sống — ở KHE HỞ, không ở bề rộng.** Phép thử của tôi khẳng định các ô rộng bằng nhau, mà dòng `d.o.rong = rong_nhat` không đột biến nào chạm nên nó luôn đúng. Thứ chúng đổi là CHỖ ĐẶT: `khe` sai thì ô chồng lên nhau hoặc dãn ra; `tong > rong_toi_da` sai thì luật áp cả khi không vừa. Điểm phân biệt: sau khi kéo bằng nhau, **khe giữa các ô kề nhau phải BẰNG NHAU và bằng khe ban đầu**
 - [ ] `khung` 10 kẻ sống — số học biên khung, chưa phân tích
 - [ ] `ve_o` 51 kẻ sống — cụm lớn nhất, chưa có bản vá nào nhắm tới
+- [ ] **`chay_trong_vong` 17 kẻ — GIỚI HẠN TRỌNG TÀI, không phải mã không ai canh.** Hàm nhận `&mut tao::event_loop::EventLoop`, mà `tao` chỉ cho một vòng lặp mỗi tiến trình và `#[test]` không mở được cửa sổ. Dự án CÓ thứ chạm tới nó: `tools/kiem-khoi-ung-dung.sh` chạy chính nhị phân sản phẩm qua năm đường màn hình, kể cả móc `TCC_TU_DONG_DONG` nằm trong hàm này — nhưng nó không phải trọng tài của `cargo-mutants`. Cách đóng: cho `--test-tool`/kịch bản kiểm khói vào trọng tài, hoặc ghi rõ là giới hạn và thôi
 - [ ] Chạy cổng số liệu đầy đủ sau khi lượt quét xong (số 399 phép thử hiện CHƯA được cổng kiểm)
 
 - [ ] Quét đột biến `tcc-keystore` (đã mở khoá được), rồi dọn tên dịch vụ kiểm thử
