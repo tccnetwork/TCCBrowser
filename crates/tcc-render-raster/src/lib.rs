@@ -2365,19 +2365,25 @@ mod kiem_thu_hop_thanh {
         let khung = bd.do_o(CHU, CO, KieuO::Khung, 600.0);
         let dam = bd.do_o(CHU, CO, KieuO::Dam, 600.0);
 
-        // Ô có khung phải rộng hơn: nó chừa đệm hai bên cho nét khung.
+        // ⚠️ Đệm là ĐÚNG `DEM × 2`, không phải "một số dương nào đó".
+        //
+        // Bản đầu chỉ khẳng định "khung rộng hơn thường" — đúng, nhưng quá thô:
+        // đột biến `DEM * 2.0` → `DEM + 2.0` vẫn cho một số dương, nên vẫn
+        // "rộng hơn", và nó sống sót qua lượt quét 27/08/2026.
+        //
+        // Ghim QUAN HỆ với hằng số của CHÍNH DỰ ÁN thì không giòn theo phông —
+        // khác hẳn phép thử ghim `(9,17)` cho `do_net`, nơi con số là của PHÔNG
+        // và ta muốn nó gãy khi phông đổi.
         assert!(
-            khung.rong > thuong.rong,
-            "ô có KHUNG ({}) phải rộng hơn ô thường ({}) — đệm hai bên",
-            khung.rong,
-            thuong.rong
+            (khung.rong - thuong.rong - DEM * 2.0).abs() < 0.01,
+            "ô KHUNG phải rộng hơn ô thường ĐÚNG {} px (DEM × 2), gặp {}",
+            DEM * 2.0,
+            khung.rong - thuong.rong
         );
-        // Và cao hơn, vì khung cộng thêm một phần đệm dọc.
         assert!(
-            khung.cao > thuong.cao,
-            "ô có KHUNG ({}) phải cao hơn ô thường ({})",
-            khung.cao,
-            thuong.cao
+            (khung.cao - thuong.cao - DEM).abs() < 0.01,
+            "ô KHUNG phải cao hơn ô thường ĐÚNG {DEM} px, gặp {}",
+            khung.cao - thuong.cao
         );
         // Chữ ĐẬM rộng hơn chữ thường cùng nội dung, cùng cỡ.
         assert!(
@@ -2397,12 +2403,20 @@ mod kiem_thu_hop_thanh {
             nhieu_dong.cao,
             mot_dong.cao
         );
-        // Và cao ÍT NHẤT hai lần chiều cao một dòng.
+        // ⚠️ Khẳng định "cao ít nhất 2× chiều cao dòng" LỌT, và lý do đáng ghi:
+        // khi `so_dong` đứng ở 0 thì
+        //     cao = (cao_dong * 0).max(net_duoi - net_tren.min(0))
+        // rơi về chiều cao NÉT — mà nét của chuỗi nhiều dòng trải qua TẤT CẢ
+        // các dòng nên vẫn lớn. Nhánh `.max` che mất phép đếm dòng.
+        //
+        // Điểm phân biệt đúng: hộp dòng có đệm trên/dưới, nên `cao` phải LỚN
+        // HƠN HẲN chiều cao nét. Bản đột biến cho `cao` ĐÚNG BẰNG nó.
+        let net_cao = nhieu_dong.net.1 - nhieu_dong.net.0.min(0.0);
         assert!(
-            nhieu_dong.cao >= nhieu_dong.cao_dong * 2.0,
-            "hai dòng phải cao ít nhất hai lần chiều cao dòng ({} < {} × 2)",
-            nhieu_dong.cao,
-            nhieu_dong.cao_dong
+            nhieu_dong.cao > net_cao + 0.5,
+            "ô nhiều dòng phải cao HƠN HẲN chiều cao nét ({} vs {net_cao}); bằng \
+             nhau nghĩa là phép đếm dòng đang đứng ở 0 và `.max` đang che nó",
+            nhieu_dong.cao
         );
     }
 

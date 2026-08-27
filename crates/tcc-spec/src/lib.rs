@@ -718,6 +718,84 @@ fn check_hex(field: &'static str, value: &str, expected: usize) -> Result<(), Sp
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
 mod kiem_thu {
+    /// **Mọi mã lỗi của `SpecError` được GHIM ở đây.**
+    ///
+    /// Kiểm đột biến 26/08/2026: `SpecError::ma` trả `""` hoặc `"xyzzy"` mà
+    /// `cargo test -p tcc-spec` vẫn xanh. Bộ kiểm định tuân thủ CÓ canh — nó so
+    /// `e.ma()` với vector — nhưng đó là một nhị phân khác, ngoài tầm trọng tài.
+    ///
+    /// Bất đối xứng ngay trong cùng hòm: `TreeError::ma` CÓ phép thử ghim chuỗi
+    /// (`tree.rs`), `SpecError::ma` thì không. Hai loại mã lỗi cùng giá trị với
+    /// người cài đặt tiêu chuẩn, canh bằng hai mức khác nhau, không vì lý do gì.
+    ///
+    /// ⚠️ Chú thích trên `ma()` viết: **"Đổi một mã là đổi tiêu chuẩn"**. Bảng
+    /// dưới đây là chỗ điều đó trở thành thứ máy chặn được — đổi một chuỗi thì
+    /// phép thử đỏ ngay ở `cargo test`, không đợi một nhị phân riêng.
+    #[test]
+    fn moi_ma_loi_cua_spec_deu_duoc_ghim() {
+        use super::SpecError as E;
+        let bang: &[(E, &str)] = &[
+            (E::BadAppId(String::new(), ""), "bad-app-id"),
+            (
+                E::UnsupportedSpecVersion(String::new()),
+                "unsupported-spec-version",
+            ),
+            (
+                E::BadHexLength {
+                    field: "",
+                    expected: 0,
+                    actual: 0,
+                },
+                "bad-hex-length",
+            ),
+            (E::NotHex { field: "" }, "not-hex"),
+            (E::UnknownCapability(String::new()), "unknown-capability"),
+            (
+                E::MissingReason {
+                    name: String::new(),
+                },
+                "missing-reason",
+            ),
+            (
+                E::BadScope {
+                    name: String::new(),
+                    why: "",
+                },
+                "bad-scope",
+            ),
+            (
+                E::DuplicateCapability(String::new()),
+                "duplicate-capability",
+            ),
+            (
+                E::UnsafeDisplayString { field: "", why: "" },
+                "unsafe-display-string",
+            ),
+            (E::NonAsciiHost(String::new()), "non-ascii-host"),
+            (E::MissingEntry(String::new()), "missing-entry"),
+            (E::BadEntry(String::new()), "bad-entry"),
+            (E::BadActionId(String::new()), "bad-action-id"),
+            (E::DuplicateAction(String::new()), "duplicate-action"),
+            (
+                E::ActionHostNotGranted {
+                    action: String::new(),
+                    host: String::new(),
+                },
+                "action-host-not-granted",
+            ),
+        ];
+        for (loi, cho) in bang {
+            assert_eq!(loi.ma(), *cho, "mã lỗi lệch — ĐỔI MÃ LÀ ĐỔI TIÊU CHUẨN");
+        }
+        // Và không mã nào được rỗng hay trùng nhau.
+        let mut da_thay = std::collections::BTreeSet::new();
+        for (loi, _) in bang {
+            let m = loi.ma();
+            assert!(!m.is_empty(), "mã rỗng");
+            assert!(da_thay.insert(m), "hai biến thể dùng chung mã {m}");
+        }
+    }
+
     use super::*;
 
     #[test]

@@ -74,7 +74,10 @@ mot_dong() {
     # <hòm>` hay không.
     local ten_hom; ten_hom=$(basename "$(dirname "$m")")
     if pgrep -f "cargo-mutants.*-p $ten_hom" >/dev/null 2>&1; then
-      quet=" · quét ~$(( xong / 100 * 100 ))/$tong"
+      # Làm tròn theo PHẦN TRĂM, không theo trăm đột biến: hòm 158 đột biến
+      # thì 94 làm tròn xuống thành 0, và dòng nhắc báo "quét ~0/158" trong khi
+      # nó đã đi 59%. Phần trăm đúng với mọi cỡ hòm — 665 hay 29.
+      quet=" · quét $(( xong * 10 / tong * 10 ))% $ten_hom"
     else
       quet=" · ⚠️ $ten_hom CHẾT ở $xong/$tong"
     fi
@@ -83,7 +86,16 @@ mot_dong() {
   # Việc nền còn chạy không. Mẫu phải khớp TÊN THẬT: `cargo-mutants` có GẠCH
   # NỐI. 26/08/2026 đếm bằng mẫu có dấu cách nên tưởng lượt quét đã chết rồi
   # chạy chồng lên, hỏng bản ghi của cả hai lượt.
-  chay=$(pgrep -f 'cargo-mutants|cargo test|cargo build|kiem-' 2>/dev/null | wc -l | tr -d ' ')
+  # ⚠️ Khớp `bin/cargo-mutants`, KHÔNG khớp `cargo-mutants` trần. 27/08/2026
+  # con số này nhảy từ 8 xuống 0 rồi lên 22 và trông như "việc đang cạn dần" —
+  # thật ra dòng lệnh của MỌI tiến trình `rustc` đều chứa đường dẫn thư mục tạm
+  # `/Volumes/DATA/.tmp/cargo-mutants-v2-XXXX.tmp/...`, nên cả chục `rustc` cùng
+  # khớp mỗi lúc đang biên dịch.
+  #
+  # Cùng hạng lỗi với `pgrep -fl | wc -l` báo 23 tiến trình khi chỉ có MỘT: mẫu
+  # tìm bắt nhiều hơn thứ nó định bắt. Con số dùng để QUYẾT ĐỊNH thì phải đếm
+  # đúng thứ cần đếm.
+  chay=$(pgrep -f 'bin/cargo-mutants|bin/cargo .*(test|build)|tools/kiem-' 2>/dev/null | wc -l | tr -d ' ')
 
   # Việc cần NGƯỜI thì trợ lý KHÔNG đẩy được milimet nào — nêu riêng, vì nêu
   # chung vào "còn N việc" là giấu mất chỗ đang thật sự tắc.
