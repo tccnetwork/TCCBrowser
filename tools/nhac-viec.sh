@@ -95,9 +95,13 @@ else
   im=0
   while true; do
     nay=$(mot_dong)
-    if [ "$nay" != "$truoc" ] || [ "$im" -ge 6 ]; then
+    # So sánh BỎ QUA số tiến trình nền: nó nhảy lên xuống theo từng lệnh con
+    # của `cargo`, nên để nguyên thì dòng "đổi" liên tục và ta quay lại đúng
+    # chỗ vừa sửa. Vẫn IN ra, vì "0 tiến trình nền" là tín hiệu thật.
+    khoa=${nay% · *}
+    if [ "$khoa" != "$truoc" ] || [ "$im" -ge 6 ]; then
       printf '%s\n' "$nay"
-      truoc=$nay
+      truoc=$khoa
       im=0
     else
       im=$((im + 1))
