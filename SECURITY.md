@@ -1819,7 +1819,7 @@ re-running the mutant that survived.
 
 **The rest exposed a flaw in the method, not the code.** `cargo-mutants` uses
 `cargo test` as its oracle, and `tcc-conformance` was a `main.rs` with **zero**
-`#[test]` functions. The 154 vectors ran only when someone typed `cargo run`.
+`#[test]` functions. The vectors ran only when someone typed `cargo run`.
 They *were* run — by CI, and by the pre-push checklist — but they were invisible
 to the oracle, so every mutation that only a vector catches was reported as
 surviving. Mutating `SpecError::ma` to return `"xyzzy"` — the machine-readable
@@ -2254,7 +2254,7 @@ one half does not propagate to the other, and that is precisely why the signatur
 is hybrid.**
 
 ```sh
-cargo run -p tcc-conformance                 # 154 conformance vectors
+cargo run -p tcc-conformance                 # 160 conformance vectors
 cargo run -p tcc-conformance -- --chi-tiet
 ```
 
@@ -2265,7 +2265,7 @@ cargo run -p tcc-conformance -- --chi-tiet
 ```bash
 cargo test --workspace                              # 399 tests
 cargo test --workspace --features tcc-shell/window  # 380 — three more that need a window
-cargo run -p tcc-conformance                        # 154 conformance vectors
+cargo run -p tcc-conformance                        # 160 conformance vectors
 python3 conformance/doi-chieu-doc-lap.py <vectors>  # dilithium-py cross-check
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh                        # 24 architecture rules

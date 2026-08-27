@@ -1,862 +1,1008 @@
 {
- "description": "Accepting and rejecting manifests. The largest attack surface: everything downstream trusts the verdict reached here, and this runs BEFORE the signature is verified, because the public key lives inside the manifest. Every rejecting case names a stable error code. See FORMAT.md.",
- "cases": [
-  {
-   "case": "minimal manifest, no capabilities requested",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "Xin chào",
-    "version": "1.0.0",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "app id missing a dot",
-   "expect_pass": false,
-   "code": "bad-app-id",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "app id contains uppercase",
-   "expect_pass": false,
-   "code": "bad-app-id",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.TCC.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "unknown spec_version",
-   "expect_pass": false,
-   "code": "unsupported-spec-version",
-   "manifest": {
-    "spec_version": "99.0",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "app name contains a bidi override",
-   "expect_pass": false,
-   "code": "unsafe-display-string",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "Hu‮r",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "app name contains a zero-width character",
-   "expect_pass": false,
-   "code": "unsafe-display-string",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "TCC​Store",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "same capability requested twice",
-   "expect_pass": false,
-   "code": "duplicate-capability",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "a.tcc-coin.com"
-       ]
-      },
-      "reason": "vo hai"
-     },
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "ke-gian.example"
-       ]
-      },
-      "reason": "muc that"
-     }
-    ]
-   }
-  },
-  {
-   "case": "non-ASCII hostname (Cyrillic o in shop)",
-   "expect_pass": false,
-   "code": "non-ascii-host",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shоp.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ]
-   }
-  },
-  {
-   "case": "capability not in the standard",
-   "expect_pass": false,
-   "code": "unknown-capability",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "camera",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "a.tcc-coin.com"
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "empty reason",
-   "expect_pass": false,
-   "code": "missing-reason",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "a.tcc-coin.com"
-       ]
-      },
-      "reason": "   "
-     }
-    ]
-   },
-   "notes": "The correct code is `missing-reason`, not `unsafe-display-string`: an empty reason is a missing field, not a dangerous string."
-  },
-  {
-   "case": "entry point escapes the package",
-   "expect_pass": false,
-   "code": "bad-entry",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "../../etc/passwd",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "action within the granted scope",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "/ds"
+  "description": "Accepting and rejecting manifests. The largest attack surface: everything downstream trusts the verdict reached here, and this runs BEFORE the signature is verified, because the public key lives inside the manifest. Every rejecting case names a stable error code. See FORMAT.md.",
+  "cases": [
+    {
+      "case": "minimal manifest, no capabilities requested",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "action calls a host never requested",
-   "notes": "At run time the capability still blocks it — but the user has already clicked, nothing happened, and nobody knows why. Catching it in validate_shape tells the app author while they are still at their machine.",
-   "expect_pass": false,
-   "code": "action-host-not-granted",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "ke-gian.example",
-       "path": "/ds"
+    },
+    {
+      "case": "app id missing a dot",
+      "expect_pass": false,
+      "code": "bad-app-id",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "action declared with no network capability requested",
-   "expect_pass": false,
-   "code": "action-host-not-granted",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "/ds"
+    },
+    {
+      "case": "app id contains uppercase",
+      "expect_pass": false,
+      "code": "bad-app-id",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.TCC.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "subdomain is NOT considered in scope",
-   "notes": "Must match exactly, following the capability layer's own rule. A mismatch between the two layers is a hole.",
-   "expect_pass": false,
-   "code": "action-host-not-granted",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "api.shop.tcc-coin.com",
-       "path": "/ds"
+    },
+    {
+      "case": "unknown spec_version",
+      "expect_pass": false,
+      "code": "unsupported-spec-version",
+      "manifest": {
+        "spec_version": "99.0",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "action id contains a space",
-   "expect_pass": false,
-   "code": "bad-action-id",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "TAI HANG",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "/ds"
+    },
+    {
+      "case": "app name contains a bidi override",
+      "expect_pass": false,
+      "code": "unsafe-display-string",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "Hu‮r",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "same action declared twice",
-   "expect_pass": false,
-   "code": "duplicate-action",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "/a"
+    },
+    {
+      "case": "app name contains a zero-width character",
+      "expect_pass": false,
+      "code": "unsafe-display-string",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "TCC​Store",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
       }
-     },
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "/b"
+    },
+    {
+      "case": "same capability requested twice",
+      "expect_pass": false,
+      "code": "duplicate-capability",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "a.tcc-coin.com"
+              ]
+            },
+            "reason": "vo hai"
+          },
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "ke-gian.example"
+              ]
+            },
+            "reason": "muc that"
+          }
+        ]
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "path does not start with a slash",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
-      },
-      "reason": "tai hang"
-     }
-    ],
-    "actions": [
-     {
-      "id": "tai-hang",
-      "effect": {
-       "kind": "fetch",
-       "host": "shop.tcc-coin.com",
-       "path": "ds"
+    },
+    {
+      "case": "non-ASCII hostname (Cyrillic o in shop)",
+      "expect_pass": false,
+      "code": "non-ascii-host",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shоp.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ]
       }
-     }
-    ]
-   }
-  },
-  {
-   "case": "declaring no action is still valid",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com"
-       ]
+    },
+    {
+      "case": "capability not in the standard",
+      "expect_pass": false,
+      "code": "unknown-capability",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "camera",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "a.tcc-coin.com"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "empty reason",
+      "expect_pass": false,
+      "code": "missing-reason",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "a.tcc-coin.com"
+              ]
+            },
+            "reason": "   "
+          }
+        ]
       },
-      "reason": "tai hang"
-     }
-    ]
-   }
-  },
-  {
-   "case": "hostname spoofing via userinfo",
-   "notes": "shop.tcc-coin.com:8080@evil.example is ASCII, non-empty and wildcard-free, so every older check passed it — but in a URL the real host is evil.example and the rest is userinfo.",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com:8080@evil.example"
-       ]
+      "notes": "The correct code is `missing-reason`, not `unsafe-display-string`: an empty reason is a missing field, not a dangerous string."
+    },
+    {
+      "case": "entry point escapes the package",
+      "expect_pass": false,
+      "code": "bad-entry",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "../../etc/passwd",
+        "capabilities": []
+      }
+    },
+    {
+      "case": "action within the granted scope",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "/ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "action calls a host never requested",
+      "notes": "At run time the capability still blocks it — but the user has already clicked, nothing happened, and nobody knows why. Catching it in validate_shape tells the app author while they are still at their machine.",
+      "expect_pass": false,
+      "code": "action-host-not-granted",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "ke-gian.example",
+              "path": "/ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "action declared with no network capability requested",
+      "expect_pass": false,
+      "code": "action-host-not-granted",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "/ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "subdomain is NOT considered in scope",
+      "notes": "Must match exactly, following the capability layer's own rule. A mismatch between the two layers is a hole.",
+      "expect_pass": false,
+      "code": "action-host-not-granted",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "api.shop.tcc-coin.com",
+              "path": "/ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "action id contains a space",
+      "expect_pass": false,
+      "code": "bad-action-id",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "TAI HANG",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "/ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "same action declared twice",
+      "expect_pass": false,
+      "code": "duplicate-action",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "/a"
+            }
+          },
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "/b"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "path does not start with a slash",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ],
+        "actions": [
+          {
+            "id": "tai-hang",
+            "effect": {
+              "kind": "fetch",
+              "host": "shop.tcc-coin.com",
+              "path": "ds"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "case": "declaring no action is still valid",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com"
+              ]
+            },
+            "reason": "tai hang"
+          }
+        ]
+      }
+    },
+    {
+      "case": "hostname spoofing via userinfo",
+      "notes": "shop.tcc-coin.com:8080@evil.example is ASCII, non-empty and wildcard-free, so every older check passed it — but in a URL the real host is evil.example and the rest is userinfo.",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com:8080@evil.example"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "hostname contains a slash",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com/@evil.example"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "hostname contains a port",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com:8443"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "hostname has two consecutive dots",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop..tcc-coin.com"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "label starts with a hyphen",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "-shop.tcc-coin.com"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "absolute hostname (one trailing dot) is still valid",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "shop.tcc-coin.com."
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "valid punycode",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "xn--th-e0a.com"
+              ]
+            },
+            "reason": "x"
+          }
+        ]
+      }
+    },
+    {
+      "case": "app name with 30 stacked marks",
+      "expect_pass": false,
+      "code": "unsafe-display-string",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "Ví́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
+      }
+    },
+    {
+      "case": "Vietnamese app name in decomposed form",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.a",
+        "name": "Ví TCC",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": []
+      }
+    },
+    {
+      "case": "unknown field at the manifest root",
+      "expect_pass": false,
+      "code": "bad-json",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [],
+        "x-acme-tu-chay": true
+      }
+    },
+    {
+      "case": "unknown field inside a capability request",
+      "expect_pass": false,
+      "code": "bad-json",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "a.com"
+              ]
+            },
+            "reason": "tải dữ liệu",
+            "x-acme-im-lang": true
+          }
+        ]
+      }
+    },
+    {
+      "case": "unknown field inside a capability scope",
+      "expect_pass": false,
+      "code": "bad-json",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "network",
+            "scope": {
+              "kind": "network",
+              "hosts": [
+                "a.com"
+              ],
+              "ports": [
+                443
+              ]
+            },
+            "reason": "tải dữ liệu"
+          }
+        ]
+      }
+    },
+    {
+      "case": "content hash is not hex",
+      "expect_pass": false,
+      "code": "not-hex",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "entry": "ui.json",
+        "capabilities": []
+      }
+    },
+    {
+      "case": "content hash of the wrong length",
+      "expect_pass": false,
+      "code": "bad-hex-length",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "abababababababababababababababababababababababababababababababababababababababab",
+        "entry": "ui.json",
+        "capabilities": []
       },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "hostname contains a slash",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com/@evil.example"
-       ]
+      "notes": "80 hex characters, not 96. A hash of the wrong length is a different algorithm, not a typo."
+    },
+    {
+      "case": "entry field is empty",
+      "expect_pass": false,
+      "code": "bad-entry",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "A",
+        "version": "1",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "",
+        "capabilities": []
       },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "hostname contains a port",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com:8443"
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "hostname has two consecutive dots",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop..tcc-coin.com"
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "label starts with a hyphen",
-   "expect_pass": false,
-   "code": "bad-scope",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "-shop.tcc-coin.com"
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "absolute hostname (one trailing dot) is still valid",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "shop.tcc-coin.com."
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "valid punycode",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "xn--th-e0a.com"
-       ]
-      },
-      "reason": "x"
-     }
-    ]
-   }
-  },
-  {
-   "case": "app name with 30 stacked marks",
-   "expect_pass": false,
-   "code": "unsafe-display-string",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "Ví́́́́́́́́́́́́́́́́́́́́́́́́́́́́́́",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "Vietnamese app name in decomposed form",
-   "expect_pass": true,
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.a",
-    "name": "Ví TCC",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "unknown field at the manifest root",
-   "expect_pass": false,
-   "code": "bad-json",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [],
-    "x-acme-tu-chay": true
-   }
-  },
-  {
-   "case": "unknown field inside a capability request",
-   "expect_pass": false,
-   "code": "bad-json",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "a.com"
-       ]
-      },
-      "reason": "tải dữ liệu",
-      "x-acme-im-lang": true
-     }
-    ]
-   }
-  },
-  {
-   "case": "unknown field inside a capability scope",
-   "expect_pass": false,
-   "code": "bad-json",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "ui.json",
-    "capabilities": [
-     {
-      "name": "network",
-      "scope": {
-       "kind": "network",
-       "hosts": [
-        "a.com"
-       ],
-       "ports": [
-        443
-       ]
-      },
-      "reason": "tải dữ liệu"
-     }
-    ]
-   }
-  },
-  {
-   "case": "content hash is not hex",
-   "expect_pass": false,
-   "code": "not-hex",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-    "entry": "ui.json",
-    "capabilities": []
-   }
-  },
-  {
-   "case": "content hash of the wrong length",
-   "expect_pass": false,
-   "code": "bad-hex-length",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "abababababababababababababababababababababababababababababababababababababababab",
-    "entry": "ui.json",
-    "capabilities": []
-   },
-   "notes": "80 hex characters, not 96. A hash of the wrong length is a different algorithm, not a typo."
-  },
-  {
-   "case": "entry field is empty",
-   "expect_pass": false,
-   "code": "bad-entry",
-   "manifest": {
-    "spec_version": "0.1",
-    "id": "com.tcc.hello",
-    "name": "A",
-    "version": "1",
-    "publisher": "PUB",
-    "scheme": "hybrid-ed25519-mldsa65-v1",
-    "content_hash": "HASH",
-    "entry": "",
-    "capabilities": []
-   },
-   "notes": "`missing-entry` is a different code: it means `entry` names a file that is not in the package, which can only be checked once the content is available. An empty string is a malformed field, caught during shape checking."
-  }
- ]
+      "notes": "`missing-entry` is a different code: it means `entry` names a file that is not in the package, which can only be checked once the content is available. An empty string is a malformed field, caught during shape checking."
+    },
+    {
+      "case": "storage quota_bytes = 0 is legal — asks for storage, writes nothing",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "storage",
+            "scope": {
+              "kind": "storage",
+              "quota_bytes": 0
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    },
+    {
+      "case": "storage quota_bytes at the 2^53-1 ceiling is legal",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "storage",
+            "scope": {
+              "kind": "storage",
+              "quota_bytes": 9007199254740991
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    },
+    {
+      "case": "storage quota_bytes above 2^53-1 is rejected",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "storage",
+            "scope": {
+              "kind": "storage",
+              "quota_bytes": 9007199254740992
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    },
+    {
+      "case": "storage quota_bytes negative is rejected",
+      "expect_pass": false,
+      "code": "bad-scope",
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "storage",
+            "scope": {
+              "kind": "storage",
+              "quota_bytes": -1
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    },
+    {
+      "case": "wallet may_request_signature = false is legal — read the address only",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "wallet",
+            "scope": {
+              "kind": "wallet",
+              "may_request_signature": false
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    },
+    {
+      "case": "wallet may_request_signature = true is legal",
+      "expect_pass": true,
+      "manifest": {
+        "spec_version": "0.1",
+        "id": "com.tcc.hello",
+        "name": "Xin chào",
+        "version": "1.0.0",
+        "publisher": "PUB",
+        "scheme": "hybrid-ed25519-mldsa65-v1",
+        "content_hash": "HASH",
+        "entry": "ui.json",
+        "capabilities": [
+          {
+            "name": "wallet",
+            "scope": {
+              "kind": "wallet",
+              "may_request_signature": true
+            },
+            "reason": "ly do that"
+          }
+        ]
+      }
+    }
+  ]
 }

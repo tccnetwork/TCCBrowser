@@ -439,6 +439,11 @@ pub struct CapabilityRequest {
     pub reason: String,
 }
 
+/// Trần của `quota_bytes`, theo `spec/0.1/04-capabilities.md`.
+///
+/// 2^53−1 chứ không phải 2^64−1: số trong JSON là `double` ở phần lớn bộ đọc.
+pub const MAX_QUOTA_BYTES: u64 = 9_007_199_254_740_991;
+
 impl CapabilityRequest {
     /// # Errors
     /// Tên lạ, thiếu lý do, hoặc phạm vi không khớp với tên quyền.
@@ -458,6 +463,25 @@ impl CapabilityRequest {
             return Err(SpecError::BadScope {
                 name: self.name.clone(),
                 why: "phạm vi khai một loại, tên khai loại khác",
+            });
+        }
+        // Trần `quota_bytes`: 2^53−1, KHÔNG phải 2^64−1.
+        //
+        // `04-capabilities.md` §"Scope fields, exactly" ghi rõ `0 ≤ n ≤ 2^53−1`,
+        // và ghi cả lý do: số trong JSON là `double` ở phần lớn bộ đọc, nên một
+        // giá trị không đi qua nổi bộ đọc mà còn nguyên là một giá trị hai bản
+        // cài đặt sẽ bất đồng.
+        //
+        // ⚠️ Trần ấy có tài liệu, có lập luận, và tới 27/08/2026 KHÔNG được
+        // cưỡng chế: kiểu là `u64` nên `2^53` lọt thẳng. Nó vô hình suốt vì
+        // KHÔNG vector nào từng chạm `quota_bytes` — thêm vector là lộ ra ngay.
+        // Đúng thứ bộ kiểm định tuân thủ sinh ra để bắt.
+        if let Scope::Storage { quota_bytes } = &self.scope
+            && *quota_bytes > MAX_QUOTA_BYTES
+        {
+            return Err(SpecError::BadScope {
+                name: self.name.clone(),
+                why: "hạn mức vượt 2^53−1 — số ấy không qua nổi bộ đọc JSON mà còn nguyên",
             });
         }
         if let Scope::Network { hosts } = &self.scope {

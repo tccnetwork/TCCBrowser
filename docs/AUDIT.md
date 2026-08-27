@@ -54,7 +54,7 @@ tools/kiem-theo-co.sh
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check
 tools/kiem-luat-phu-thuoc.sh                        # 24 architecture rules
-cargo run -p tcc-conformance                        # 154 conformance vectors, nine groups
+cargo run -p tcc-conformance                        # 160 conformance vectors, nine groups
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release                     # byte-mutation fuzzer
 python3 conformance/doi-chieu-doc-lap.py            # cross-check vs dilithium-py

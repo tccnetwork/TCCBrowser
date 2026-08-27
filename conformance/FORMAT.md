@@ -123,7 +123,16 @@ that is the *expanded* form, while this standard keeps secret keys as a 32-byte
 seed. There is no bridge between the two, which is why the signing direction is
 anchored by cross-checking against `dilithium-py` instead.
 
-## `manifest.json` — 34 cases
+## `manifest.json` — 40 cases
+
+> Sáu ca thêm 27/08/2026 phủ hai chỗ mà **KHÔNG vector nào từng chạm tới**:
+> `quota_bytes` và `may_request_signature`. Toàn bộ hình dạng phạm vi của quyền
+> `storage` và `wallet` trước đó chỉ được canh bằng phép thử Rust — nghĩa là một
+> bản cài đặt khác có thể chối `quota_bytes: 0`, thứ đặc tả tuyên bố là HỢP LỆ,
+> mà bộ kiểm định vẫn cho qua.
+>
+> Ngay ca đầu tiên thêm vào đã bắt được một lỗi thật: trần `2^53−1` có tài liệu,
+> có lập luận, và **không được cưỡng chế** — kiểu là `u64` nên `2^53` lọt thẳng.
 
 The largest attack surface: everything downstream trusts the verdict reached
 here, and this code runs **before the signature is verified**, because the

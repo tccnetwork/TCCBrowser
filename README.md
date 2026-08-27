@@ -45,7 +45,7 @@ try to break them. The commands below are the checks.
 cargo test --workspace              # 399 tests
 cargo clippy --workspace --all-targets -- -D warnings
 tools/kiem-luat-phu-thuoc.sh        # 24 architecture rules — MUST report 0 violations
-cargo run -p tcc-conformance        # 154 conformance vectors
+cargo run -p tcc-conformance        # 160 conformance vectors
 cargo run -p tcc-cli -- verify examples/hello-tcc
 cargo run -p tcc-fuzz --release      # fuzz the parsers — unauthenticated input
 cargo +nightly fuzz run ke_khai fuzz/seeds/ke_khai -- -dict=fuzz/tcc.dict  # coverage-guided
