@@ -20,6 +20,8 @@
 - [x] `do_net`: ghim ĐÁP ÁN CHÍNH XÁC cho phông đóng gói sẵn (`x` → `(9,17)` ở 16px) để giết `:497 + → -/*`. Bộ gọi lại phát từng điểm ảnh nên `h=1`, đột biến chỉ dịch biên MỘT điểm ảnh — khẳng định thô không thấy. Đổi phông thì phép thử gãy, và đó là điều MONG MUỐN. Ghi rõ `:491` và `:499` là tương đương, đừng đuổi
 - [x] `do_o` 12 kẻ sống — cụm lớn nhất còn lại, chưa phân tích
 - [ ] **Ghim bất biến "ô không bao giờ có toạ độ ÂM"** — `khong_o_nao_troi_ra_ngoai_anh` chỉ chặn biên TRÊN. Hai kẻ sống ở `hit_test_field:256` (`x < 0.0` → `==`, và `||` → `&&` vế đầu) chỉ đổi kết quả với toạ độ âm, và lập luận "tương đương" của tôi tựa vào giả định `trai ≥ 0` mà KHÔNG ai kiểm. Bẫy 10: kiểm được thì phải kiểm, đừng ghi "tương đương" dựa trên giả định
+- [ ] **`do_o:601` `so_dong += 1` → `*=` vẫn sống** — khẳng định "hai dòng cao ít nhất 2× chiều cao dòng" LỌT, vì khi phép đếm đứng ở 0 thì `cao` rơi về `.max(chiều cao NÉT)`, mà nét của chuỗi nhiều dòng vẫn lớn. Nhánh `.max` che mất phép đếm. Điểm phân biệt đúng: với chuỗi nhiều dòng, `cao` phải LỚN HƠN HẲN chiều cao nét (hộp dòng có đệm), còn bản đột biến cho `cao` ĐÚNG BẰNG chiều cao nét
+- [ ] `do_o` còn 9 kẻ số học khác (`:590` `DEM*2`, `:591`, `:596`, `:615`, `:633`) — khẳng định "khung rộng hơn thường" quá thô, `DEM+2` vẫn > 0 nên vẫn rộng hơn
 - [ ] Chạy cổng số liệu đầy đủ sau khi lượt quét xong (số 399 phép thử hiện CHƯA được cổng kiểm)
 
 - [ ] Quét đột biến `tcc-keystore` (đã mở khoá được), rồi dọn tên dịch vụ kiểm thử
