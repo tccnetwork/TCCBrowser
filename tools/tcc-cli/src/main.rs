@@ -172,7 +172,10 @@ fn lenh_new(duong_dan: &Path, id: &str) -> Result<(), String> {
     println!("✓ Đã tạo {}", duong_dan.display());
     println!();
     println!("Bước tiếp theo:");
-    println!("  tcc check {}   # kiểm ngay, KHÔNG cần khoá", duong_dan.display());
+    println!(
+        "  tcc check {}   # kiểm ngay, KHÔNG cần khoá",
+        duong_dan.display()
+    );
     println!("  tcc key --ra tcc-key.hex");
     println!("  tcc sign {} --khoa tcc-key.hex", duong_dan.display());
     println!("  tcc verify {}", duong_dan.display());
