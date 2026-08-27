@@ -161,6 +161,22 @@ pub enum TextKey {
     NhapTieuDeCuaSo,
     /// Tiêu đề cửa sổ màn hỏi mã PIN.
     NhapPinTieuDeCuaSo,
+    // ── Lớp vỏ DÒNG LỆNH của luồng ví ──────────────────────────────────────
+    //
+    // Màn hình trong cửa sổ đã song ngữ từ đầu (chúng nhận tham số ngôn ngữ).
+    // Mấy dòng `println!` bọc quanh chúng thì không — và trên Windows/Linux,
+    // nơi `wallet_store::open()` trả `NoKeystore`, MỘT trong những dòng ấy là
+    // TOÀN BỘ những gì người dùng đọc được về ví. Phát hiện 27/08/2026.
+    //
+    // `{}` là chỗ ghép, thay bằng `.replace("{}", …)` — `label` trả `&'static
+    // str` nên không dùng `format!` được.
+    ViKhoiPhucXong,
+    ViNhapXong,
+    ViBanCuVanCon,
+    ViXoaTepDi,
+    ViCanMotTrongHai,
+    ViCachDungCumTu,
+    ViCachDungNhap,
 }
 
 /// Bản dịch.
@@ -538,6 +554,39 @@ pub const fn label(k: TextKey, n: Language) -> &'static str {
         (TextKey::NhapTieuDeCuaSo, Language::Vi) => "TCC — nhập ví",
         (TextKey::NhapPinTieuDeCuaSo, Language::En) => "TCC — unlock this wallet",
         (TextKey::NhapPinTieuDeCuaSo, Language::Vi) => "TCC — mở khoá ví này",
+
+        (TextKey::ViKhoiPhucXong, Language::En) => "✓ wallet {} recovered",
+        (TextKey::ViKhoiPhucXong, Language::Vi) => "✓ đã khôi phục ví {}",
+
+        (TextKey::ViNhapXong, Language::En) => "✓ wallet {} imported",
+        (TextKey::ViNhapXong, Language::Vi) => "✓ đã nhập ví {}",
+
+        (TextKey::ViBanCuVanCon, Language::En) => {
+            "⚠ The old copy in the web wallet IS STILL THERE, still locked by the same PIN."
+        }
+        (TextKey::ViBanCuVanCon, Language::Vi) => {
+            "⚠ Bản cũ ở ví web VẪN CÒN, vẫn khoá bằng đúng mã PIN cũ."
+        }
+
+        (TextKey::ViXoaTepDi, Language::En) => "⚠ And delete {} — it is still holding your key.",
+        (TextKey::ViXoaTepDi, Language::Vi) => "⚠ Và xoá {} đi — nó vẫn đang giữ khoá của bạn.",
+
+        (TextKey::ViCanMotTrongHai, Language::En) => "one of these two is required:",
+        (TextKey::ViCanMotTrongHai, Language::Vi) => "cần một trong hai:",
+
+        (TextKey::ViCachDungCumTu, Language::En) => {
+            "    tcc-browser vi cum-tu                  # type 24 words / a raw seed"
+        }
+        (TextKey::ViCachDungCumTu, Language::Vi) => {
+            "    tcc-browser vi cum-tu                  # gõ 24 chữ / hạt giống"
+        }
+
+        (TextKey::ViCachDungNhap, Language::En) => {
+            "    tcc-browser vi nhap <web-wallet.json>  # import from the web wallet, asks for the PIN"
+        }
+        (TextKey::ViCachDungNhap, Language::Vi) => {
+            "    tcc-browser vi nhap <tệp-ví-web.json>  # nhập từ ví web, hỏi PIN"
+        }
     }
 }
 
@@ -724,6 +773,13 @@ mod kiem_thu {
         TextKey::HongTieuDeCuaSo,
         TextKey::NhapTieuDeCuaSo,
         TextKey::NhapPinTieuDeCuaSo,
+        TextKey::ViKhoiPhucXong,
+        TextKey::ViNhapXong,
+        TextKey::ViBanCuVanCon,
+        TextKey::ViXoaTepDi,
+        TextKey::ViCanMotTrongHai,
+        TextKey::ViCachDungCumTu,
+        TextKey::ViCachDungNhap,
     ];
 
     /// **MỌI tiêu đề cửa sổ CỦA TRÌNH DUYỆT**, để phép thử dưới đây quét hết.

@@ -12,11 +12,31 @@ use std::process::ExitCode;
 // `permission_dialog` chỉ dùng ở nhánh không có cửa sổ — nhập trong nhánh đó để
 // bản có cửa sổ không dính cảnh báo nhập thừa.
 use tcc_shell::Language;
+use tcc_shell::text::{TextKey, label};
+
+/// Ghép một tham số vào chuỗi song ngữ.
+///
+/// `label` trả `&'static str` nên không dùng `format!` được — chỗ ghép viết là
+/// `{}` trong chính chuỗi dịch, và thay ở đây. Cách này giữ được luật "mọi chữ
+/// người dùng thấy đi qua `text.rs`" mà không phải dựng một bộ định dạng riêng.
+fn chu(k: TextKey, n: Language, tham_so: &str) -> String {
+    label(k, n).replace("{}", tham_so)
+}
 use tcc_spec::Manifest;
 
 fn main() -> ExitCode {
     let doi = std::env::args().skip(1).collect::<Vec<_>>();
-    let ngon_ngu = if doi.iter().any(|a| a == "vi") {
+    // ⚠️ BỎ QUA đối số ĐẦU khi dò cờ ngôn ngữ.
+    //
+    // Cờ ngôn ngữ là chữ `vi` đặt ở cuối lệnh — mà `vi` CŨNG là tên lệnh con
+    // của ví (`tcc-browser vi nhap <tệp>`). Bản trước dò bằng
+    // `doi.iter().any(|a| a == "vi")`, nên MỌI lệnh ví luôn chạy tiếng Việt và
+    // KHÔNG có cách nào lấy tiếng Anh — kể cả những màn hình đã song ngữ từ
+    // đầu. Phát hiện 27/08/2026, ngay khi đưa lớp vỏ dòng lệnh vào song ngữ và
+    // thấy lượt mặc định cũng ra tiếng Việt.
+    //
+    // Mặc định là tiếng ANH: trình duyệt phát cả ra ngoài công ty.
+    let ngon_ngu = if doi.iter().skip(1).any(|a| a == "vi") {
         Language::Vi
     } else {
         Language::En
@@ -147,7 +167,7 @@ fn lenh_vi(doi: &[String], ngon_ngu: Language) -> ExitCode {
     if lenh == Some("cum-tu") {
         return match tcc_shell::wallet_flow::restore_from_phrase(ngon_ngu) {
             Ok(dia_chi) => {
-                println!("✓ đã khôi phục ví {dia_chi}");
+                println!("{}", chu(TextKey::ViKhoiPhucXong, ngon_ngu, &dia_chi));
                 ExitCode::SUCCESS
             }
             Err(e) => {
@@ -158,16 +178,16 @@ fn lenh_vi(doi: &[String], ngon_ngu: Language) -> ExitCode {
     }
 
     let (Some("nhap"), Some(tep)) = (lenh, doi.get(2)) else {
-        eprintln!("cần một trong hai:");
-        eprintln!("    tcc-browser vi cum-tu                  # gõ 24 chữ / hạt giống");
-        eprintln!("    tcc-browser vi nhap <tệp-ví-web.json>  # nhập từ ví web, hỏi PIN");
+        eprintln!("{}", label(TextKey::ViCanMotTrongHai, ngon_ngu));
+        eprintln!("{}", label(TextKey::ViCachDungCumTu, ngon_ngu));
+        eprintln!("{}", label(TextKey::ViCachDungNhap, ngon_ngu));
         return ExitCode::FAILURE;
     };
     match tcc_shell::wallet_flow::import_from_file(std::path::Path::new(tep), ngon_ngu) {
         Ok(dia_chi) => {
-            println!("✓ đã nhập ví {dia_chi}");
-            println!("⚠ Bản cũ ở ví web VẪN CÒN, vẫn khoá bằng đúng mã PIN cũ.");
-            println!("⚠ Và xoá {tep} đi — nó vẫn đang giữ khoá của bạn.");
+            println!("{}", chu(TextKey::ViNhapXong, ngon_ngu, &dia_chi));
+            println!("{}", label(TextKey::ViBanCuVanCon, ngon_ngu));
+            println!("{}", chu(TextKey::ViXoaTepDi, ngon_ngu, tep));
             ExitCode::SUCCESS
         }
         Err(e) => {
