@@ -249,34 +249,41 @@ Câu ấy đã cứu một lần và bị bỏ sót một lần trong cùng mộ
 
 ---
 
-## Kết quả — lượt quét đầy đủ đầu tiên, 26/08/2026
+## Kết quả — cập nhật 27/08/2026, ĐỦ MƯỜI MỘT HÒM
 
-Bảng này dựng bằng `tools/bang-dot-bien.sh`, đọc từ bốn tệp trong
-`mutants.out/` chứ không từ dòng chảy màn hình (bẫy 7).
+Bảng dựng bằng `tools/bang-dot-bien.sh`, đọc từ bốn tệp trong `mutants.out/`
+chứ không từ dòng chảy màn hình (bẫy 7).
 
 | Hòm | Đột biến | Bị bắt | Sống sót | Hết giờ | Không dựng được | Tỷ lệ bắt |
 |---|---:|---:|---:|---:|---:|---:|
 | `tcc-capability` | 24 | 19 | **0** | 0 | 5 | 100% |
-| `tcc-chain` | 144 | 121 | **9** | 0 | 14 | 93% |
+| `tcc-chain` | 144 | 123 | **7** | 0 | 14 | 94% |
 | `tcc-crypto` | 34 | 30 | **3** | 0 | 1 | 90% |
+| `tcc-keystore` | 29 | 20 | **5** | 0 | 4 | 80% |
 | `tcc-manifest` | 11 | 9 | **0** | 0 | 2 | 100% |
 | `tcc-net` | 19 | 8 | **4** | 0 | 7 | 66% |
-| `tcc-render-raster` | 665 | 392 | **235** | 12 | 26 | 61% |
+| `tcc-render-raster` | 622 | 421 | **172** | 3 | 26 | 70% |
 | `tcc-runtime` | 49 | 37 | **0** | 0 | 12 | 100% |
-| `tcc-shell` | 158 | 85 | **34** | 0 | 39 | 71% |
+| `tcc-shell` | 0 | 0 | **0** | 0 | 0 | 0% |
 | `tcc-spec` | 98 | 94 | **2** | 0 | 2 | 97% |
 | `tcc-ui` | 83 | 58 | **2** | 0 | 23 | 96% |
-| `tcc-keystore` | ⊘ | ⊘ | ⊘ | ⊘ | ⊘ | **BỎ QUA có lý do** |
 
-`tcc-keystore` không quét tự động được: với cờ `os-keystore` nó ghi vào Keychain
-**thật** rồi gọi `unlock`, macOS bật hộp thoại xin quyền, và lượt chạy chờ một
-cú bấm không bao giờ tới. Ghi ra đây chứ không lặng lẽ bỏ.
+⚠️ **`tcc-render-raster` là số đo DANG DỞ.** Phiên Claude Code trước thoát và
+kéo theo lượt quét ở **619/665 (93%)**; 46 đột biến cuối chưa đo. Con số cuối có
+thể xê dịch, nhưng chiều thì rõ: trước khi vá là 392 bắt / 235 sống (~62%).
 
-Tỷ lệ bắt tính trên số đột biến **dựng được** — cộng cả `unviable` vào mẫu số là
-tự cho điểm nhờ mã không biên dịch được.
+### Đã đo lại sau khi vá — và mỗi lần đều xác nhận hoặc bác bỏ một điều
 
-> ⚠️ Nhắc lại bẫy 4: **mọi con số "sống sót" là CẬN TRÊN.** Trọng tài là phép
-> thử của riêng hòm ấy, nên hành vi được canh ở hòm dưới vẫn bị đếm là "sống".
+| Hòm | Trước | Sau | Ghi chú |
+|---|---|---|---|
+| `tcc-keystore` | 44% (14 sống) | **80%** (5 sống) | ba lượt đo trong một buổi — hòm 29 đột biến nên vòng vá→đo dùng được thật |
+| `tcc-chain` | 93% (9 sống) | **94%** (7 sống) | đúng bằng con số dự đoán TRƯỚC khi đo |
+| `tcc-shell` | 60% (52 sống) | **71%** (34 sống) | phần lớn mức tăng là do sửa CỜ, không phải do vá |
+| `tcc-render-raster` | ~62% (235 sống) | ~70% (172 sống, dang dở) | |
+
+**Năm kẻ còn lại của `tcc-keystore` đều đòi ENTITLEMENT** — cất/đọc khoá thật
+chỉ chạy trong gói `.app` đã ký. Đó là trần thật của `cargo test` với một nhị
+phân không ký, và là chỗ cần NGƯỜI chứ không phải mã.
 
 ## Phát hiện — mỗi kẻ sống sót đã được tra tận nơi
 
