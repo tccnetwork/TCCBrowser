@@ -55,6 +55,9 @@
 
 - [ ] Câu lỗi `✗ {e}` vẫn là tiếng Việt cứng — nó đến từ `Display` của `WalletFlowError`/`WalletStoreError` (qua `thiserror`), không qua `text.rs`. Đưa `Display` của kiểu lỗi vào tầng song ngữ là một QUYẾT ĐỊNH THIẾT KẾ (kiểu lỗi còn dành cho người phát triển đọc), chưa làm
 
+- [ ] **@NGƯỜI quyết: hàng ví CHỈ ĐỌC ĐỊA CHỈ có cần dấu phân biệt không?** Dấu cảnh báo hiện chỉ áp cho hàng KÝ GIAO DỊCH, và hàng ấy nay không dựng ra nữa. Nên hàng ví duy nhất người dùng còn thấy vẽ y hệt hàng quyền mạng. Đọc địa chỉ KHÔNG chuyển tiền (nên không đáng báo động), nhưng nó gắn danh tính với lịch sử trên chuỗi — một mức riêng, chưa có hình dạng riêng
+- [ ] Hai bất biến tạm thời KHÔNG VỚI TỚI ĐƯỢC vì ví thu về chỉ-đọc: câu "việc này chuyển tiền" trên hàng ký, và khung đôi B31 ở màn xác nhận giao dịch. Mã và chuỗi vẫn còn, chỉ đường tới là đóng. Ghi vào `SECURITY.md` để người soát không tưởng chúng đang được canh
+
 ## Cần NGƯỜI, không phải mã
 
 - [ ] @NGƯỜI Một buổi đọc màn hình thật bằng VoiceOver

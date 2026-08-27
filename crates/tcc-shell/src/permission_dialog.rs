@@ -158,7 +158,23 @@ pub fn build_with_signer(
 #[must_use]
 pub fn cap_duoc(scope: &Scope) -> bool {
     match scope {
-        Scope::Wallet { .. } => cfg!(feature = "wallet"),
+        // ⚑ BƯỚC 1 của quyết định 27/08/2026: ví giữ khoá và **CHỈ ĐỌC ĐỊA CHỈ**.
+        //
+        // `may_request_signature: true` — xin quyền KÝ GIAO DỊCH — bản dựng này
+        // KHÔNG cung cấp, dù có cờ `wallet`. Ký giao dịch chỉ mở sau khi qua
+        // kiểm định an ninh độc lập; xem `docs/ke-hoach.md`.
+        //
+        // Vì sao không đơn giản là "bỏ ví đi cho an toàn": một hạt giống không
+        // bao giờ dùng được thì KHÔNG an toàn hơn, nó vô dụng — người dùng vẫn
+        // phải quay về ví web để giao dịch, và phải NHẬP LẠI hạt giống ở đó.
+        // Lúc ấy hạt giống nằm ở HAI chỗ: Keychain và một tệp trong hồ sơ trình
+        // duyệt. Tệ hơn lúc đầu.
+        //
+        // Đọc địa chỉ thì làm được việc thật (hiện số dư, nhận diện người dùng)
+        // mà KHÔNG có gì để cổng mainnet phải chặn.
+        Scope::Wallet {
+            may_request_signature,
+        } => cfg!(feature = "wallet") && !*may_request_signature,
         Scope::Network { .. } | Scope::Storage { .. } => true,
     }
 }
@@ -176,7 +192,16 @@ fn muc_quyen(c: &CapabilityRequest, ngon_ngu: Language) -> Result<Node, UiError>
                 _ => c.name.clone(),
             })?)?
             .child(Node::text_with(
-                t(TextKey::ViBanDungKhongCo),
+                match &c.scope {
+                    // Hai lý do KHÁC NHAU, và người dùng cần phân biệt được:
+                    // "bản dựng không có ví" khác hẳn "có ví, nhưng bản dựng
+                    // này không ký giao dịch". Gộp làm một là nói sai với đúng
+                    // người đang phải quyết định.
+                    Scope::Wallet {
+                        may_request_signature: true,
+                    } if cfg!(feature = "wallet") => t(TextKey::ViKhongKyGiaoDich),
+                    _ => t(TextKey::ViBanDungKhongCo),
+                },
                 Emphasis::Warning,
             )?)?
             .child(Node::text_with(&c.reason, Emphasis::Subtle)?);
@@ -303,6 +328,16 @@ mod kiem_thu {
         "scope":{"kind":"wallet","may_request_signature":true},
         "reason":"thanh toán đơn hàng"}]"#;
 
+    /// Ví CHỈ ĐỌC ĐỊA CHỈ — hàng ví duy nhất bản dựng này còn cấp được.
+    ///
+    /// ⚑ 27/08/2026 ví thu về chỉ-đọc-địa-chỉ, nên mọi phép thử nói về *hàng ví
+    /// CÓ CÔNG TẮC* phải dùng dữ liệu mẫu này. Dùng [`XIN_VI_KY`] thì hàng ấy
+    /// dựng ra là **câu từ chối**, và phép thử đang kiểm một màn hình khác hẳn
+    /// màn hình nó tưởng.
+    const XIN_VI_DOC: &str = r#"[{"name":"wallet",
+        "scope":{"kind":"wallet","may_request_signature":false},
+        "reason":"hiện số dư của bạn"}]"#;
+
     #[test]
     fn hien_ten_ung_dung_va_pham_vi_cu_the() {
         let s = chu_tren_man_hinh(&ke_khai(XIN_MANG), Language::En);
@@ -388,17 +423,34 @@ mod kiem_thu {
     /// thấy nó nói rõ điều đó, không phải một chữ "ví" chung chung.
     #[test]
     fn quyen_ky_giao_dich_noi_ro_la_chuyen_tien() {
-        // Bất biến này nói về hàng ví CÓ CÔNG TẮC — chỉ tồn tại khi bản dựng
-        // cấp được quyền ấy. Trên bản không ví, sự thật đúng là câu từ chối, và
-        // `ban_dung_khong_co_vi_thi_khong_hoi_ve_vi` giữ nó.
-        if !cfg!(feature = "wallet") {
-            return;
-        }
-        let s = chu_tren_man_hinh(&ke_khai(XIN_VI_KY), Language::En);
-        assert!(s.contains("this moves money"), "{s}");
+        // ⚑ ĐỔI 27/08/2026 — bất biến này tách làm HAI, và một nửa tạm thời
+        // KHÔNG VỚI TỚI ĐƯỢC.
+        //
+        // Ví nay chỉ ĐỌC ĐỊA CHỈ; xin quyền ký giao dịch bị từ chối ở mọi bản
+        // dựng. Nên hàng ví CÓ CÔNG TẮC — chỗ câu "việc này chuyển tiền" xuất
+        // hiện — không còn được dựng ra ở đâu cả.
+        //
+        // Nửa CÒN KIỂM ĐƯỢC: câu chữ vẫn phải đúng, để ngày mở lại đường ký thì
+        // nó không âm thầm biến mất trong lúc không ai nhìn.
+        let en = label(TextKey::ViDuocXinChuKy, Language::En);
+        let vi = label(TextKey::ViDuocXinChuKy, Language::Vi);
+        assert!(en.contains("this moves money"), "{en}");
+        assert!(vi.contains("chuyển tiền"), "{vi}");
 
-        let sv = chu_tren_man_hinh(&ke_khai(XIN_VI_KY), Language::Vi);
-        assert!(sv.contains("chuyển tiền"), "{sv}");
+        // Nửa KHÔNG VỚI TỚI: hàng ấy không dựng ra nữa. Khẳng định sự thật MỚI
+        // thay vì bỏ phép thử đi — bỏ đi thì ngày mở lại đường ký, không ai
+        // nhớ chỗ này từng được canh.
+        if cfg!(feature = "wallet") {
+            let s = chu_tren_man_hinh(&ke_khai(XIN_VI_KY), Language::En);
+            assert!(
+                !s.contains("this moves money"),
+                "bản dựng này KHÔNG ký giao dịch, nên không được hỏi như thể có: {s}"
+            );
+            assert!(
+                s.contains("does NOT sign transactions"),
+                "phải nói rõ vì sao từ chối: {s}"
+            );
+        }
     }
 
     /// `04` §quyền ví: PHẢI hiện khác hẳn mọi quyền khác, và PHẢI nói bằng
@@ -410,7 +462,11 @@ mod kiem_thu {
     #[test]
     fn quyen_vi_ky_duoc_hien_khac_han_quyen_khac() {
         let cay = |q: &str| build(&ke_khai(q), Language::En).unwrap();
-        let cay_vi = cay(XIN_VI_KY);
+        // ⚑ 27/08/2026: hàng ví CẤP ĐƯỢC nay là hàng CHỈ ĐỌC ĐỊA CHỈ. Hàng xin
+        // ký giao dịch dựng ra câu từ chối, nên so nó với hàng mạng là so hai
+        // thứ khác loại — phép thử vẫn xanh mà không còn kiểm điều nó định
+        // kiểm: rằng hàng VÍ trông khác hẳn hàng quyền thường.
+        let cay_vi = cay(XIN_VI_DOC);
         let cay_mang = cay(r#"[{"name":"network",
                     "scope":{"kind":"network","hosts":["shop.tcc-coin.com"]},
                     "reason":"tải danh sách"}]"#);
@@ -424,20 +480,34 @@ mod kiem_thu {
         // mạng. Chỉ câu mang dấu là khác — bản có ví nói "việc này chuyển
         // tiền", bản không ví nói "bản dựng này không có ví". Ghim CÂU, không
         // ghim "có dấu ở đâu đó" (B45).
-        let cau = if cfg!(feature = "wallet") {
-            "this moves money"
+        // ⚑ ĐỔI 27/08/2026 — bất biến này gắn với câu "việc này chuyển tiền",
+        // và ĐỌC ĐỊA CHỈ thì không chuyển tiền. Đặc tả `04` §"Asking the user"
+        // đòi: hỏi từng mục, mặc định tắt, nêu phạm vi CỤ THỂ, lý do nguyên
+        // văn, cảnh báo danh tính, hai nút cân nhau. Nó KHÔNG đòi hàng ví phải
+        // mang dấu cảnh báo — yêu cầu "khác hẳn" là bất biến của dự án, dựng
+        // lên cho hàng KÝ GIAO DỊCH.
+        //
+        // Nên với hàng chỉ-đọc-địa-chỉ, thứ còn phải đúng là: nó nói rõ đây là
+        // VÍ, và nói rõ phạm vi là CHỈ ĐỌC — không mượn giọng báo động của hàng
+        // ký, cũng không giả vờ mình là một quyền tầm thường.
+        let cho_doi = if cfg!(feature = "wallet") {
+            label(TextKey::ViChiDocDiaChi, Language::En)
         } else {
             "This build has no wallet"
         };
+        assert!(vi.contains(cho_doi), "thiếu câu {cho_doi:?}:\n{vi}");
         assert!(
-            crate::do_cay::co_canh_bao(&cay_vi, cau),
-            "hàng ví không mang dấu cảnh báo trên câu {cau:?}:\n{vi}"
+            vi.contains(label(TextKey::QuyenVi, Language::En)),
+            "hàng ví không tự xưng là ví:\n{vi}"
+        );
+        assert!(
+            !vi.contains("this moves money"),
+            "hàng CHỈ ĐỌC ĐỊA CHỈ mượn giọng của hàng ký giao dịch:\n{vi}"
         );
         assert!(
             !mang.contains("[cảnh-báo]"),
-            "hàng quyền mạng cũng mang dấu cảnh báo — vậy thì không còn KHÁC HẲN nữa"
+            "hàng quyền mạng mang dấu cảnh báo — dấu ấy dành cho chỗ khác"
         );
-        assert!(vi.contains(cau), "thiếu câu {cau:?}:\n{vi}");
     }
 
     #[test]
@@ -544,7 +614,7 @@ mod kiem_thu {
     /// "Cho phép" bấm không ăn, mà không có lỗi nào hiện ra.
     #[test]
     fn hai_ma_hanh_dong_that_su_nam_tren_cay() {
-        let cay = build(&ke_khai(XIN_VI_KY), Language::En).unwrap();
+        let cay = build(&ke_khai(XIN_VI_DOC), Language::En).unwrap();
         let ds: Vec<&str> = cay.action_ids().iter().map(|a| a.as_str()).collect();
         assert!(
             ds.contains(&ACTION_ALLOW),
@@ -581,7 +651,7 @@ mod kiem_thu {
         let nhieu = r#"[
             {"name":"network","scope":{"kind":"network","hosts":["a.tcc-coin.com"]},"reason":"x"},
             {"name":"storage","scope":{"kind":"storage","quota_bytes":1024},"reason":"y"},
-            {"name":"wallet","scope":{"kind":"wallet","may_request_signature":true},"reason":"z"}
+            {"name":"wallet","scope":{"kind":"wallet","may_request_signature":false},"reason":"z"}
         ]"#;
         let cay = build(&ke_khai(nhieu), Language::En).unwrap();
         let mut ds = Vec::new();
@@ -682,7 +752,7 @@ mod kiem_thu {
     /// tiền", kèm một công tắc gạt được.
     #[test]
     fn ban_dung_khong_co_vi_thi_khong_hoi_ve_vi() {
-        let cay = build(&ke_khai(XIN_VI_KY), Language::En).unwrap();
+        let cay = build(&ke_khai(XIN_VI_DOC), Language::En).unwrap();
         let s = crate::do_cay::chu(&cay);
 
         if cfg!(feature = "wallet") {
@@ -717,10 +787,25 @@ mod kiem_thu {
     /// câu trả lời cho bản dựng này.
     #[test]
     fn cap_duoc_noi_dung_su_that_ve_ban_dung() {
-        let vi = Scope::Wallet {
-            may_request_signature: true,
-        };
-        assert_eq!(cap_duoc(&vi), cfg!(feature = "wallet"));
+        // ⚑ Đổi 27/08/2026: ví giữ khoá và CHỈ ĐỌC ĐỊA CHỈ. Xin quyền KÝ GIAO
+        // DỊCH thì KHÔNG bản dựng nào cấp — kể cả bản có cờ `wallet`. Bản trước
+        // của phép thử này khẳng định `true` cấp được khi có cờ; nó ghi lại
+        // ngữ nghĩa CŨ.
+        assert!(
+            !cap_duoc(&Scope::Wallet {
+                may_request_signature: true
+            }),
+            "xin quyền KÝ GIAO DỊCH phải bị từ chối ở MỌI bản dựng — ký chỉ mở \
+             sau kiểm định an ninh độc lập"
+        );
+        // Còn chỉ ĐỌC ĐỊA CHỈ thì cấp được, nếu bản dựng có ví.
+        assert_eq!(
+            cap_duoc(&Scope::Wallet {
+                may_request_signature: false
+            }),
+            cfg!(feature = "wallet"),
+            "đọc địa chỉ phải cấp được đúng khi bản dựng có ví"
+        );
         assert!(cap_duoc(&Scope::Network {
             hosts: vec!["a.example".to_owned()]
         }));
