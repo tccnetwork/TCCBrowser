@@ -192,6 +192,33 @@ pub mod macos;
 mod kiem_thu {
     use super::*;
 
+    /// **`len`/`is_empty` phải nói đúng độ dài THẬT của khoá.**
+    ///
+    /// Lượt kiểm đột biến đầu tiên của hòm này (27/08/2026): cả bốn đột biến ở
+    /// hai hàm này đều sống — `len → 0`, `len → 1`, `is_empty → true`,
+    /// `is_empty → false`. Chúng trông vụn, nhưng đây là hòm giữ hạt giống ví,
+    /// và `len` là thứ bên gọi dùng để kiểm hạt giống có đủ 32 byte không.
+    /// Một `len` luôn trả 0 biến mọi phép kiểm độ dài thành vô nghĩa.
+    #[test]
+    fn len_va_is_empty_noi_dung_do_dai_that() {
+        let k = SecretKey::new(vec![7u8; 32]);
+        assert_eq!(k.len(), 32, "phải là độ dài THẬT, không phải hằng số");
+        assert!(!k.is_empty());
+
+        let rong = SecretKey::new(Vec::new());
+        assert_eq!(rong.len(), 0);
+        assert!(rong.is_empty(), "khoá rỗng phải báo rỗng");
+
+        // Và hai hàm phải NHẤT QUÁN với nhau — `is_empty` trả hằng số thì lệch
+        // ngay ở một trong hai ca.
+        for n in [0usize, 1, 32] {
+            let x = SecretKey::new(vec![0u8; n]);
+            assert_eq!(x.is_empty(), x.len() == 0, "lệch ở độ dài {n}");
+        }
+    }
+
+    use super::*;
+
     #[test]
     fn khoa_bi_mat_khong_in_noi_dung_ra() {
         let k = SecretKey::new(vec![0xAB; 64]);

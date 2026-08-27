@@ -24,6 +24,21 @@
 # không phân biệt được "thứ tôi sợ đã xảy ra" với "phép đo của tôi không chạm
 # tới thứ ấy" thì không phải một phép đo.**
 #
+# ⚠️ THỨ NÓ KHÔNG CHỐT ĐƯỢC — và 27/08/2026 tôi vấp đúng chỗ ấy:
+#
+#   Nó chốt rằng đột biến ĐƯỢC ÁP và phép thử ĐỎ. Nó KHÔNG chốt được rằng bạn
+#   đang thử ĐÚNG ĐỘT BIẾN mà `cargo-mutants` sinh ra.
+#
+# Ca thật: `fake.rs` có `refusing()`. Tôi tự gõ đột biến `Self::new()` — phép
+# thử ĐỎ, tôi ghi "đã giết". Nhưng đột biến THẬT trong `missed.txt` là
+# `Default::default()`, và vì `#[derive(Default)]` cho `bool` giá trị `false`
+# — đúng bằng thứ `refusing()` đặt — nó VẪN từ chối, chỉ khác ở chỗ vứt sạch
+# khoá đã cất. Hai đột biến khác nhau, cùng một dòng, cùng một tên hàm. Phép
+# thử bắt được cái tôi TƯỞNG TƯỢNG, không bắt cái công cụ SINH RA.
+#
+# LUẬT: chép nguyên văn đột biến từ `mutants.out/missed.txt`, đừng gõ lại theo
+# trí nhớ. Cái này không tự động hoá được — nó là kỷ luật đọc.
+#
 # Nên tệp này chốt BỐN thứ, và dừng hẳn ở bất kỳ chốt nào không qua:
 #   • chuỗi cũ xuất hiện ĐÚNG MỘT lần  → nếu không: VÔ HIỆU, không phải "xanh"
 #   • tên phép thử CÓ trong `--list`   → nếu không: nó chưa từng chạy

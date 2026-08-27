@@ -280,6 +280,28 @@ mod kiem_thu {
     ///
     /// Phép thử này chạm Keychain thật nhưng KHÔNG hỏi người dùng, vì mục
     /// không tồn tại thì hệ điều hành trả về trước khi cần xác thực.
+    /// **Tên mục ĐÁNH DẤU phải dẫn từ tên khoá, và không đụng tên khoá thật.**
+    ///
+    /// Kiểm đột biến 27/08/2026: `dau_moc → ""` và `→ "xyzzy"` đều sống. Hàm
+    /// này quyết định chỗ cất mục đánh dấu; trả hằng số nghĩa là MỌI khoá dùng
+    /// chung một mục, và mục của ví này ghi đè mục của ví kia.
+    #[test]
+    fn dau_moc_dan_tu_ten_khoa_va_khong_dung_ten_that() {
+        let a = dau_moc("0xabc");
+        let b = dau_moc("0xdef");
+        assert_ne!(
+            a, b,
+            "hai khoá khác nhau phải ra hai mục đánh dấu khác nhau"
+        );
+        assert!(a.starts_with("0xabc"), "phải dẫn từ tên khoá: {a}");
+        assert!(
+            a.contains('|'),
+            "phải mang ký tự `|` — tên khoá thật chỉ có 0-9a-f nên không bao giờ \
+             đụng nhau: {a}"
+        );
+        assert_ne!(a, "0xabc", "mục đánh dấu KHÔNG được trùng tên khoá thật");
+    }
+
     /// **`store` PHẢI thật sự gọi hệ điều hành — kiểm được, không cần ký gói.**
     ///
     /// Lượt kiểm đột biến đầu tiên của hòm này (27/08/2026) cho thấy `store`

@@ -40,7 +40,7 @@ Không hạn chót, không buổi trình diễn, không lần ra mắt nào ghi 
 cargo build --workspace        # RẺ NHẤT, chạy TRƯỚC
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-tools/kiem-luat-phu-thuoc.sh   # 24 luật, chạy trước biên dịch trong CI
+tools/kiem-luat-phu-thuoc.sh   # 25 luật, chạy trước biên dịch trong CI
 cargo test --workspace
 cargo run -p tcc-conformance
 tools/kiem-so-lieu.sh          # số phép thử/vector ghi trong tài liệu có ĐÚNG không

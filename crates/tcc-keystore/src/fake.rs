@@ -77,6 +77,51 @@ impl Keystore for FakeKeystore {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
+mod kiem_thu_gia {
+    use super::*;
+
+    /// **Kho khoá GIẢ phải xoá thật, và `refusing()` phải thật sự từ chối.**
+    ///
+    /// Kiểm đột biến 27/08/2026: `delete → Ok(())` và `refusing → default` đều
+    /// sống. Nghe như chuyện của riêng bộ thử — nhưng kho giả này là nền cho
+    /// phép thử của các hòm KHÁC. Một `delete` báo thành công mà không xoá gì
+    /// làm mọi phép thử "thu hồi rồi thì không dùng được nữa" xanh giả.
+    #[test]
+    fn kho_gia_xoa_that_va_tu_choi_that() {
+        let mut k = FakeKeystore::new();
+        k.store("a", SecretKey::new(vec![1u8; 32])).unwrap();
+        assert!(k.contains("a"));
+
+        k.delete("a").expect("xoá được");
+        assert!(!k.contains("a"), "`delete` báo thành công mà khoá vẫn còn");
+        assert!(
+            k.delete("a").is_err(),
+            "xoá thứ không có phải BÁO LỖI, không được im lặng thành công"
+        );
+
+        // `refusing()` là bộ CHỈNH, không phải bộ dựng lại: nó phải GIỮ khoá đã
+        // cất. `#[derive(Default)]` cho `user_approves: false` — đúng bằng thứ
+        // `refusing()` đặt — nên đột biến `refusing → Default::default()` vẫn
+        // "từ chối" và chỉ khác ở chỗ nó VỨT SẠCH khoá. Kiểm "có từ chối không"
+        // thôi thì không phân biệt được; phải kiểm cả "khoá còn không".
+        let mut tu_choi = FakeKeystore::new();
+        tu_choi.store("b", SecretKey::new(vec![2u8; 32])).unwrap();
+        let tu_choi = tu_choi.refusing();
+        assert!(
+            tu_choi.contains("b"),
+            "`refusing()` làm mất khoá đã cất — nó là bộ chỉnh, không phải bộ \
+             dựng lại"
+        );
+        assert!(
+            tu_choi.unlock("b", &Purpose::new("kiểm thử")).is_err(),
+            "`refusing()` phải làm `unlock` hỏng — nếu nó chỉ trả bản mặc định \
+             thì mọi phép thử 'người dùng từ chối' đang kiểm nhầm nhánh"
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
 mod kiem_thu {
     use super::*;
 

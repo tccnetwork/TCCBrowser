@@ -212,6 +212,19 @@ echo "--- Luật 17: số luật ghi trong tài liệu phải khớp số luật
 # Bài học chung: cổng khớp theo CỤM TỪ thì chỉ mạnh bằng danh sách cụm từ, và
 # danh sách ấy không tự dài ra khi người ta viết câu mới.
 #
+# ⚠️ NỚI RA CÓ GIÁ. Thêm "luật," bắt được chỗ trôi thật trong `CLAUDE.md`, và
+# BẮT NHẦM một hồ sơ lịch sử: `ke-hoach.md` ghi "18 luật" trong mục "Trạng thái
+# ngày 14/08/2026" — đúng vào ngày ấy. Đã viết con số lịch sử bằng CHỮ ("mười
+# tám") thay vì sửa nó thành 25, vì sửa là bóp méo hồ sơ.
+#
+# Đây là đánh đổi cố hữu của khớp-theo-cụm-từ: cụm hẹp thì lọt, cụm rộng thì
+# bắt nhầm văn kể. Không có bên nào đúng hẳn.
+#
+# 27/08/2026, lần thứ HAI: `CLAUDE.md` ghi "# 24 luật, chạy trước biên dịch" —
+# không có chữ "kiến trúc" nên lọt tiếp. Thêm "luật,". Mỗi lần nới là một bằng
+# chứng nữa rằng khớp-theo-cụm-từ là nền yếu; thứ đúng phải là đánh dấu con số
+# ngay tại chỗ viết, nhưng thế thì phải sửa mọi tài liệu.
+#
 # Và quan trọng hơn — số trong VĂN KỂ là sự thật lịch sử ("211 phép
 # thử mù hoàn toàn"), sửa nó là bóp méo hồ sơ, nên cả ba luật chỉ soi những
 # tài liệu và cụm từ nêu đích danh.
@@ -229,7 +242,7 @@ for f in README.md SECURITY.md ARCHITECTURE.md CLAUDE.md docs/ke-hoach.md docs/d
   else
     van=$(cat "$f")
   fi
-  for n in $(printf '%s\n' "$van" | grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|architecture rules|machine-enforced rules|hard rules)' | grep -oE '^[0-9]+' | sort -u); do
+  for n in $(printf '%s\n' "$van" | grep -ohE '[0-9]+ (luật kiến trúc|luật cứng|luật,|architecture rules|machine-enforced rules|hard rules)' | grep -oE '^[0-9]+' | sort -u); do
     [ "$n" = "$that" ] || lech="$lech $(basename "$f"):$n"
   done
 done
