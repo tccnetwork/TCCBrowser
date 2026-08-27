@@ -28,6 +28,15 @@ cd "$(dirname "$0")/.."
 DIA_TOI_THIEU=${DIA_TOI_THIEU:-8}          # GB. Dưới mức này thì DỪNG, không chạy.
 HAN_GIO=${HAN_GIO:-300}                    # giây, TUYỆT ĐỐI cho mỗi đột biến
 RA=${RA:-/tmp/dot-bien}
+
+# Ép bộ cờ cho lượt chạy này, kể cả ép thành RỖNG. Có để quét được cấu hình
+# TỐI THIỂU — xem bẫy 8 trong `docs/kiem-dot-bien.md`: bất biến sống nhờ một cờ
+# TẮT thì lượt quét với bộ cờ tối đa mù về mặt cấu trúc với nó. `cap_duoc` bật
+# `wallet` là mọi nhánh trả `true` nên đột biến "luôn true" TƯƠNG ĐƯƠNG; tắt
+# `wallet` thì đúng đột biến ấy làm 5 phép thử đỏ.
+#
+# Dùng kèm `RA=` để không ghi đè hồ sơ của lượt cờ-đủ:
+#   RA=/tmp/dot-bien-toi-thieu CO_RIENG= tools/kiem-dot-bien.sh tcc-shell
 mkdir -p "$RA"
 
 # ⚠️ MỘT LƯỢT MỘT LÚC. 26/08/2026 tôi tưởng lượt quét đã chết — vì đếm tiến
@@ -132,6 +141,9 @@ if [ "$#" -eq 0 ]; then : > "$RA/bang.txt"; else touch "$RA/bang.txt"; fi
 echo "── kiểm đột biến từng hòm · hạn giờ ${HAN_GIO}s · ngưỡng đĩa ${DIA_TOI_THIEU}GB ──"
 for muc in "${HOM[@]}"; do
   IFS=: read -r hom co ghi <<< "$muc"
+  # `${CO_RIENG+x}` phân biệt "đặt thành rỗng" với "không đặt" — cấu hình tối
+  # thiểu CHÍNH LÀ chuỗi rỗng, nên `${CO_RIENG:-$co}` sẽ nuốt mất nó.
+  [ -n "${CO_RIENG+x}" ] && co=$CO_RIENG
   # Bỏ qua phải là một QUYẾT ĐỊNH ghi rõ ("BỎ:"), không phải hệ quả của việc cờ
   # rỗng — suy ra từ chỗ trống là cách bỏ sót im lặng lẻn vào bảng.
   if [ "${ghi%%:*}" = "BỎ" ]; then
