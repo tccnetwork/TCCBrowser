@@ -33,12 +33,46 @@ Three properties follow from that, and they are the whole design:
 
 ```bash
 cargo run -p tcc-cli -- new my-app --id com.example.my-app
+cargo run -p tcc-cli -- check my-app                 # no key needed — see below
 cargo run -p tcc-cli -- key --ra my-key.hex          # keep this file; it IS your identity
 cargo run -p tcc-cli -- sign my-app --khoa my-key.hex
 cargo run -p tcc-cli -- verify my-app                # prints exactly what your app asks for
 cargo build -p tcc-browser --features window
 ./target/debug/tcc-browser my-app
 ```
+
+### The edit loop: `check` while you work, `sign` once at the end
+
+**Editing `manifest.json` or anything under `content/` invalidates the
+signature.** The browser will refuse the package until you re-sign it. That is
+the first thing every newcomer trips over, and it is working as intended — a
+signature covers bytes, so changing a byte breaks it.
+
+So do not sign on every edit. `check` validates the manifest and the component
+tree **without a key and without signing**:
+
+```bash
+$EDITOR my-app/content/ui.json
+cargo run -p tcc-cli -- check my-app     # instant, read-only
+# … repeat until it passes …
+cargo run -p tcc-cli -- sign my-app --khoa my-key.hex
+```
+
+`check` reports the standard's **error codes**, so a failure is something you
+can look up rather than guess at:
+
+```
+✗ [bad-app-id] mã ứng dụng "khong-co-dau-cham" sai định dạng: cần ít nhất hai đoạn
+```
+
+Look `bad-app-id` up in [`../spec/0.1/06-error-codes.md`](../spec/0.1/06-error-codes.md).
+The prose around a code may be reworded at any time; **the code will not** —
+that is what other implementations compare against.
+
+It deliberately does **not** check two things, and says so on every run: the
+signature, and `content_hash` — both are produced by `sign`. On a package fresh
+out of `new`, those two fields are empty; `check` substitutes placeholders and
+tells you it did, so you can validate everything you actually wrote.
 
 `verify` is worth running before every release. It prints the capabilities and
 the effects in plain language — if that list surprises you, your users will be

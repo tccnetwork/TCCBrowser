@@ -1,5 +1,20 @@
 # Việc còn lại
 
+> ⚑ **Trọng tâm 27/08/2026: GIAO DIỆN và BỘ CÔNG CỤ cho người viết ứng dụng.**
+> Chủ dự án chốt. Việc kiểm đột biến còn lại vẫn chạy nền, nhưng không phải chỗ
+> đổ công chính nữa.
+
+## Bộ công cụ cho người viết ứng dụng (SDK)
+
+- [x] **`tcc check <thư-mục>`** — kiểm bản kê khai + `ui.json` mà KHÔNG ký. Vòng phản hồi nhanh nhất cho người viết ứng dụng: hiện đang phải `sign` rồi mới biết sai, mà `sign` đụng khoá. `check` chỉ đọc, trả đúng mã lỗi của đặc tả
+- [ ] `tcc new` sinh khung nghèo (chỉ text) — thêm mẫu dựng đủ sáu loại thành phần, để người ta thấy được cái gì có sẵn
+- [ ] Thông báo lỗi của `tcc` có kèm **mã lỗi đặc tả** không? Người viết ứng dụng cần tra được `06-error-codes.md`
+- [x] `BUILDING-APPS.md`: thêm mục "vòng làm việc" — sửa `ui.json` xong PHẢI ký lại, nếu không gói không nạp được. Đây là vấp đầu tiên của mọi người mới
+
+## Giao diện
+
+
+
 > Danh sách MÁY ĐỌC ĐƯỢC cho `tools/nhac-viec.sh`. Mỗi dòng một việc; đánh dấu
 > `- [x]` khi xong. Văn xuôi về bối cảnh nằm ở [`dang-lam-gi.md`](dang-lam-gi.md),
 > đừng chép sang đây.

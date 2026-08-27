@@ -24,23 +24,32 @@ fn chu(k: TextKey, n: Language, tham_so: &str) -> String {
 }
 use tcc_spec::Manifest;
 
-fn main() -> ExitCode {
-    let doi = std::env::args().skip(1).collect::<Vec<_>>();
-    // ⚠️ BỎ QUA đối số ĐẦU khi dò cờ ngôn ngữ.
-    //
-    // Cờ ngôn ngữ là chữ `vi` đặt ở cuối lệnh — mà `vi` CŨNG là tên lệnh con
-    // của ví (`tcc-browser vi nhap <tệp>`). Bản trước dò bằng
-    // `doi.iter().any(|a| a == "vi")`, nên MỌI lệnh ví luôn chạy tiếng Việt và
-    // KHÔNG có cách nào lấy tiếng Anh — kể cả những màn hình đã song ngữ từ
-    // đầu. Phát hiện 27/08/2026, ngay khi đưa lớp vỏ dòng lệnh vào song ngữ và
-    // thấy lượt mặc định cũng ra tiếng Việt.
-    //
-    // Mặc định là tiếng ANH: trình duyệt phát cả ra ngoài công ty.
-    let ngon_ngu = if doi.iter().skip(1).any(|a| a == "vi") {
+/// Chọn ngôn ngữ từ đối số dòng lệnh.
+///
+/// ⚠️ **BỎ QUA đối số ĐẦU.** Cờ ngôn ngữ là chữ `vi` đặt ở cuối lệnh — mà `vi`
+/// CŨNG là tên lệnh con của ví (`tcc-browser vi nhap <tệp>`). Bản trước dò bằng
+/// `doi.iter().any(|a| a == "vi")`, nên MỌI lệnh ví luôn chạy tiếng Việt và
+/// KHÔNG có cách nào lấy tiếng Anh — kể cả những màn hình đã song ngữ từ đầu.
+/// Chúng có bản tiếng Anh, viết đầy đủ, và chưa ai nhìn thấy bao giờ.
+///
+/// Phát hiện 27/08/2026 khi chạy thử lượt MẶC ĐỊNH. Chạy lượt có cờ `vi` —
+/// lượt "chứng minh tính năng hoạt động" — thì mọi thứ trông đúng.
+///
+/// Tách thành hàm thuần để ghim được: phần đọc đối số của `main.rs` trước đó
+/// không có phép thử nào, nên lỗi này không có gì bắt.
+///
+/// Mặc định là tiếng ANH: trình duyệt phát cả ra ngoài công ty.
+fn chon_ngon_ngu(doi: &[String]) -> Language {
+    if doi.iter().skip(1).any(|a| a == "vi") {
         Language::Vi
     } else {
         Language::En
-    };
+    }
+}
+
+fn main() -> ExitCode {
+    let doi = std::env::args().skip(1).collect::<Vec<_>>();
+    let ngon_ngu = chon_ngon_ngu(&doi);
 
     // `web <https://…>` — TẦNG 2: mở một trang web thật.
 
@@ -311,5 +320,43 @@ fn in_cay(a: &tcc_shell::AccessNode, tang: usize) {
     }
     for c in &a.children {
         in_cay(c, tang + 1);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, reason = "kiểm thử: hỏng thì phải nổ ngay")]
+mod kiem_thu {
+    use super::{Language, chon_ngon_ngu};
+
+    fn doi(xs: &[&str]) -> Vec<String> {
+        xs.iter().map(|x| (*x).to_owned()).collect()
+    }
+
+    /// **Lệnh con `vi` KHÔNG được kéo theo tiếng Việt.**
+    #[test]
+    fn lenh_con_vi_khong_phai_co_ngon_ngu() {
+        // Lệnh ví, không có cờ → tiếng ANH.
+        assert_eq!(chon_ngon_ngu(&doi(&["vi"])), Language::En);
+        assert_eq!(chon_ngon_ngu(&doi(&["vi", "cum-tu"])), Language::En);
+        assert_eq!(chon_ngon_ngu(&doi(&["vi", "nhap", "a.json"])), Language::En);
+
+        // Có cờ ở cuối → tiếng Việt.
+        assert_eq!(chon_ngon_ngu(&doi(&["vi", "cum-tu", "vi"])), Language::Vi);
+        assert_eq!(
+            chon_ngon_ngu(&doi(&["vi", "nhap", "a.json", "vi"])),
+            Language::Vi
+        );
+
+        // Lệnh KHÁC vẫn nhận cờ như thường.
+        assert_eq!(chon_ngon_ngu(&doi(&["examples/hello-tcc"])), Language::En);
+        assert_eq!(
+            chon_ngon_ngu(&doi(&["examples/hello-tcc", "vi"])),
+            Language::Vi
+        );
+        assert_eq!(chon_ngon_ngu(&doi(&["hop-thoai", "g", "vi"])), Language::Vi);
+
+        // Không đối số nào → mặc định TIẾNG ANH, vì trình duyệt phát cả ra
+        // ngoài công ty.
+        assert_eq!(chon_ngon_ngu(&doi(&[])), Language::En);
     }
 }

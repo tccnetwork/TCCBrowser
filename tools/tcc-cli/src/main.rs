@@ -60,6 +60,11 @@ enum Lenh {
         #[arg(long)]
         khoa: PathBuf,
     },
+    /// Kiểm gói mà KHÔNG cần khoá — dành cho người viết ứng dụng
+    Check {
+        /// Thư mục gói
+        duong_dan: PathBuf,
+    },
     /// Kiểm một gói và in ra những gì nó xin
     Verify {
         /// Thư mục gói
@@ -73,6 +78,7 @@ fn main() -> ExitCode {
         Lenh::New { duong_dan, id } => lenh_new(&duong_dan, &id),
         Lenh::Key { ra } => lenh_key(&ra),
         Lenh::Sign { duong_dan, khoa } => lenh_sign(&duong_dan, &khoa),
+        Lenh::Check { duong_dan } => lenh_check(&duong_dan),
         Lenh::Verify { duong_dan } => lenh_verify(&duong_dan),
     };
     match ket {
@@ -264,6 +270,80 @@ fn lenh_sign(duong_dan: &Path, tep_khoa: &Path) -> Result<(), String> {
     println!("✓ Đã ký {}", duong_dan.display());
     println!("  {} tệp nội dung", cay.len());
     println!("  băm nội dung: {}…", &bam[..16]);
+    Ok(())
+}
+
+/// `tcc check` — kiểm gói mà **KHÔNG cần khoá**.
+///
+/// # Vì sao tách khỏi `verify`
+///
+/// `verify` kiểm CHỮ KÝ, nên nó chỉ chạy được **sau khi đã ký**. Người viết ứng
+/// dụng thì cần biết `manifest.json` và `ui.json` có hợp lệ không **trước** đó —
+/// và bắt họ chạy `sign` chỉ để biết mình gõ sai một trường là bắt họ **đưa khoá
+/// riêng vào** cho một việc chỉ cần ĐỌC.
+///
+/// Vòng làm việc cũ: sửa → `sign` (đụng khoá) → thấy lỗi → sửa → `sign` lại.
+/// Vòng mới: sửa → `check` (không đụng gì) → sửa → … → `sign` MỘT lần ở cuối.
+///
+/// Nó cố ý KHÔNG kiểm hai thứ, và nói ra:
+///   * chữ ký — chưa có;
+///   * `content_hash` — do `sign` tính, nên trước khi ký nó rỗng.
+fn lenh_check(duong_dan: &Path) -> Result<(), String> {
+    let byte = package::read_manifest(duong_dan).map_err(|e| e.to_string())?;
+    let cay = package::read_content(duong_dan).map_err(|e| e.to_string())?;
+
+    // Phân tích + kiểm hình dạng: mã ứng dụng, phiên bản đặc tả, quyền năng,
+    // hành động. In kèm ĐÚNG mã lỗi của đặc tả để người viết tra được
+    // `spec/0.1/06-error-codes.md` — thông báo văn xuôi có thể đổi, mã thì không.
+    let mut tho: serde_json::Value =
+        serde_json::from_slice(&byte).map_err(|e| format!("manifest.json không đọc được: {e}"))?;
+
+    // ⚠️ Hai trường do `tcc sign` điền: `content_hash` và `publisher`. Gói vừa
+    // `tcc new` để chúng RỖNG, và `validate_shape` chối ngay ở `bad-hex-length`
+    // — tức là đúng ca `check` sinh ra để phục vụ lại là ca nó hỏng.
+    //
+    // Thay bằng chỗ giữ chỗ đúng độ dài rồi mới kiểm, và NÓI RA đã thay. Kiểm
+    // cái người viết ứng dụng gõ, không kiểm cái công cụ sẽ điền.
+    let mut chua_ky = Vec::new();
+    for (truong, do_dai) in [("content_hash", 96), ("publisher", 1992)] {
+        if tho.get(truong).and_then(serde_json::Value::as_str) == Some("") {
+            tho[truong] = serde_json::Value::String("0".repeat(do_dai));
+            chua_ky.push(truong);
+        }
+    }
+
+    let ke_khai: tcc_spec::Manifest =
+        serde_json::from_value(tho).map_err(|e| format!("manifest.json không đọc được: {e}"))?;
+    ke_khai
+        .validate_shape()
+        .map_err(|e| format!("[{}] {e}", e.ma()))?;
+
+    let noi_dung = cay
+        .get(&ke_khai.entry)
+        .ok_or_else(|| format!("điểm vào \"{}\" không có trong gói", ke_khai.entry))?;
+    let cay_giao_dien = tcc_ui::wire::decode(noi_dung)
+        .map_err(|e| format!("điểm vào \"{}\" không dùng được: {e}", ke_khai.entry))?;
+
+    println!("✓ Bản kê khai và cây giao diện HỢP LỆ");
+    if !chua_ky.is_empty() {
+        println!(
+            "  (chưa ký: {} còn rỗng, đã thay chỗ giữ chỗ để kiểm phần còn lại)",
+            chua_ky.join(" và ")
+        );
+    }
+    println!();
+    println!("  Ứng dụng : {} ({})", ke_khai.name, ke_khai.id.as_str());
+    println!("  Phiên bản: {}", ke_khai.version);
+    println!("  Nội dung : {} tệp", cay.len());
+    println!(
+        "  Điểm vào : {} — {} nút, sâu {} tầng",
+        ke_khai.entry,
+        cay_giao_dien.node_count(),
+        cay_giao_dien.depth()
+    );
+    println!();
+    println!("⚠ CHƯA kiểm chữ ký và băm nội dung — hai thứ ấy do `tcc sign` tạo ra.");
+    println!("  Ký xong thì chạy `tcc verify` để kiểm nốt.");
     Ok(())
 }
 
