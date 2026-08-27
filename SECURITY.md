@@ -58,7 +58,7 @@ Updated: 2026-08-26 · Scope — **every crate in `crates/`**, all eleven:
 | B28 | A corrupt permission store → **ask again**, never fall back to allow | `tep_hong_hoac_phien_ban_la_thi_hoi_lai` |
 | B29 | Signing key changed → **warn**, and the warning comes BEFORE the permission list | `doi_khoa_ky_thi_canh_bao_hien_ra_truoc_danh_sach_quyen` |
 | B30 | Control labels are **visible to people who look**, not only to the accessibility tree | `nhan_dieu_khien_duoc_ve_ra_cho_nguoi_nhin` — rewritten 2026-08-23 |
-| B31 | A destructive tone is **drawn differently**, not merely declared | `nut_mat_mat_duoc_ve_khac_nut_thuong` — ⚠️ **this invariant was BROKEN from 2026-08-23 until it was re-tested the same day**, see below |
+| B31 | A destructive tone is **drawn differently**, not merely declared — ⚠️ **the transaction-confirmation instance is UNREACHABLE since 2026-08-27, see §3.32** | `nut_mat_mat_duoc_ve_khac_nut_thuong` — ⚠️ **this invariant was BROKEN from 2026-08-23 until it was re-tested the same day**, see below |
 | B32 | ~~Input fields carry **NO ARIA role**~~ | **RETIRED 2026-08-23** — ARIA is a markup concept and there is no markup. The intent survives in B8: roles come from `tcc-ui`, and the renderer may not invent or override them |
 | B33 | The "destructive" signal **reaches the OS accessibility axis** | `nut_khong_hoan_tac_noi_ra_dieu_do`, in crates/tcc-render-raster/src/accesskit_bridge.rs — the citation was wrong, the evidence was there |
 | B34 | ~~Package files are served over a **custom protocol**~~ | **RETIRED 2026-08-23** — the file server existed to feed a web engine. Nothing serves package bytes to a renderer now; the renderer reads the signed tree directly |
@@ -72,7 +72,7 @@ Updated: 2026-08-26 · Scope — **every crate in `crates/`**, all eleven:
 | B42 | A **text field** is reachable from the accessibility axis, and `Focus` **never** activates a button | `o_nhap_vao_duoc_bang_de_tro_nang_chon_duoc`, `tieu_diem_khong_kich_hoat_nut` — added 2026-08-23, see §3.12 |
 | B43 | Text the **frame** holds passes the same display-string checks as text from disk | `chu_do_khung_giu_khong_lach_duoc_phep_kiem`, `phim_go_khong_hop_le_bi_tu_choi_ngay` — added 2026-08-23, see §3.13 |
 | B44 | The process creates **exactly one** event loop, whatever screens it shows | `vong_lap_su_kien_dung_mot_lan_cho_ca_tien_trinh` — added 2026-08-24, see §3.14 |
-| B45 | The sentence that carries a **safety fact** is the sentence that carries the warning mark — not merely some sentence on the same screen | `man_hong_noi_ro_khong_luu_gi`, `quyen_vi_ky_duoc_hien_khac_han_quyen_khac`, `cau_chuyen_tien_duoc_ve_khac_di` — added 2026-08-25, see §3.15 |
+| B45 | The sentence that carries a **safety fact** is the sentence that carries the warning mark — not merely some sentence on the same screen | `man_hong_noi_ro_khong_luu_gi`, `quyen_vi_ky_duoc_hien_khac_han_quyen_khac`, `cau_chuyen_tien_duoc_ve_khac_di` — added 2026-08-25, see §3.15. ⚠️ **Partly UNREACHABLE since 2026-08-27** — see §3.32 |
 | B46 | The bounds the specification states as **inclusive** are the bounds the code enforces, at the exact edge | `ranh_gioi_do_dai_dung_nhu_dac_ta_ghi`, `dung_nguong_dau_chong_thi_van_qua`, `xuong_dong_va_tab_bi_choi_voi_ly_do_rieng` — added 2026-08-25, see §3.17 |
 | B47 | The implementation emits **only** error codes the specification defines — checked in **both** directions | `khoa_khong_phai_diem_van_ra_bad_signature`; rule 10 and rule 10b in `tools/kiem-luat-phu-thuoc.sh` — added 2026-08-25, see §3.18 |
 | B48 | A signature verifies **only** at its exact length — no trailing bytes, no truncation | `chu_ky_thua_hay_thieu_mot_byte_deu_bi_choi`, vector `them mot byte thua` — added 2026-08-25, see §3.19 |
@@ -1360,6 +1360,52 @@ so demanded the source contain the very code the specification says was
 withdrawn. The Python half of rule 16 had cut that table off from the start; the
 shell half never did. The bug sat still for as long as the implementation
 happened to contradict the specification in the matching direction.
+
+### 3.32 Two invariants went UNREACHABLE when the wallet narrowed, 2026-08-27
+
+The wallet was narrowed to **hold the key and read the address only**. A request
+for `may_request_signature: true` — permission to sign a transaction — is now
+refused by **every** build, including one compiled with the `wallet` feature.
+Signing reopens only after an independent security review.
+
+The reasoning is in `docs/ke-hoach.md`, and the short version is that dropping
+the wallet outright would have been **worse**: a seed that can never be used is
+not safer, it is useless, so the user goes back to the web wallet and re-enters
+the seed there — and then it exists in two places, the Keychain *and* a file in
+a browser profile.
+
+**What that costs, stated plainly:**
+
+| Invariant | Status now |
+|---|---|
+| B45 — the *"this moves money"* sentence carries the warning mark | The row it lives on is **never built**. The wording is still pinned by a test; the row is not |
+| B31 — the transaction-confirmation screen draws a destructive action differently | The screen is **never opened** |
+
+The code and the strings are still there, behind the closed path. Only the way
+in is shut.
+
+**Four tests turned red on the change, and none of them had its expected value
+edited to make it pass.** Each was read first:
+
+- Three of them only needed *a grantable wallet row*, which is now the
+  read-only one — their fixture changed, their assertions did not.
+- Two spoke specifically about the **signing** row. Those were split: the half
+  that is still checkable (**the wording must stay correct**, so it cannot
+  vanish quietly while nobody is looking) was kept as an assertion, and the half
+  that is unreachable now asserts the **new** truth — that this build says it
+  does not sign. Deleting them would mean that on the day signing reopens,
+  nobody remembers this was ever guarded.
+
+**An open design question, not decided by me** (`docs/viec-con-lai.md`): the
+read-only wallet row now renders exactly like a network row, because the warning
+mark was attached to the signing row. Reading an address does not move money, so
+alarm would be wrong — but it does tie an identity to an entire on-chain
+history, and that is a third level with no shape of its own yet.
+
+Spec `04` §"Asking the user" does **not** require a wallet row to be visually
+distinct; that was this project's own invariant, built for the signing row. The
+specification was re-read before this was written, rather than trusting the
+comment in the code that asserted otherwise.
 
 ### 3.31 Three things this document could not have told you, 2026-08-26
 
