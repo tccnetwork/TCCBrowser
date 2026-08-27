@@ -197,6 +197,16 @@ impl RasterRenderer {
     /// Kẹp trong khoảng dùng được: hẹp quá thì một chữ cũng không lọt và bố cục
     /// thành một cột ký tự; rộng quá thì một dòng dài tới mức mắt không lần lại
     /// được đầu dòng sau.
+    /// ⚠️ **Hai đột biến ở đây là TƯƠNG ĐƯƠNG — đừng đuổi theo chúng.**
+    ///
+    /// `<` thành `<=`: tại `rong == MIN_WIDTH`, nhánh đầu trả `MIN_WIDTH`; bản
+    /// gốc rơi xuống `else` trả `rong`, cũng đúng bằng `MIN_WIDTH`. Cùng một
+    /// giá trị. `>` thành `>=` y hệt ở đầu kia.
+    ///
+    /// Kiểm đột biến 27/08/2026 báo chúng "sống sót". Chúng không sống sót vì
+    /// phép thử yếu — chúng không đổi đầu ra, nên KHÔNG phép thử nào phân biệt
+    /// được. Ghi ở đây để lượt quét sau không tốn công lần nữa, giống cách
+    /// `SECURITY.md` §3.27 ghi hai đột biến `|`/`^` trong `mnemonic.rs`.
     pub const fn set_width(&mut self, rong: usize) {
         self.rong = if rong < MIN_WIDTH {
             MIN_WIDTH
@@ -2185,6 +2195,66 @@ mod kiem_thu_hop_thanh {
         assert!(bd.hit_test(700.0, 17.0).is_none());
         assert!(bd.hit_test(1000.0, 17.0).is_none());
         assert!(bd.hit_test(-5.0, 17.0).is_none());
+    }
+
+    /// **Cùng phép thử biên ấy, cho hàm SONG SINH `hit_test_field`.**
+    ///
+    /// `hit_test` (nút) và `hit_test_field` (ô nhập) mang **cùng một đoạn hình
+    /// học**, chép ra hai chỗ vì chúng trả về hai thứ khác nhau. Ngày
+    /// 27/08/2026 tôi vá biên cho `hit_test`, quét lại, và 11 kẻ sống sót còn
+    /// nguyên — **tất cả ở `hit_test_field`**.
+    ///
+    /// Đó đúng hình dạng B4 "khẳng định bốn đường, chứng minh một" mà chính hồ
+    /// sơ này đi phê bình, lặp lại trong bản vá của người viết ra nó. Một đoạn
+    /// mã chép hai chỗ cần hai phép thử, hoặc một phép thử đi qua cả hai — nó
+    /// KHÔNG tự lây bảo đảm sang bản sao.
+    #[test]
+    fn hit_test_field_dung_o_bien() {
+        let cay = Node::group(Flow::Column, Gap::Medium)
+            .child(Node::field("Tên ví", "", false).unwrap())
+            .unwrap()
+            .child(Node::field("Ghi chú", "", false).unwrap())
+            .unwrap();
+        let mut bd = RasterRenderer::new();
+        bd.render(&cay).unwrap();
+
+        let mut da_kiem = 0;
+        for (i, (trai, tren, rong, cao)) in bd.placed_boxes().into_iter().enumerate() {
+            let (tx, ty) = (trai + rong / 2.0, tren + cao / 2.0);
+            let Some(nhan) = bd
+                .hit_test_field(tx, ty)
+                .map(std::borrow::ToOwned::to_owned)
+            else {
+                continue;
+            };
+            da_kiem += 1;
+            let cua_no = |x: f32, y: f32| bd.hit_test_field(x, y) == Some(nhan.as_str());
+
+            assert!(cua_no(trai, ty), "ô {i}: cạnh trái phải thuộc về chính nó");
+            assert!(cua_no(tx, tren), "ô {i}: cạnh trên phải thuộc về chính nó");
+            assert!(
+                !cua_no(trai + rong, ty),
+                "ô {i}: cạnh phải KHÔNG được thuộc về nó"
+            );
+            assert!(
+                !cua_no(tx, tren + cao),
+                "ô {i}: cạnh dưới KHÔNG được thuộc về nó"
+            );
+            assert!(!cua_no(tx, tren - 1.0), "ô {i}: cùng cột, phía TRÊN ô");
+            assert!(
+                !cua_no(tx, tren + cao + 1.0),
+                "ô {i}: cùng cột, phía DƯỚI ô"
+            );
+            assert!(!cua_no(trai - 1.0, ty), "ô {i}: cùng hàng, BÊN TRÁI ô");
+            assert!(
+                !cua_no(trai + rong + 1.0, ty),
+                "ô {i}: cùng hàng, BÊN PHẢI ô"
+            );
+        }
+        assert!(
+            da_kiem >= 2,
+            "phải chạm ít nhất hai ô nhập, chạm được {da_kiem}"
+        );
     }
 
     /// **Ô phải chứa ĐƯỢC NÉT THẬT của dấu tiếng Việt.**

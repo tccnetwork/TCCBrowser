@@ -93,7 +93,22 @@ HOM=(
   # và nó xanh trong vài giây. Phép thử không mở cửa sổ nào. Một giả định chưa
   # bao giờ kiểm, đứng suốt trong kịch bản dưới dạng chú thích nghe hợp lý.
   "tcc-shell:wallet:"
-  "tcc-keystore::BỎ:os-keystore ghi Keychain THẬT và chờ bấm tay — không quét tự động được"
+  # ⚠️ Lý do BỎ đã đổi, 27/08/2026 — lý do cũ SAI.
+  #
+  # Cũ: "ghi Keychain THẬT rồi chờ bấm tay". Đo lại thì không đúng nữa: phép thử
+  # bật hộp thoại ĐÃ là `#[ignore]`, và `cargo test -p tcc-keystore --features
+  # os-keystore` chạy 30 giây, 9 xanh + 1 bỏ qua, không hộp thoại nào. Cùng hạng
+  # lỗi với chú thích "wallet/window mở cửa sổ" ở `tcc-shell`: một giả định
+  # đúng-lúc-viết, sống sót vì nó nghe hợp lý và không ai đo lại.
+  #
+  # Lý do THẬT, nặng hơn: đột biến trên `delete` làm nó KHÔNG xoá gì, và phép
+  # thử sẽ để lại mục rác trong Keychain THẬT của người chạy. Một lượt quét là
+  # hàng trăm lần dựng-chạy; rác tích lại trên máy người khác là cái giá không
+  # được phép trả lén.
+  #
+  # Mở khoá được bằng cách: cho `SERVICE` đọc từ biến môi trường khi kiểm thử,
+  # quét dưới một tên dịch vụ RIÊNG, rồi dọn sạch tên ấy sau lượt chạy.
+  "tcc-keystore::BỎ:đột biến trên `delete` để lại rác trong Keychain THẬT — cần tách tên dịch vụ trước"
 )
 
 mot_hom() {

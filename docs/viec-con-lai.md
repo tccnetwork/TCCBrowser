@@ -13,7 +13,7 @@
 - [x] `kiem-dot-bien.sh`: tự loại hiện vật bằng dep-info `.d` — tệp không được biên dịch ở cấu hình đang chạy thì kẻ sống ở đó không phải kẻ sống
 - [x] `do_net`: tìm điểm phân biệt cho đột biến đảo bộ lọc trong suốt (hiện 3/4)
 - [ ] Quét lại `tcc-render-raster` sau khi vá, xem 235 kẻ sống còn bao nhiêu
-- [ ] `tcc-keystore`: cần một Keychain TẠM mới quét được (hiện bỏ qua có lý do)
+- [ ] `tcc-keystore`: cho `SERVICE` đọc từ biến môi trường khi kiểm thử, quét dưới tên dịch vụ RIÊNG, dọn sạch sau. (Lý do cũ "treo vì hộp thoại" đã SAI — phép thử ấy là `#[ignore]`, bộ thử chạy 30 giây. Lý do thật: đột biến trên `delete` để lại rác trong Keychain thật)
 
 ## Cần NGƯỜI, không phải mã
 
